@@ -304,7 +304,7 @@ function AddZipDialog({
   onAdded,
   onError,
 }: {
-  cityId: string;
+  cityId: number;
   cityName: string;
   existingZips: string[];
   onClose: () => void;
