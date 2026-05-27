@@ -18,7 +18,7 @@ APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
 # BBB is supplementary (PDF 2.3) and SLOW: one Apify actor run per business
 # (~45s each, pay-per-event). Off by default so it doesn't dominate runtime or
 # burn Apify credit. Turn on with ENABLE_BBB=true once batched/at scale.
-ENABLE_BBB = os.getenv("ENABLE_BBB", "false").lower() in ("1", "true", "yes")
+ENABLE_BBB = os.getenv("ENABLE_BBB", "true").lower() in ("1", "true", "yes")
 
 # Pay-per-event actor: ~$0.10 per run start + $0.02 per business profile.
 BBB_ACTOR = "alizarin_refrigerator-owner~bbb-scraper"
