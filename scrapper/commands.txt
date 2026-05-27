@@ -1,0 +1,46 @@
+================================================================
+  SCRAPPER — Quick Start Commands
+  (Open terminal in: /Users/apple/Desktop/scrapper)
+================================================================
+
+
+----------------------------------------------------------------
+ FIRST-TIME SETUP  (run once after cloning / moving the folder)
+----------------------------------------------------------------
+
+# Backend: rebuild venv + install Python deps
+cd backend && rm -rf venv && python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt && cd ..
+
+# Frontend: install node deps
+cd frontend && npm install && cd ..
+
+
+----------------------------------------------------------------
+ START BACKEND   (Terminal 1)   →   http://localhost:8000
+----------------------------------------------------------------
+
+cd backend && source venv/bin/activate && uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+
+----------------------------------------------------------------
+ START FRONTEND  (Terminal 2)   →   http://localhost:5173
+----------------------------------------------------------------
+
+cd frontend && npm run dev
+
+
+----------------------------------------------------------------
+ START BOTH FROM ONE TERMINAL  (backend in background)
+----------------------------------------------------------------
+
+(cd backend && source venv/bin/activate && uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload &) && cd frontend && npm run dev
+
+
+----------------------------------------------------------------
+ STOP BACKEND  (if running in background)
+----------------------------------------------------------------
+
+lsof -ti:8000 | xargs kill -9
+
+
+================================================================

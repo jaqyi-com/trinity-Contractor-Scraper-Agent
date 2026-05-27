@@ -1,0 +1,37 @@
+# ──────────────────────────────────────────────────────────────
+# Contractor Scraper Agent — Backend Dependencies
+# Production-scraper aligned baseline + our additions
+# ──────────────────────────────────────────────────────────────
+
+# Core (from production scraper)
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+requests>=2.31.0
+psycopg2-binary>=2.9.9
+
+# Web framework + async
+fastapi>=0.110.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.9
+
+# Scraping
+playwright>=1.41.0
+beautifulsoup4>=4.12.0
+
+# Matching + normalization
+rapidfuzz>=3.6.0
+phonenumbers>=8.13.0
+usaddress>=0.5.10
+
+# Config
+PyYAML>=6.0.1
+
+# Logging (optional — prints work too for v1)
+loguru>=0.7.2
+
+# Outscraper SDK (Google Maps + BBB)
+outscraper>=5.5.0
+
+# Auth — JWT + password hashing
+PyJWT>=2.8.0
+bcrypt>=4.1.0

@@ -1,0 +1,56 @@
+# ───── Python ─────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+.venv/
+venv/
+ENV/
+env/
+
+# Backend secrets + data
+backend/.env
+backend/data/
+backend/exports/
+backend/*.db
+backend/*.sqlite
+backend/playwright_cache/
+
+# ───── Node ─────
+node_modules/
+dist/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Frontend env
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+frontend/dist/
+
+# ───── OS ─────
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ───── IDE ─────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ───── Reference (don't commit prod scraper) ─────
+Scraping_code/
+Scraping_code.zip
