@@ -1,11 +1,31 @@
 import { useEffect, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { Play, AlertTriangle } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Play, AlertTriangle, Save, Check } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 
 export default function Dashboard() {
+  const queryClient = useQueryClient();
   const [jobId, setJobId] = useState<string | null>(null);
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
+
+  // ─── Run config: max final records per run (default 5000) ───
+  const settings = useQuery({ queryKey: ["settings"], queryFn: () => api.getSettings() });
+  const [maxRecords, setMaxRecords] = useState<string>("");
+  useEffect(() => {
+    if (settings.data) setMaxRecords(String(settings.data.max_final_records));
+  }, [settings.data]);
+
+  const saveSettings = useMutation({
+    mutationFn: () => api.updateSettings({ max_final_records: Number(maxRecords) }),
+    onSuccess: (data) => {
+      setMaxRecords(String(data.max_final_records));
+      queryClient.invalidateQueries({ queryKey: ["settings"] });
+    },
+  });
+
+  const parsedMax = Number(maxRecords);
+  const maxInvalid = !Number.isInteger(parsedMax) || parsedMax < 1 || parsedMax > 100000;
+  const maxUnchanged = settings.data && parsedMax === settings.data.max_final_records;
 
   // ─── Mount recovery: check if a job is already running ───
   // This handles: page refresh, new tab, browser restart.
@@ -67,6 +87,49 @@ export default function Dashboard() {
       <p className="text-muted-foreground mb-8">
         Start the full Florida contractor scrape pipeline. Pipeline runs 2-6 hours in background — no timeout.
       </p>
+
+      {/* Run config — max final records per run */}
+      <div className="mb-6 p-5 rounded-lg border bg-card max-w-md">
+        <label htmlFor="max-records" className="block font-semibold mb-1">
+          Max final records per run
+        </label>
+        <p className="text-xs text-muted-foreground mb-3">
+          The pipeline returns at most this many deduplicated records (strongest tiers
+          first). Bounds enrichment cost. Applies to the next run. Default{" "}
+          {settings.data?.default_max_final_records ?? 5000}.
+        </p>
+        <div className="flex items-center gap-2">
+          <input
+            id="max-records"
+            type="number"
+            min={1}
+            max={100000}
+            value={maxRecords}
+            onChange={(e) => setMaxRecords(e.target.value)}
+            disabled={settings.isLoading}
+            className="w-40 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+          />
+          <button
+            onClick={() => saveSettings.mutate()}
+            disabled={maxInvalid || maxUnchanged || saveSettings.isPending || settings.isLoading}
+            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {saveSettings.isSuccess && maxUnchanged ? (
+              <><Check className="h-4 w-4" /> Saved</>
+            ) : (
+              <><Save className="h-4 w-4" /> Save</>
+            )}
+          </button>
+        </div>
+        {maxInvalid && (
+          <p className="text-xs text-destructive mt-2">Enter a whole number between 1 and 100,000.</p>
+        )}
+        {saveSettings.isError && (
+          <p className="text-xs text-destructive mt-2">
+            {(saveSettings.error as Error).message}
+          </p>
+        )}
+      </div>
 
       {/* Conflict banner (refresh recovery) */}
       {conflictMsg && (

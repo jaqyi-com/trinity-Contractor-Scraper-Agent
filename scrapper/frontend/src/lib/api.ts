@@ -90,6 +90,46 @@ export type Contractor = {
   job_id: string;
 };
 
+/** Full query surface for the contractor grid + CSV export.
+ * Mirrors the backend `ContractorFilters` dependency — every column filterable. */
+export type ContractorQuery = {
+  job_id?: string;
+  // enum facets (repeated query params)
+  city?: string[];
+  tier?: string[];
+  license_status?: string[];
+  // global multi-field search
+  search?: string;
+  // scalar text "contains"
+  business_name?: string;
+  zip_code?: string;
+  address?: string;
+  owner_name?: string;
+  bbb_rating?: string;
+  // JSONB array "contains"
+  specialty_keywords?: string;
+  google_categories?: string;
+  services_listed?: string;
+  license_numbers?: string;
+  license_categories?: string;
+  sources?: string;
+  place_ids?: string;
+  // presence toggles
+  has_email?: boolean;
+  has_phone?: boolean;
+  has_website?: boolean;
+  bbb_accredited?: boolean;
+  // numeric minimums
+  min_rating?: number;
+  min_review_count?: number;
+  min_years?: number;
+  // sort + pagination
+  sort_by?: string;
+  sort_dir?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+};
+
 export type ClassificationLog = {
   id: number;
   job_id: string;
@@ -125,6 +165,11 @@ export type City = {
   updated_at: string;
 };
 
+export type Settings = {
+  max_final_records: number;
+  default_max_final_records: number;
+};
+
 // ── API surface ──
 export const api = {
   // Auth
@@ -134,6 +179,11 @@ export const api = {
       { method: "POST", body: JSON.stringify(body) },
     ),
   me: () => request<{ email: string; name?: string; user_id?: number }>("/api/auth/me"),
+
+  // Settings
+  getSettings: () => request<Settings>("/api/settings"),
+  updateSettings: (body: { max_final_records: number }) =>
+    request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(body) }),
 
   // Jobs
   startJob: () => request<{ job_id: string; status: string }>("/api/jobs/start", { method: "POST" }),
@@ -168,21 +218,8 @@ export const api = {
     request<City>(`/api/cities/${cityId}/zips/${encodeURIComponent(zip)}`, { method: "DELETE" }),
 
   // Contractors
-  listContractors: (params: {
-    job_id?: string;
-    city?: string[];
-    tier?: string[];
-    license_status?: string[];
-    search?: string;
-    has_email?: boolean;
-    has_phone?: boolean;
-    has_website?: boolean;
-    min_rating?: number;
-    sort_by?: string;
-    sort_dir?: "asc" | "desc";
-    limit?: number;
-    offset?: number;
-  } = {}) => request<Paged<Contractor>>(`/api/contractors${qs(params)}`),
+  listContractors: (params: ContractorQuery = {}) =>
+    request<Paged<Contractor>>(`/api/contractors${qs(params)}`),
   contractorFacets: (jobId?: string) =>
     request<{ total: number; cities: FacetItem[]; tiers: FacetItem[]; license_statuses: FacetItem[] }>(
       `/api/contractors/facets${qs({ job_id: jobId })}`,
@@ -191,19 +228,7 @@ export const api = {
   contractorClassification: (id: number) =>
     request<ClassificationLog[]>(`/api/contractors/${id}/classification`),
 
-  exportContractors: async (params: {
-    job_id?: string;
-    city?: string[];
-    tier?: string[];
-    license_status?: string[];
-    search?: string;
-    has_email?: boolean;
-    has_phone?: boolean;
-    has_website?: boolean;
-    min_rating?: number;
-    sort_by?: string;
-    sort_dir?: "asc" | "desc";
-  } = {}) => {
+  exportContractors: async (params: Omit<ContractorQuery, "limit" | "offset"> = {}) => {
     const token = tokenStore.get();
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;

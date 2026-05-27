@@ -56,9 +56,10 @@
 ## NO Credentials Needed For
 
 - **Florida DBPR** (myfloridalicense.com) — primary license source is the free,
-  official weekly bulk CSV (`CONSTRUCTIONLICENSE_1.csv`), loaded by
-  `agent/dbpr_loader.py`. No key, no browser. Apify DBPR actor is only a fallback
-  for records the bulk file omits (Null & Void / delinquent).
+  official bulk CSV (`CONSTRUCTIONLICENSE_1.csv`, which DBPR republishes weekly),
+  refreshed at the start of every pipeline run by `agent/dbpr_loader.py`. No key,
+  no browser. Apify DBPR actor is only a fallback for records the bulk file omits
+  (Null & Void / delinquent).
 - **Google Maps** — accessed via the Apify Maps actor; no Google Cloud account.
 - **BBB** — Apify BBB actor; no BBB account.
 

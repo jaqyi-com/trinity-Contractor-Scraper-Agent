@@ -26,6 +26,10 @@ class GoogleSeed(BaseModel):
     google_review_count: Optional[int] = None
     social_profiles: Dict[str, str] = {}
     raw: Dict[str, Any] = {}  # full discovery payload (Apify Maps) for audit
+    # When duplicate seeds are collapsed pre-enrichment (dedupe.dedupe_seeds),
+    # the dropped twins' place_ids are accumulated here so the surviving
+    # ContractorRow keeps full provenance without re-enriching the duplicates.
+    merged_place_ids: List[str] = []
 
 
 # ──────────────────────────────────────────────────────────────

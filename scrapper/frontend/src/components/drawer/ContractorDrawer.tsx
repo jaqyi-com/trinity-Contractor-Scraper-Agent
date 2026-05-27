@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Globe, Phone, Mail, MapPin, Star, ShieldCheck, ShieldAlert, Calendar, User, ExternalLink } from "lucide-react";
+import { Globe, Phone, Mail, MapPin, Star, ShieldCheck, ShieldAlert, Calendar, User, ExternalLink, Facebook, Instagram, Linkedin, Twitter, Youtube, Link2 } from "lucide-react";
 import { api, type Contractor } from "@/lib/api";
 import { Drawer, DrawerHeader, DrawerBody, DrawerSection, DrawerKV } from "./Drawer";
 import { Badge, tierVariant, licenseVariant, decisionVariant, EmptyValue } from "@/components/ui-bits";
@@ -83,25 +83,23 @@ export function ContractorDrawer({
             </DrawerSection>
 
             {/* License info */}
-            {(contractor.license_numbers?.length || contractor.license_categories?.length) && (
-              <DrawerSection title="License">
-                <DrawerKV
-                  items={[
-                    ["Status", contractor.license_status && <Badge variant={licenseVariant(contractor.license_status)}>{contractor.license_status}</Badge>],
-                    ["Numbers", contractor.license_numbers?.length ? (
-                      <div className="flex flex-wrap gap-1">
-                        {contractor.license_numbers.map((n) => <code key={n} className="rounded bg-muted px-1.5 py-0.5 text-xs">{n}</code>)}
-                      </div>
-                    ) : null],
-                    ["Categories", contractor.license_categories?.length ? (
-                      <div className="flex flex-wrap gap-1">
-                        {contractor.license_categories.map((c) => <Badge key={c} variant="muted">{c}</Badge>)}
-                      </div>
-                    ) : null],
-                  ]}
-                />
-              </DrawerSection>
-            )}
+            <DrawerSection title="License">
+              <DrawerKV
+                items={[
+                  ["Status", contractor.license_status ? <Badge variant={licenseVariant(contractor.license_status)}>{contractor.license_status}</Badge> : null],
+                  ["Numbers", contractor.license_numbers?.length ? (
+                    <div className="flex flex-wrap gap-1">
+                      {contractor.license_numbers.map((n) => <code key={n} className="rounded bg-muted px-1.5 py-0.5 text-xs">{n}</code>)}
+                    </div>
+                  ) : null],
+                  ["Categories", contractor.license_categories?.length ? (
+                    <div className="flex flex-wrap gap-1">
+                      {contractor.license_categories.map((c) => <Badge key={c} variant="muted">{c}</Badge>)}
+                    </div>
+                  ) : null],
+                ]}
+              />
+            </DrawerSection>
 
             {/* Categories + keywords */}
             <DrawerSection title="Discovery">
@@ -131,6 +129,32 @@ export function ContractorDrawer({
                 ]}
               />
             </DrawerSection>
+
+            {/* Social profiles */}
+            {contractor.social_profiles && Object.keys(contractor.social_profiles).length > 0 && (
+              <DrawerSection title="Social" count={Object.keys(contractor.social_profiles).length}>
+                <div className="flex flex-col gap-1.5 text-sm">
+                  {Object.entries(contractor.social_profiles).map(([platform, url]) =>
+                    url ? (
+                      <a
+                        key={platform}
+                        href={url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2 min-w-0 hover:underline"
+                      >
+                        <span className="text-muted-foreground shrink-0">{socialIcon(platform)}</span>
+                        <span className="w-20 shrink-0 capitalize text-muted-foreground">{platform}</span>
+                        <span className="inline-flex min-w-0 items-center gap-1 truncate">
+                          {url}
+                          <ExternalLink className="h-3 w-3 shrink-0" />
+                        </span>
+                      </a>
+                    ) : null,
+                  )}
+                </div>
+              </DrawerSection>
+            )}
 
             {/* Classification audit trail */}
             <DrawerSection title="Why included" count={classification.data?.length}>
@@ -178,6 +202,17 @@ export function ContractorDrawer({
       )}
     </Drawer>
   );
+}
+
+function socialIcon(platform: string) {
+  const p = platform.toLowerCase();
+  const cls = "h-3.5 w-3.5";
+  if (p.includes("facebook")) return <Facebook className={cls} />;
+  if (p.includes("instagram")) return <Instagram className={cls} />;
+  if (p.includes("linkedin")) return <Linkedin className={cls} />;
+  if (p.includes("twitter") || p === "x") return <Twitter className={cls} />;
+  if (p.includes("youtube")) return <Youtube className={cls} />;
+  return <Link2 className={cls} />;
 }
 
 function Line({ icon, value, children }: { icon: React.ReactNode; value: any; children: React.ReactNode }) {

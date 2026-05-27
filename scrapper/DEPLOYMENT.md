@@ -257,49 +257,35 @@ Update `backend/agent/storage.py` to write to GCS via `google-cloud-storage` SDK
 
 ---
 
-## 6.5 Weekly DBPR license refresh (required)
+## 6.5 DBPR license refresh (automatic — no cron)
 
 Stage 2 (license tagging) matches contractors against the **`dbpr_licenses`** table,
-which is loaded from Florida DBPR's free, official, weekly-updated bulk CSV
-(~266k construction licensees). The loader is `agent/dbpr_loader.py`:
+which is loaded from Florida DBPR's free, official bulk CSV (~266k construction
+licensees). The loader is `agent/dbpr_loader.py`.
+
+**The pipeline refreshes this table at the start of every run** — there is no
+separate cron/scheduler to set up or maintain. `run_pipeline()` calls
+`refresh_dbpr_licenses()`, which downloads `CONSTRUCTIONLICENSE_1.csv`, parses it,
+and full-replaces the table before discovery begins. So every scrape uses fresh
+license data.
+
+This step is **non-fatal**: the CSV is downloaded and parsed *before* the table is
+touched, so a download failure leaves the previous table intact, and businesses
+not found in the bulk file (e.g. Null&Void/delinquent licences, which DBPR omits
+from the extract) fall back to the paid Apify DBPR verifier at scrape time. The
+bulk table is the free fast-path, not the only path.
+
+You can also run the loader standalone (one-off / local) if you want to populate
+the table outside a pipeline run:
 
 ```bash
-# One-off / local
 cd backend && python -m agent.dbpr_loader
 ```
 
-This downloads `CONSTRUCTIONLICENSE_1.csv`, parses it, and full-replaces the table.
-Businesses not found in the bulk file (e.g. Null&Void/delinquent licences, which
-DBPR omits from the extract) automatically fall back to the paid Apify DBPR
-verifier at scrape time — so the bulk table is the free fast-path, not the only path.
-
-### Schedule it weekly on Cloud Run
-
-Deploy the loader as a **Cloud Run Job** and trigger it weekly with Cloud Scheduler
-(the DBPR file refreshes weekly, so daily is wasteful):
-
-```bash
-# Create the job (reuses the same image as the API)
-gcloud run jobs create dbpr-refresh \
-    --image us-central1-docker.pkg.dev/<PROJECT_ID>/scraper/api:latest \
-    --region us-central1 \
-    --command python --args "-m,agent.dbpr_loader" \
-    --set-secrets="POSTGRES_DSN=postgres-dsn:latest" \
-    --set-secrets="APIFY_API_TOKEN=apify-token:latest" \
-    --task-timeout=600 --memory=1Gi
-
-# Trigger every Monday 06:00 UTC
-gcloud scheduler jobs create http dbpr-refresh-weekly \
-    --location us-central1 \
-    --schedule="0 6 * * 1" \
-    --uri="https://<region>-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/<PROJECT_ID>/jobs/dbpr-refresh:run" \
-    --http-method=POST \
-    --oauth-service-account-email=<PROJECT_NUMBER>-compute@developer.gserviceaccount.com
-```
-
-> The loader needs `POSTGRES_DSN`; `APIFY_API_TOKEN` is only used by the runtime
-> fallback at scrape time, not by the loader itself, but keeping it on the image
-> env is harmless.
+> The refresh adds the CSV download + parse (~266k rows) to the front of each run.
+> If you ever need to skip it for a faster run, comment out the
+> `refresh_dbpr_licenses()` call in `agent/pipeline.py` (Stage 2 will use whatever
+> is already in the table).
 
 ---
 
@@ -423,7 +409,7 @@ CSV export specifically:
 |---|---|---|
 | 502 from Cloud Run after deploy | Container failed to start; check uvicorn binds to `$PORT` | Check logs: `gcloud run services logs read contractor-scraper-api --region us-central1` |
 | Pipeline stops partway through | CPU throttled mid-run | Confirm `--no-cpu-throttling` and `--min-instances=1` are set |
-| DBPR licenses all show "unlicensed"/"unknown" | Bulk table empty + Apify fallback failing | Run `python -m agent.dbpr_loader` (or let the first scrape auto-bootstrap it); check `APIFY_API_TOKEN` |
+| DBPR licenses all show "unlicensed"/"unknown" | Bulk-table refresh failing (CSV download) + Apify fallback failing | Each pipeline run refreshes the table; check the run logs for `⚠️ [DBPR] refresh skipped` (CSV download error) and verify `APIFY_API_TOKEN`. Can also load manually: `python -m agent.dbpr_loader` |
 | CORS errors in browser | `FRONTEND_URL` env var doesn't match deployed Vercel URL | Update via `gcloud run services update ... --update-env-vars FRONTEND_URL=...` |
 | CSV download fails for large sets | Cloud Run 60 min request cap hit | Either tighten filters or move export to Cloud Run Jobs (section 7) |
 | Stage JSONL files missing after redeploy | Container filesystem ephemeral | Expected — use GCS (section 6) only if persistence required |

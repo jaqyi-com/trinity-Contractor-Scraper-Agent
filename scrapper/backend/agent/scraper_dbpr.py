@@ -1,8 +1,8 @@
 # scraper_dbpr.py
 # Florida DBPR license lookup — PDF Section 2.2.
 #
-# Primary (free): query the local dbpr_licenses table, loaded weekly from the
-# official DBPR bulk CSV (see agent/dbpr_loader.py).
+# Primary (free): query the local dbpr_licenses table, refreshed from the
+# official DBPR bulk CSV at the start of every pipeline run (see agent/dbpr_loader.py).
 # Fallback (paid): for business names not found in the bulk table, call the
 # Apify "DBPR Florida License Verification" actor. This recovers Null&Void /
 # delinquent records the bulk file omits, and businesses whose licence sits

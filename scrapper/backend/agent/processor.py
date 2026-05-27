@@ -1,30 +1,106 @@
 # processor.py
-# Per-metro processor — chains all stages for ONE city.
-# Production scraper pattern: pipeline.py loops over inputs, processor.py does work per input.
+# Stage workers, split so the pipeline can run them in PHASES across all metros
+# (discover everything → dedupe → classify → CAP → enrich) instead of doing the
+# full chain per metro. The cap + the pre-enrichment dedupe both need the global
+# seed set, so enrichment (the only paid-per-row stage) runs last, on survivors.
 
 import os
 import traceback
-from typing import Any
 from concurrent.futures import ThreadPoolExecutor
+from typing import List
 
 from agent.scraper_google import scrape_metro
-from agent.scraper_dbpr import fetch_licenses_for_seeds
 from agent.classifier import classify
-from agent.classification_logger import log_decision
 from agent.matcher import match_license_by_name
 from agent.scraper_bbb import enrich_bbb
 from agent.enrichment import enrich_email, apollo_company
 from utils.url_normalizer import extract_domain
-from agent.db import insert_contractor, get_active_keywords
+from agent.db import insert_contractor, insert_classification_logs
 from agent.storage import write_stage_jsonl
-from agent.schema import ContractorRow
+from agent.schema import ContractorRow, GoogleSeed
 
-# Per-row enrichment (BBB + Apollo) is I/O-bound (HTTP/actor calls), so we run
-# rows concurrently instead of one-at-a-time. Each thread mutates only its own
-# row and touches no DB, so this is safe. Tune with ENRICH_WORKERS.
-ENRICH_WORKERS = int(os.getenv("ENRICH_WORKERS", "8"))
+# Per-row enrichment (BBB + Apollo) is I/O-bound (HTTP/actor calls), so rows run
+# concurrently. Each thread mutates only its own row and touches no DB → safe.
+#
+# ⚠️ Concurrency semantics CHANGED with the phased pipeline: enrichment is now a
+# SINGLE global pool, so ENRICH_WORKERS == peak concurrent Apify enrichment runs.
+# (Previously each of METRO_WORKERS metro threads had its own pool, so real peak
+# was METRO_WORKERS × ENRICH_WORKERS.) Set this to your Apify plan's concurrency
+# limit — too low and a 5k-row run crawls (BBB ≈ 45s/row, so 5000/W × 45s).
+ENRICH_WORKERS = int(os.getenv("ENRICH_WORKERS", "16"))
 
 
+# ──────────────────────────────────────────────────────────────
+# Phase 1 — Discovery (one metro). Returns raw seeds; NO enrichment yet.
+# ──────────────────────────────────────────────────────────────
+def discover_metro(city, job_id: str) -> List[GoogleSeed]:
+    """Google Maps discovery for ONE city. Writes the stage-1 audit JSONL."""
+    city_name = city["name"] if isinstance(city, dict) else city.name
+    zips = city["zips"] if isinstance(city, dict) else city.zips
+
+    print(f"🔍 [{city_name}] Stage 1: Google Discovery")
+    seeds = scrape_metro(city_name, zips)  # queries default to DEFAULT_QUERIES
+    write_stage_jsonl(job_id, "stage1_google", city_name, seeds)
+    print(f"🔍 [{city_name}] discovered {len(seeds)} seeds")
+    return seeds
+
+
+# ──────────────────────────────────────────────────────────────
+# Phase 3 — Classify (cheap, pure Python). Logs EVERY decision; returns the
+# INCLUDED rows only (built from seed + decision).
+# ──────────────────────────────────────────────────────────────
+def classify_seeds(seeds: List[GoogleSeed], keywords: list, job_id: str) -> List[ContractorRow]:
+    rows: List[ContractorRow] = []
+    log_records: list = []
+    for seed in seeds:
+        try:
+            decision = classify(seed, keywords)
+            log_records.append({
+                "job_id": job_id,
+                "business_name": seed.business_name,
+                "place_id": seed.place_id,
+                "decision": decision.decision,
+                "assigned_tier": decision.assigned_tier,
+                "matched_keywords": [m.model_dump() for m in decision.matched_keywords],
+                "exclusion_keywords": [m.model_dump() for m in decision.exclusion_keywords],
+                "classifier_text": decision.classifier_text,
+                "reason": decision.reason,
+            })
+            if decision.decision != "INCLUDED":
+                continue
+            place_ids = sorted({pid for pid in ([seed.place_id] + (seed.merged_place_ids or [])) if pid})
+            rows.append(ContractorRow(
+                business_name=seed.business_name,
+                city=seed.city,
+                zip_code=seed.zip_code,
+                address=seed.address,
+                phone=seed.phone,
+                email=seed.email,
+                website=seed.website,
+                google_categories=seed.google_categories,
+                services_listed=seed.services_listed,
+                google_rating=seed.google_rating,
+                google_review_count=seed.google_review_count,
+                social_profiles=seed.social_profiles,
+                place_ids=place_ids,
+                sources=["google"],
+                tier=decision.assigned_tier,
+                specialty_keywords=[m.keyword for m in decision.matched_keywords],
+                job_id=job_id,
+            ))
+        except Exception as e:
+            print(f"⚠️  Classify error for {seed.business_name}: {e}")
+
+    # Audit log: one bulk insert instead of thousands of per-seed round-trips.
+    insert_classification_logs(log_records)
+    print(f"🏷️  Classified {len(seeds)} seeds → {len(rows)} included ({len(log_records)} logged)")
+    return rows
+
+
+# ──────────────────────────────────────────────────────────────
+# Phase 5 — License match + enrichment + persist (the only paid-per-row stage).
+# Runs on the already-deduped, already-capped row set.
+# ──────────────────────────────────────────────────────────────
 def _enrich_one(row: ContractorRow) -> None:
     """All external enrichment for a single contractor row (BBB + Apollo)."""
     # BBB rating / accreditation / years
@@ -70,114 +146,41 @@ def _enrich_one(row: ContractorRow) -> None:
         print(f"⚠️  Apollo enrichment error for {row.business_name}: {e}")
 
 
-def process_metro(city, job_id: str) -> dict:
-    """
-    Run all 8 stages for ONE city.
-    `city` is the YAML dict with .name + .zips. Queries come from scraper_google.DEFAULT_QUERIES.
-    Returns a summary dict.
-    """
-    city_name = city["name"] if isinstance(city, dict) else city.name
-    zips = city["zips"] if isinstance(city, dict) else city.zips
-
-    summary = {
-        "city": city_name,
-        "seeds": 0,
-        "included": 0,
-        "excluded": 0,
-        "saved": 0,
-        "errors": [],
-    }
-
-    try:
-        # ─── Stage 1: Google discovery ───────────────────
-        print(f"\n🔍 [{city_name}] Stage 1: Google Discovery")
-        seeds = scrape_metro(city_name, zips)  # queries default to DEFAULT_QUERIES
-        write_stage_jsonl(job_id, "stage1_google", city_name, seeds)
-        summary["seeds"] = len(seeds)
-
-        # ─── Stage 2: DBPR licenses ──────────────────────
-        print(f"🏛️  [{city_name}] Stage 2: DBPR Pull")
-        dbpr_index = fetch_licenses_for_seeds(seeds)
-        write_stage_jsonl(job_id, "stage2_dbpr", city_name, dbpr_index)
-
-        # ─── Stage 3: Classify + audit log ──────────────
-        print(f"🏷️  [{city_name}] Stage 3: Classify + Audit Log")
-        keywords = get_active_keywords()
-        classified: list = []
-        for seed in seeds:
-            try:
-                decision = classify(seed, keywords)
-                log_decision(job_id, seed, decision)
-                if decision.decision == "INCLUDED":
-                    summary["included"] += 1
-                    # Build base ContractorRow from seed + decision
-                    row = ContractorRow(
-                        business_name=seed.business_name,
-                        city=seed.city,
-                        zip_code=seed.zip_code,
-                        address=seed.address,
-                        phone=seed.phone,
-                        email=seed.email,
-                        website=seed.website,
-                        google_categories=seed.google_categories,
-                        services_listed=seed.services_listed,
-                        google_rating=seed.google_rating,
-                        google_review_count=seed.google_review_count,
-                        social_profiles=seed.social_profiles,
-                        place_ids=[seed.place_id] if seed.place_id else [],
-                        sources=["google"],
-                        tier=decision.assigned_tier,
-                        specialty_keywords=[m.keyword for m in decision.matched_keywords],
-                        job_id=job_id,
-                    )
-                    classified.append(row)
-                else:
-                    summary["excluded"] += 1
-            except Exception as e:
-                print(f"⚠️  Classify error for {seed.business_name}: {e}")
-                summary["errors"].append({"stage": "classify", "name": seed.business_name, "error": str(e)})
-
-        write_stage_jsonl(job_id, "stage3_classified", city_name, classified)
-
-        # ─── Stage 4: License match ─────────────────────
-        print(f"🔗 [{city_name}] Stage 4: License Match")
-        for row in classified:
-            try:
-                # ContractorRow + GoogleSeed both expose .business_name, so the
-                # name-based matcher works on the row directly.
-                match = match_license_by_name(row, dbpr_index)
-                if match:
-                    row.license_status = match.status
-                    row.license_numbers = match.numbers
-                    row.license_categories = match.categories
-                    if "dbpr" not in row.sources:
-                        row.sources.append("dbpr")
-                else:
-                    row.license_status = "unlicensed"
-            except Exception as e:
-                print(f"⚠️  License match error: {e}")
-
-        # ─── Stage 6+7: Enrichment (BBB + Apollo) — parallelized ────
-        print(f"💎📧 [{city_name}] Stage 6+7: Enrichment — {len(classified)} rows × {ENRICH_WORKERS} workers")
-        if classified:
-            with ThreadPoolExecutor(max_workers=ENRICH_WORKERS) as ex:
-                list(ex.map(_enrich_one, classified))
-
-        # ─── Persist to DB (per-metro, before global dedupe) ────────
-        for row in classified:
-            try:
-                insert_contractor(row.model_dump(mode="json"))
-                summary["saved"] += 1
-                print(f"💾 Saved: {row.business_name} ({row.tier})")
-            except Exception as e:
-                print(f"❌ DB insert failed for {row.business_name}: {e}")
-                summary["errors"].append({"stage": "insert", "name": row.business_name, "error": str(e)})
-
-        print(f"🎯 Done {city_name}: {summary['saved']} saved / {summary['included']} included / {summary['excluded']} excluded")
+def enrich_and_insert_rows(rows: List[ContractorRow], dbpr_index: list, job_id: str) -> dict:
+    """License-match → parallel BBB/Apollo enrich → UPSERT each row to the DB."""
+    summary = {"saved": 0, "errors": []}
+    if not rows:
         return summary
 
-    except Exception as e:
-        print(f"❌ Metro {city_name} failed: {e}")
-        traceback.print_exc()
-        summary["errors"].append({"stage": "metro", "error": str(e)})
-        return summary
+    # ─── License match (name-based, free) ───
+    print(f"🔗 License match — {len(rows)} rows")
+    for row in rows:
+        try:
+            match = match_license_by_name(row, dbpr_index)
+            if match:
+                row.license_status = match.status
+                row.license_numbers = match.numbers
+                row.license_categories = match.categories
+                if "dbpr" not in row.sources:
+                    row.sources.append("dbpr")
+            else:
+                row.license_status = "unlicensed"
+        except Exception as e:
+            print(f"⚠️  License match error: {e}")
+
+    # ─── Enrichment (BBB + Apollo) — parallelized ───
+    print(f"💎📧 Enrichment — {len(rows)} rows × {ENRICH_WORKERS} workers")
+    with ThreadPoolExecutor(max_workers=ENRICH_WORKERS) as ex:
+        list(ex.map(_enrich_one, rows))
+
+    # ─── Persist ───
+    for row in rows:
+        try:
+            insert_contractor(row.model_dump(mode="json"))
+            summary["saved"] += 1
+            print(f"💾 Saved: {row.business_name} ({row.tier})")
+        except Exception as e:
+            print(f"❌ DB insert failed for {row.business_name}: {e}")
+            summary["errors"].append({"stage": "insert", "name": row.business_name, "error": str(e)})
+
+    return summary

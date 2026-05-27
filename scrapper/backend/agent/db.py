@@ -268,6 +268,12 @@ def init_schema() -> None:
 
                 CREATE INDEX IF NOT EXISTS idx_dbpr_norm_name ON dbpr_licenses(normalized_name);
                 CREATE INDEX IF NOT EXISTS idx_dbpr_norm_dba ON dbpr_licenses(normalized_dba);
+
+                CREATE TABLE IF NOT EXISTS app_settings (
+                    key        TEXT PRIMARY KEY,
+                    value      TEXT,
+                    updated_at TIMESTAMPTZ DEFAULT NOW()
+                );
             """)
         print("✅ DB schema initialized")
     finally:
@@ -588,6 +594,48 @@ def insert_classification_log(record: Dict[str, Any]) -> None:
         conn.close()
 
 
+def insert_classification_logs(records: List[Dict[str, Any]], chunk_size: int = 1000) -> int:
+    """Bulk-insert classification decisions. The phased pipeline classifies every
+    unique seed in one pass, so a per-row INSERT would be thousands of sequential
+    round-trips; execute_values batches them into a handful of statements."""
+    if not records:
+        return 0
+
+    sql = """
+        INSERT INTO classification_log (
+            job_id, contractor_id, business_name, place_id,
+            decision, assigned_tier, matched_keywords, exclusion_keywords,
+            classifier_text, reason
+        ) VALUES %s
+    """
+    conn = _get_conn()
+    try:
+        n = 0
+        for i in range(0, len(records), chunk_size):
+            chunk = records[i:i + chunk_size]
+            vals = [
+                (
+                    r.get("job_id"),
+                    r.get("contractor_id"),
+                    r.get("business_name"),
+                    r.get("place_id"),
+                    r.get("decision"),
+                    r.get("assigned_tier"),
+                    json.dumps(r.get("matched_keywords") or []),
+                    json.dumps(r.get("exclusion_keywords") or []),
+                    r.get("classifier_text", ""),
+                    r.get("reason", ""),
+                )
+                for r in chunk
+            ]
+            with conn, conn.cursor() as cur:
+                execute_values(cur, sql, vals, page_size=chunk_size)
+            n += len(chunk)
+        return n
+    finally:
+        conn.close()
+
+
 # ──────────────────────────────────────────────────────────────
 # Keywords (used by classifier.py + API routes)
 # ──────────────────────────────────────────────────────────────
@@ -627,7 +675,7 @@ def list_keywords(tier: Optional[str] = None) -> List[Dict[str, Any]]:
 # DBPR licenses (bulk file — see agent/dbpr_loader.py)
 # ──────────────────────────────────────────────────────────────
 def dbpr_license_count() -> int:
-    """Row count in dbpr_licenses — used to decide first-time bootstrap."""
+    """Row count in dbpr_licenses (e.g. for health checks / diagnostics)."""
     conn = _get_conn()
     try:
         with conn, conn.cursor() as cur:
@@ -687,6 +735,54 @@ def replace_dbpr_licenses(rows: List[tuple], chunk_size: int = 5000) -> int:
         return inserted
     finally:
         conn.close()
+
+
+# ──────────────────────────────────────────────────────────────
+# App settings (key/value) — e.g. max_final_records per pipeline run
+# ──────────────────────────────────────────────────────────────
+# Default cap on how many final records a single pipeline run returns. Bounds
+# enrichment cost; user-editable via the Settings UI / API.
+DEFAULT_MAX_FINAL_RECORDS = 5000
+
+
+def get_setting(key: str, default: Optional[str] = None) -> Optional[str]:
+    conn = _get_conn()
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute("SELECT value FROM app_settings WHERE key = %s", (key,))
+            row = cur.fetchone()
+            return row[0] if row else default
+    finally:
+        conn.close()
+
+
+def set_setting(key: str, value: str) -> None:
+    """Upsert a setting value (stored as text)."""
+    conn = _get_conn()
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO app_settings (key, value, updated_at)
+                VALUES (%s, %s, NOW())
+                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
+                """,
+                (key, str(value)),
+            )
+    finally:
+        conn.close()
+
+
+def get_max_final_records() -> int:
+    """Configured per-run final-record cap (falls back to the default)."""
+    raw = get_setting("max_final_records")
+    if raw is None:
+        return DEFAULT_MAX_FINAL_RECORDS
+    try:
+        n = int(raw)
+        return n if n > 0 else DEFAULT_MAX_FINAL_RECORDS
+    except (TypeError, ValueError):
+        return DEFAULT_MAX_FINAL_RECORDS
 
 
 # ──────────────────────────────────────────────────────────────

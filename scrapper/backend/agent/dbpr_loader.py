@@ -1,8 +1,9 @@
 # dbpr_loader.py
 # Downloads the free, official Florida DBPR construction-licensee bulk CSV and
-# loads it into the dbpr_licenses table (full weekly replace). Run via:
+# full-replaces the dbpr_licenses table. The pipeline calls refresh_dbpr_licenses()
+# at the start of every run (see agent/pipeline.py), so the bulk table is always
+# fresh — there is no separate cron/scheduler. Can also be run standalone:
 #   python -m agent.dbpr_loader
-# Schedule weekly (Cloud Run Job + Cloud Scheduler) — see DEPLOYMENT.md.
 #
 # The file lists ~266k construction licensees, quote/comma delimited, NO header.
 # It includes Active / Inactive / voluntarily-inactive; it EXCLUDES Null&Void,
@@ -94,21 +95,6 @@ def refresh_dbpr_licenses() -> int:
     n = replace_dbpr_licenses(rows)
     print(f"✅ [DBPR] loaded {n} license rows into dbpr_licenses")
     return n
-
-
-def ensure_dbpr_loaded() -> None:
-    """First-time bootstrap: if the bulk table is empty, populate it once.
-    Lets a fresh deploy work without a manual load — the weekly cron only
-    keeps it fresh after that."""
-    from agent.db import dbpr_license_count
-
-    try:
-        if dbpr_license_count() == 0:
-            print("ℹ️  [DBPR] bulk table empty — loading for the first time")
-            refresh_dbpr_licenses()
-    except Exception as e:
-        # Don't block the pipeline if the load fails — DBPR falls back to Apify.
-        print(f"⚠️  [DBPR] auto-load skipped: {e}")
 
 
 if __name__ == "__main__":

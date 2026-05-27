@@ -8,6 +8,7 @@ import {
   useReactTable,
   type ColumnDef,
   type SortingState,
+  type VisibilityState,
   type OnChangeFn,
 } from "@tanstack/react-table";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUp, ArrowDown, ArrowUpDown, Loader2 } from "lucide-react";
@@ -27,6 +28,12 @@ export type DataTableProps<T> = {
   isFetching?: boolean;
   emptyMessage?: string;
   rowKey?: (row: T) => string | number;
+  /** Controlled column show/hide state (TanStack VisibilityState). */
+  columnVisibility?: VisibilityState;
+  onColumnVisibilityChange?: OnChangeFn<VisibilityState>;
+  /** When provided, renders a second header row of per-column filter controls,
+   * keyed by column id. A column with no entry gets an empty filter cell. */
+  columnFilters?: Record<string, React.ReactNode>;
 };
 
 export function DataTable<T>({
@@ -44,17 +51,23 @@ export function DataTable<T>({
   isFetching,
   emptyMessage = "No results.",
   rowKey,
+  columnVisibility,
+  onColumnVisibilityChange,
+  columnFilters,
 }: DataTableProps<T>) {
   const table = useReactTable({
     data,
     columns,
-    state: { sorting },
+    state: { sorting, ...(columnVisibility ? { columnVisibility } : {}) },
     onSortingChange,
+    onColumnVisibilityChange,
     getCoreRowModel: getCoreRowModel(),
     manualSorting: true,
     manualPagination: true,
     pageCount: Math.max(1, Math.ceil(total / pageSize)),
   });
+
+  const visibleColCount = table.getVisibleLeafColumns().length;
 
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const start = total === 0 ? 0 : pageIndex * pageSize + 1;
@@ -103,11 +116,20 @@ export function DataTable<T>({
                 })}
               </tr>
             ))}
+            {columnFilters && (
+              <tr className="border-b bg-muted/30">
+                {table.getVisibleLeafColumns().map((col) => (
+                  <th key={col.id} className="px-3 pb-2 pt-0 align-top font-normal normal-case">
+                    {columnFilters[col.id] ?? null}
+                  </th>
+                ))}
+              </tr>
+            )}
           </thead>
           <tbody>
             {isLoading && (
               <tr>
-                <td colSpan={columns.length} className="px-3 py-10 text-center text-muted-foreground">
+                <td colSpan={visibleColCount} className="px-3 py-10 text-center text-muted-foreground">
                   <Loader2 className="h-5 w-5 animate-spin inline-block mr-2" />
                   Loading…
                 </td>
@@ -115,7 +137,7 @@ export function DataTable<T>({
             )}
             {!isLoading && data.length === 0 && (
               <tr>
-                <td colSpan={columns.length} className="px-3 py-10 text-center text-muted-foreground">
+                <td colSpan={visibleColCount} className="px-3 py-10 text-center text-muted-foreground">
                   {emptyMessage}
                 </td>
               </tr>
