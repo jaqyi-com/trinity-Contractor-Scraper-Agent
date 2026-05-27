@@ -1,18 +1,14 @@
 # api/routes/jobs.py
-# Jobs endpoints — start pipeline, poll status, list past, download exports.
+# Jobs endpoints — start pipeline, poll status, list past.
+# (CSV export is served separately by GET /api/contractors/export.)
 
-import os
-from pathlib import Path
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
-from fastapi.responses import FileResponse
 
 from agent.db import create_job, get_job, list_jobs, get_running_job
 from api.job_manager import start_background_job
 from api.auth import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
-
-EXPORT_DIR = os.getenv("EXPORT_DIR", "./exports")
 
 
 @router.post("/start")
@@ -66,11 +62,3 @@ async def job_status(job_id: str):
 @router.get("")
 async def list_all_jobs(limit: int = 50):
     return list_jobs(limit=limit)
-
-
-@router.get("/{job_id}/download/{filename}")
-async def download_export(job_id: str, filename: str):
-    path = Path(EXPORT_DIR) / job_id / filename
-    if not path.exists():
-        raise HTTPException(status_code=404, detail=f"File {filename} not found")
-    return FileResponse(path, filename=filename)

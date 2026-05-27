@@ -2,8 +2,10 @@
 # Per-metro processor — chains all stages for ONE city.
 # Production scraper pattern: pipeline.py loops over inputs, processor.py does work per input.
 
+import os
 import traceback
 from typing import Any
+from concurrent.futures import ThreadPoolExecutor
 
 from agent.scraper_google import scrape_metro
 from agent.scraper_dbpr import fetch_licenses_for_seeds
@@ -16,6 +18,56 @@ from utils.url_normalizer import extract_domain
 from agent.db import insert_contractor, get_active_keywords
 from agent.storage import write_stage_jsonl
 from agent.schema import ContractorRow
+
+# Per-row enrichment (BBB + Apollo) is I/O-bound (HTTP/actor calls), so we run
+# rows concurrently instead of one-at-a-time. Each thread mutates only its own
+# row and touches no DB, so this is safe. Tune with ENRICH_WORKERS.
+ENRICH_WORKERS = int(os.getenv("ENRICH_WORKERS", "8"))
+
+
+def _enrich_one(row: ContractorRow) -> None:
+    """All external enrichment for a single contractor row (BBB + Apollo)."""
+    # BBB rating / accreditation / years
+    try:
+        bbb = enrich_bbb(row)
+        if bbb.rating:
+            row.bbb_rating = bbb.rating
+            if "bbb" not in row.sources:
+                row.sources.append("bbb")
+        row.bbb_accredited = bbb.accredited
+        if bbb.years_in_business:
+            row.years_in_business = bbb.years_in_business
+    except Exception as e:
+        print(f"⚠️  BBB error for {row.business_name}: {e}")
+
+    # Apollo: email/owner/linkedin + company facts
+    try:
+        if not row.email:
+            result = enrich_email(row)
+            if result.email:
+                row.email = result.email
+            if result.owner_name:
+                row.owner_name = result.owner_name
+            if result.linkedin_url:
+                row.social_profiles = {**(row.social_profiles or {}), "linkedin": result.linkedin_url}
+            for s in result.sources:
+                if s not in row.sources:
+                    row.sources.append(s)
+
+        domain = extract_domain(row.website) if row.website else None
+        if domain:
+            company = apollo_company(domain)
+            if company:
+                if company.get("years_in_business") and not row.years_in_business:
+                    row.years_in_business = company["years_in_business"]
+                if company.get("phone") and not row.phone:
+                    row.phone = company["phone"]
+                if company.get("linkedin_url") and "linkedin" not in (row.social_profiles or {}):
+                    row.social_profiles = {**(row.social_profiles or {}), "linkedin": company["linkedin_url"]}
+                if "apollo" not in row.sources:
+                    row.sources.append("apollo")
+    except Exception as e:
+        print(f"⚠️  Apollo enrichment error for {row.business_name}: {e}")
 
 
 def process_metro(city, job_id: str) -> dict:
@@ -105,51 +157,11 @@ def process_metro(city, job_id: str) -> dict:
             except Exception as e:
                 print(f"⚠️  License match error: {e}")
 
-        # ─── Stage 6: BBB enrichment ────────────────────
-        print(f"💎 [{city_name}] Stage 6: BBB Enrichment")
-        for row in classified:
-            try:
-                bbb = enrich_bbb(row)
-                row.bbb_rating = bbb.rating
-                row.bbb_accredited = bbb.accredited
-                row.years_in_business = bbb.years_in_business
-                if bbb.rating:
-                    row.sources.append("bbb")
-            except Exception as e:
-                print(f"⚠️  BBB error: {e}")
-
-        # ─── Stage 7: Contact + company enrichment (Hunter + Apollo) ────
-        print(f"📧 [{city_name}] Stage 7: Email + Company Enrichment")
-        for row in classified:
-            try:
-                # Email / owner / linkedin cascade (Hunter → Apollo)
-                if not row.email:
-                    result = enrich_email(row)
-                    if result.email:
-                        row.email = result.email
-                    if result.owner_name:
-                        row.owner_name = result.owner_name
-                    if result.linkedin_url:
-                        row.social_profiles = {**(row.social_profiles or {}), "linkedin": result.linkedin_url}
-                    for s in result.sources:
-                        if s not in row.sources:
-                            row.sources.append(s)
-
-                # Company facts from Apollo (founded year → years_in_business, phone backfill)
-                domain = extract_domain(row.website) if row.website else None
-                if domain:
-                    company = apollo_company(domain)
-                    if company:
-                        if company.get("years_in_business") and not row.years_in_business:
-                            row.years_in_business = company["years_in_business"]
-                        if company.get("phone") and not row.phone:
-                            row.phone = company["phone"]
-                        if company.get("linkedin_url") and "linkedin" not in (row.social_profiles or {}):
-                            row.social_profiles = {**(row.social_profiles or {}), "linkedin": company["linkedin_url"]}
-                        if "apollo" not in row.sources:
-                            row.sources.append("apollo")
-            except Exception as e:
-                print(f"⚠️  Enrichment error: {e}")
+        # ─── Stage 6+7: Enrichment (BBB + Apollo) — parallelized ────
+        print(f"💎📧 [{city_name}] Stage 6+7: Enrichment — {len(classified)} rows × {ENRICH_WORKERS} workers")
+        if classified:
+            with ThreadPoolExecutor(max_workers=ENRICH_WORKERS) as ex:
+                list(ex.map(_enrich_one, classified))
 
         # ─── Persist to DB (per-metro, before global dedupe) ────────
         for row in classified:

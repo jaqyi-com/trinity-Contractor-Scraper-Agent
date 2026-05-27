@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 
 # ──────────────────────────────────────────────────────────────
-# Discovery — what Outscraper returns per Google business
+# Discovery — what the Apify Google Maps actor returns per business
 # ──────────────────────────────────────────────────────────────
 class GoogleSeed(BaseModel):
     place_id: str
@@ -25,7 +25,7 @@ class GoogleSeed(BaseModel):
     google_rating: Optional[float] = None
     google_review_count: Optional[int] = None
     social_profiles: Dict[str, str] = {}
-    raw: Dict[str, Any] = {}  # full Outscraper payload for audit
+    raw: Dict[str, Any] = {}  # full discovery payload (Apify Maps) for audit
 
 
 # ──────────────────────────────────────────────────────────────
@@ -79,7 +79,7 @@ class EmailEnrichment(BaseModel):
     email: Optional[str] = None
     owner_name: Optional[str] = None
     linkedin_url: Optional[str] = None
-    sources: List[str] = []   # ['hunter', 'apollo', 'pdl']
+    sources: List[str] = []   # ['google', 'apollo', 'dbpr', 'bbb']
 
 
 # ──────────────────────────────────────────────────────────────

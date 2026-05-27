@@ -3,12 +3,19 @@
 # Reads job row, loops over metros, calls processor.process_metro per city,
 # then runs global dedupe + export.
 
+import os
 import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from agent.db import update_job, get_active_keywords, list_cities
 from agent.processor import process_metro
 from agent.dedupe import dedupe_all_for_job
-from agent.exporter import export_all
+from agent.dbpr_loader import ensure_dbpr_loaded
+
+# Process metros concurrently. Combined with per-row enrichment workers
+# (processor.ENRICH_WORKERS), peak Apify concurrency ≈ METRO_WORKERS × ENRICH_WORKERS,
+# so keep the product within the Apify plan's concurrency limit.
+METRO_WORKERS = int(os.getenv("METRO_WORKERS", "6"))
 
 
 def _load_cities():
@@ -29,27 +36,30 @@ def run_pipeline(job_id: str) -> None:
         active_kw = get_active_keywords()
         update_job(job_id, keywords_snapshot=active_kw)
 
+        # First-time bootstrap of the DBPR bulk table (no-op once populated).
+        ensure_dbpr_loaded()
+
         cities = _load_cities()
         progress = {}
+        update_job(job_id, current_stage=f"scraping {len(cities)} metros (parallel)")
 
-        # Loop over metros
-        for city in cities:
-            city_name = city["name"]
+        # Process metros concurrently — each runs its full stage chain + DB inserts.
+        def _run_metro(city):
+            name = city["name"]
             try:
-                update_job(job_id, current_stage=f"metro:{city_name}")
                 summary = process_metro(city, job_id)
-                progress[f"metro:{city_name}"] = {
-                    "status": "done",
-                    "rows_in": summary["seeds"],
-                    "rows_out": summary["saved"],
-                }
-                update_job(job_id, stages_progress=progress)
+                return name, {"status": "done", "rows_in": summary["seeds"], "rows_out": summary["saved"]}
             except Exception as e:
-                print(f"❌ Metro {city_name} failed: {e}")
+                print(f"❌ Metro {name} failed: {e}")
                 traceback.print_exc()
-                progress[f"metro:{city_name}"] = {"status": "failed", "error": str(e)}
+                return name, {"status": "failed", "error": str(e)}
+
+        with ThreadPoolExecutor(max_workers=METRO_WORKERS) as ex:
+            futures = [ex.submit(_run_metro, c) for c in cities]
+            for fut in as_completed(futures):
+                name, result = fut.result()
+                progress[f"metro:{name}"] = result
                 update_job(job_id, stages_progress=progress)
-                # Continue with next metro — don't crash whole pipeline
 
         # Global dedupe
         print("\n🔁 Stage 5: Global Dedupe (cross-metro)")
@@ -57,11 +67,9 @@ def run_pipeline(job_id: str) -> None:
         dedupe_all_for_job(job_id)
         progress["stage5_dedupe"] = {"status": "done"}
 
-        # Export
-        print("\n📦 Stage 8: Export")
-        update_job(job_id, current_stage="export")
-        export_all(job_id)
-        progress["stage8_export"] = {"status": "done"}
+        # Stage 8 (Export) is served on-demand from the DB via
+        # GET /api/contractors/export (full = master, ?city=... = per-city).
+        # No disk files are written — Cloud Run's filesystem is ephemeral.
 
         update_job(
             job_id,

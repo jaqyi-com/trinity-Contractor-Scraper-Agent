@@ -1,5 +1,6 @@
 # scraper_google.py
-# Outscraper Google Maps scraper — PRIMARY discovery source (PDF Section 2.1).
+# Google Maps discovery via the Apify actor (PDF Section 2.1 — "or Apify
+# equivalent"). Apify is the sole discovery source; no separate Outscraper key.
 # Returns List[GoogleSeed] for one metro.
 
 import os
@@ -7,16 +8,26 @@ from typing import List
 from dotenv import load_dotenv
 
 from agent.schema import GoogleSeed
-from agent.db import get_active_keywords
+from utils.phone_normalizer import normalize_phone
 
 load_dotenv()
 
-OUTSCRAPER_API_KEY = os.getenv("OUTSCRAPER_API_KEY")
+APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
 
-# Test/dev flag — when true, scrape_metro returns hardcoded SAMPLE_SEEDS
-# instead of calling Outscraper. Lets you run the full pipeline (classify →
-# enrich → dedupe → insert → web UI) without spending Outscraper credits.
+# Apify Google Maps actor — primary (only) discovery source.
+APIFY_MAPS_ACTOR = "compass~crawler-google-places"
+APIFY_TIMEOUT = 280
+
+# Test/dev flag — when true, scrape_metro returns hardcoded SAMPLE_SEEDS instead
+# of calling Apify. Lets you run the full pipeline (classify → enrich → dedupe →
+# insert → web UI) without spending Apify credits.
 USE_SAMPLE_DATA = os.getenv("USE_SAMPLE_DATA", "").lower() in ("1", "true", "yes")
+
+# ⚠️ TEMPORARY SAFETY CAP — REMOVE BEFORE CLIENT HANDOFF ⚠️
+# Limits businesses discovered PER METRO so early/test runs can't rack up Apify
+# cost or scrape thousands of rows.
+# To go full-scale: set to None (no cap) — see DEPLOYMENT.md §13.
+DISCOVERY_RESULT_CAP = 10
 
 
 # ──────────────────────────────────────────────────────────────
@@ -26,7 +37,7 @@ USE_SAMPLE_DATA = os.getenv("USE_SAMPLE_DATA", "").lower() in ("1", "true", "yes
 SAMPLE_SEEDS = [
     # Real Tampa-area drywall contractors. Google-discoverable fields only
     # (name/address/phone/website/categories/services). `email` is left blank
-    # on purpose so the Hunter/Apollo enrichment cascade has to fill it.
+    # on purpose so the Apollo enrichment cascade has to fill it.
     GoogleSeed(
         place_id="real_talmadge_1",
         business_name="Talmadge Drywall (ICS, LLC)",
@@ -107,32 +118,12 @@ SAMPLE_SEEDS = [
         google_review_count=33,
         social_profiles={},
     ),
-    # Deliberate DUPLICATE of West Star (same phone, different name/place_id) —
-    # used to verify Stage 5 dedupe merges by phone. Remove for production.
-    GoogleSeed(
-        place_id="real_weststar_DUP",
-        business_name="West Star Interiors LLC",
-        city="Tampa",
-        zip_code="33610",
-        address="6810 East Adamo Drive, Tampa, FL 33619",
-        phone="+18136261844",
-        email=None,
-        website="https://weststarinteriors.com",
-        google_categories=["drywall_contractor"],
-        services_listed=["drywall", "metal framing"],
-        description="Duplicate listing for dedupe testing.",
-        google_rating=4.4,
-        google_review_count=21,
-        social_profiles={},
-    ),
 ]
 
 
 # ──────────────────────────────────────────────────────────────
-# Static Outscraper search phrases (PDF Section 2.1).
-# These are GOOGLE SEARCH PHRASES (what we type into Google Maps),
-# NOT classifier keywords. Rarely edited — kept as Python constant.
-# If you ever want user-editable queries, add a 'QUERY' tier to keywords table.
+# Google Maps search phrases fed to the Apify actor (searchStringsArray).
+# These are SEARCH PHRASES, not classifier keywords. Rarely edited.
 # ──────────────────────────────────────────────────────────────
 DEFAULT_QUERIES = [
     "drywall contractor",
@@ -151,78 +142,112 @@ DEFAULT_QUERIES = [
 ]
 
 
-def _derive_outscraper_filters() -> tuple[list[str], list[str]]:
-    """
-    Build Outscraper subtype include/exclude lists from the `keywords` DB table.
-
-    Include = all active keywords from in-scope tiers (TIER_1_*, TIER_2_*, TIER_3_*).
-    Exclude = all active keywords from EXCLUDE_HARD + EXCLUDE_SOLO tiers.
-
-    This means: edit keywords in the UI → Outscraper filters auto-update on next run.
-    No duplication between cities.yaml and DB.
-    """
-    keywords = get_active_keywords()
-    include: list[str] = []
-    exclude: list[str] = []
-    in_scope_prefixes = ("TIER_1_", "TIER_2_", "TIER_3_")
-    exclude_tiers = {"EXCLUDE_HARD", "EXCLUDE_SOLO"}
-
-    for kw in keywords:
-        if kw["tier"].startswith(in_scope_prefixes):
-            include.append(kw["keyword"])
-        elif kw["tier"] in exclude_tiers:
-            exclude.append(kw["keyword"])
-
-    return include, exclude
-
-
 def scrape_metro(city: str, zips: List[str], queries: List[str] = None) -> List[GoogleSeed]:
     """
-    For each (zip, query) tuple, call Outscraper and collect business listings.
-    Apply subtype include/exclude filters derived from DB keywords.
-
-    TODO: implement Outscraper SDK call.
+    Discover businesses for one metro via the Apify Google Maps actor (the sole
+    discovery source — no Outscraper key). Subtype include/exclude is enforced
+    authoritatively by the Stage-3 classifier, so we don't re-filter here.
+    `zips` is accepted for signature compatibility; the actor searches by city.
     """
-    # Sample/test mode — skip Outscraper entirely, return hardcoded seeds.
+    # Sample/test mode — skip live scraping entirely, return hardcoded seeds.
     if USE_SAMPLE_DATA:
         samples = [s for s in SAMPLE_SEEDS if s.city.lower() == city.lower()]
         print(f"🧪 [Google] SAMPLE MODE — returning {len(samples)} sample seeds for {city}")
         return samples
 
+    if not APIFY_API_TOKEN:
+        print("⚠️ [Google] APIFY_API_TOKEN not set — no discovery source available")
+        return []
+
     queries = queries or DEFAULT_QUERIES
-    include_subtypes, exclude_subtypes = _derive_outscraper_filters()
+    cap = DISCOVERY_RESULT_CAP  # None = no cap (full scale)
+    return _scrape_apify_maps(city, queries, cap)
 
-    print(f"🔍 [Google] city={city} zips={len(zips)} queries={len(queries)}")
-    print(f"   subtype include ({len(include_subtypes)}): {include_subtypes[:5]}...")
-    print(f"   subtype exclude ({len(exclude_subtypes)}): {exclude_subtypes[:5]}...")
 
-    if not OUTSCRAPER_API_KEY:
-        print("⚠️ OUTSCRAPER_API_KEY not set — returning empty list")
+def _scrape_apify_maps(city: str, queries: List[str], cap) -> List[GoogleSeed]:
+    """Discovery via the Apify Google Maps actor (run-sync pattern, same as
+    DBPR/BBB). Capped mode keeps cost low; full mode runs all queries."""
+    import requests
+
+    search_strings = queries if cap is None else queries[:1]
+    per_search = cap if cap is not None else 120
+    payload = {
+        "searchStringsArray": search_strings,
+        "locationQuery": f"{city}, FL, USA",
+        "maxCrawledPlacesPerSearch": per_search,
+        "scrapeContacts": True,
+        "language": "en",
+    }
+    try:
+        resp = requests.post(
+            f"https://api.apify.com/v2/acts/{APIFY_MAPS_ACTOR}/run-sync-get-dataset-items",
+            params={"token": APIFY_API_TOKEN}, json=payload, timeout=APIFY_TIMEOUT,
+        )
+        resp.raise_for_status()
+        items = resp.json()
+    except Exception as e:
+        print(f"⚠️ Apify Maps fallback error: {e}")
+        return []
+
+    if not isinstance(items, list):
         return []
 
     seeds: List[GoogleSeed] = []
-    # TODO: real Outscraper implementation
-    # from outscraper import ApiClient
-    # client = ApiClient(api_key=OUTSCRAPER_API_KEY)
-    # for zip_code in zips:
-    #     for q in queries:
-    #         results = client.google_maps_search(
-    #             query=f"{q}, {zip_code}",
-    #             limit=500,
-    #             enrichment=["emails_validator_service"],
-    #             # subtype filters applied here
-    #         )
-    #         for r in results[0]:
-    #             # Skip if subtype matches exclude or doesn't match include
-    #             seeds.append(_to_google_seed(r, city))
+    seen: set = set()
+    for r in items:
+        if cap is not None and len(seeds) >= cap:
+            break
+        pid = r.get("placeId")
+        if pid and pid in seen:
+            continue
+        seeds.append(_apify_place_to_seed(r, city))
+        if pid:
+            seen.add(pid)
+
+    print(f"🔍 [Google/Apify] {city}: {len(seeds)} seeds")
     return seeds
 
 
-def _to_google_seed(raw: dict, city: str) -> GoogleSeed:
-    """Map Outscraper raw response → GoogleSeed."""
+def _apify_place_to_seed(raw: dict, city: str) -> GoogleSeed:
+    """Map a compass/crawler-google-places result → GoogleSeed."""
+    cats: List[str] = []
+    if raw.get("categoryName"):
+        cats.append(raw["categoryName"])
+    if isinstance(raw.get("categories"), list):
+        cats.extend(c for c in raw["categories"] if c)
+    seen, ucats = set(), []
+    for c in cats:
+        if c and c.lower() not in seen:
+            seen.add(c.lower())
+            ucats.append(c)
+
+    emails = raw.get("emails")
+    email = emails[0] if isinstance(emails, list) and emails else (raw.get("email") or None)
+
+    social = {}
+    for src, dest in (("facebooks", "facebook"), ("instagrams", "instagram"),
+                      ("linkedIns", "linkedin"), ("twitters", "twitter")):
+        v = raw.get(src)
+        if isinstance(v, list) and v:
+            social[dest] = v[0]
+        elif isinstance(v, str) and v:
+            social[dest] = v
+
+    phone_raw = raw.get("phoneUnformatted") or raw.get("phone")
     return GoogleSeed(
-        place_id=raw.get("place_id", ""),
-        business_name=raw.get("name", ""),
-        city=city,
+        place_id=raw.get("placeId") or "",
+        business_name=raw.get("title") or "",
+        city=raw.get("city") or city,
+        zip_code=raw.get("postalCode") or None,
+        address=raw.get("address") or None,
+        phone=(normalize_phone(phone_raw) or phone_raw) if phone_raw else None,
+        email=email,
+        website=raw.get("website") or None,
+        google_categories=ucats,
+        services_listed=[],
+        description=raw.get("description") or "",
+        google_rating=raw.get("totalScore"),
+        google_review_count=raw.get("reviewsCount"),
+        social_profiles=social,
         raw=raw,
     )

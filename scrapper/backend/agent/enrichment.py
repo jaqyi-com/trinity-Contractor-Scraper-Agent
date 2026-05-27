@@ -1,6 +1,8 @@
 # enrichment.py
 # Email + company enrichment — PDF Section 4.
-# Order: Outscraper bundled (free, stage1) → Hunter → Apollo → PDL fallback.
+# Stack: Apollo (paid) only. Order: discovery-bundled email (Apify Maps, stage1)
+# → Apollo People Search (owner email + name + LinkedIn).
+# Company facts (founded year, phone, company LinkedIn) come from apollo_company.
 
 import os
 import requests
@@ -11,82 +13,94 @@ from utils.url_normalizer import extract_domain
 
 load_dotenv()
 
-HUNTER_API_KEY = os.getenv("HUNTER_API_KEY")
 APOLLO_API_KEY = os.getenv("APOLLO_API_KEY")
-PDL_API_KEY = os.getenv("PDL_API_KEY")
 
-BUDGET_PER_ROW = 0.30  # PDF Section 4 cap
 HTTP_TIMEOUT = 20
 
+# Domains that aren't a business's own site — enriching these returns garbage
+# (e.g. a facebook.com "website" makes Apollo return Meta employees).
+_NON_BUSINESS_DOMAINS = {
+    "facebook.com", "fb.com", "m.facebook.com", "instagram.com", "linkedin.com",
+    "twitter.com", "x.com", "youtube.com", "google.com", "sites.google.com",
+    "business.site", "ueni.com", "ueniweb.com", "wix.com", "wixsite.com",
+    "godaddysites.com", "wordpress.com", "blogspot.com", "yelp.com", "bbb.org",
+}
 
-def _hunter_email_from_domain(domain: str) -> EmailEnrichment:
+
+def _enrichable_domain(domain: str | None) -> str | None:
+    """Return the domain only if it's plausibly the business's own site."""
+    if not domain:
+        return None
+    d = domain.lower()
+    if d in _NON_BUSINESS_DOMAINS or any(d.endswith("." + b) for b in _NON_BUSINESS_DOMAINS):
+        return None
+    return domain
+
+
+_LEADER_TITLES = ("owner", "president", "ceo", "founder", "principal", "partner", "vice president", "vp", "manager")
+
+
+def _apollo_person_email(domain: str) -> EmailEnrichment:
     """
-    Hunter.io domain-search: return the highest-confidence email for a domain,
-    using its first/last name as the owner contact.
+    Two-step Apollo flow (the search endpoint masks contact data):
+    1. api_search by company domain → candidate people (id + has_email).
+    2. people/match on the best candidate with reveal → actual work email,
+       name, LinkedIn. A paid Apollo key + credits reveals the email.
     """
-    if not HUNTER_API_KEY or not domain:
-        return EmailEnrichment()
-
-    try:
-        resp = requests.get(
-            "https://api.hunter.io/v2/domain-search",
-            params={"domain": domain, "limit": 10, "api_key": HUNTER_API_KEY},
-            timeout=HTTP_TIMEOUT,
-        )
-        resp.raise_for_status()
-        emails = (resp.json().get("data") or {}).get("emails") or []
-    except Exception as e:
-        print(f"⚠️  Hunter error for {domain}: {e}")
-        return EmailEnrichment()
-
-    if not emails:
-        return EmailEnrichment()
-
-    # Prefer a decision-maker, else highest confidence.
-    def rank(e: dict) -> tuple:
-        pos = (e.get("position") or "").lower()
-        is_leader = any(t in pos for t in ("owner", "president", "ceo", "founder", "principal", "vice president"))
-        return (is_leader, e.get("confidence") or 0)
-
-    best = sorted(emails, key=rank, reverse=True)[0]
-    owner = " ".join(p for p in [best.get("first_name"), best.get("last_name")] if p) or None
-
-    return EmailEnrichment(
-        email=best.get("value"),
-        owner_name=owner,
-        linkedin_url=best.get("linkedin"),
-        sources=["hunter"],
-    )
-
-
-def _apollo_enrich(business_name: str, domain: str) -> EmailEnrichment:
-    """
-    Apollo.io organization enrich. Free tier returns company-level data
-    (linkedin, phone, founded year) but masks person emails, so we use it
-    mainly for owner/linkedin context — not the email itself.
-    """
+    domain = _enrichable_domain(domain)
     if not APOLLO_API_KEY or not domain:
         return EmailEnrichment()
 
+    headers = {"Content-Type": "application/json", "X-Api-Key": APOLLO_API_KEY}
+
+    # Step 1 — search people at the domain.
     try:
         resp = requests.post(
-            "https://api.apollo.io/v1/organizations/enrich",
-            params={"domain": domain},
-            headers={"Content-Type": "application/json", "X-Api-Key": APOLLO_API_KEY},
+            "https://api.apollo.io/api/v1/mixed_people/api_search",
+            headers=headers,
+            json={"q_organization_domains_list": [domain], "page": 1, "per_page": 10},
             timeout=HTTP_TIMEOUT,
         )
         resp.raise_for_status()
-        org = resp.json().get("organization") or {}
+        people = resp.json().get("people") or []
     except Exception as e:
-        print(f"⚠️  Apollo error for {domain}: {e}")
+        print(f"⚠️  Apollo search error for {domain}: {e}")
         return EmailEnrichment()
 
-    if not org:
+    if not people:
         return EmailEnrichment()
 
+    # Prefer someone with an email on file, then a leadership-ish title.
+    def rank(p: dict) -> tuple:
+        title = (p.get("title") or "").lower()
+        return (bool(p.get("has_email")), any(t in title for t in _LEADER_TITLES))
+
+    best = sorted(people, key=rank, reverse=True)[0]
+    pid = best.get("id")
+    if not pid:
+        return EmailEnrichment()
+
+    # Step 2 — reveal the contact via people/match.
+    try:
+        resp = requests.post(
+            "https://api.apollo.io/api/v1/people/match",
+            headers=headers,
+            params={"id": pid, "reveal_personal_emails": "true"},
+            timeout=HTTP_TIMEOUT,
+        )
+        resp.raise_for_status()
+        person = resp.json().get("person") or {}
+    except Exception as e:
+        print(f"⚠️  Apollo match error for {domain}: {e}")
+        return EmailEnrichment()
+
+    email = person.get("email")
+    if email and "not_unlocked" in email:
+        email = None
     return EmailEnrichment(
-        owner_name=None,  # free tier masks contact emails/names
-        linkedin_url=org.get("linkedin_url"),
+        email=email,
+        owner_name=person.get("name"),
+        linkedin_url=person.get("linkedin_url"),
         sources=["apollo"],
     )
 
@@ -94,9 +108,9 @@ def _apollo_enrich(business_name: str, domain: str) -> EmailEnrichment:
 def apollo_company(domain: str) -> dict:
     """
     Company-level facts from Apollo org enrich — feeds non-email fields:
-    founded_year → years_in_business, plus phone + company linkedin.
-    Returns {} on miss.
+    founded_year → years_in_business, plus phone + company LinkedIn. {} on miss.
     """
+    domain = _enrichable_domain(domain)
     if not APOLLO_API_KEY or not domain:
         return {}
 
@@ -129,40 +143,17 @@ def apollo_company(domain: str) -> dict:
     return out
 
 
-def _pdl_enrich(business_name: str, domain: str) -> EmailEnrichment:
-    """PDL company enrichment — last-resort fallback (no key configured = no-op)."""
-    if not PDL_API_KEY:
-        return EmailEnrichment()
-    return EmailEnrichment()
-
-
 def enrich_email(row: ContractorRow) -> EmailEnrichment:
     """
-    Cascade per PDF 4:
-    1. Keep Outscraper-bundled email if present (stage1).
-    2. Hunter.io domain-search.
-    3. Apollo.io for owner/linkedin context.
-    4. PDL last-resort.
+    Email/owner cascade:
+    1. Keep the discovery-bundled email if present (Apify Maps, stage1).
+    2. Apollo People Search for a decision-maker's email + name + LinkedIn.
     """
     if row.email:
-        return EmailEnrichment(email=row.email, sources=["outscraper"])
+        return EmailEnrichment(email=row.email, sources=["google"])
 
     domain = extract_domain(row.website) if row.website else None
     if not domain:
         return EmailEnrichment()
 
-    hunter = _hunter_email_from_domain(domain)
-    if hunter.email:
-        # Backfill owner/linkedin from Apollo if Hunter didn't supply them.
-        if not hunter.linkedin_url:
-            apollo = _apollo_enrich(row.business_name, domain)
-            if apollo.linkedin_url:
-                hunter.linkedin_url = apollo.linkedin_url
-                hunter.sources = list({*hunter.sources, *apollo.sources})
-        return hunter
-
-    apollo = _apollo_enrich(row.business_name, domain)
-    if apollo.email or apollo.owner_name or apollo.linkedin_url:
-        return apollo
-
-    return _pdl_enrich(row.business_name, domain)
+    return _apollo_person_email(domain)

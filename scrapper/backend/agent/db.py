@@ -8,21 +8,92 @@ import uuid
 from typing import Optional, List, Dict, Any
 from datetime import datetime
 
+import threading
+
 import psycopg2
+import psycopg2.extensions
 from psycopg2.extras import RealDictCursor, execute_values
+from psycopg2 import pool as _pgpool
 from dotenv import load_dotenv
 
 load_dotenv()
 
 POSTGRES_DSN = os.getenv("POSTGRES_DSN")
+DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", "3"))   # pre-warmed conns for parallel page-load calls
+DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "20"))
 
 
 # ──────────────────────────────────────────────────────────────
-# Connection
+# Connection POOL
+# Opening a fresh Neon connection costs ~1.9s (remote + SSL handshake); the
+# query itself is ~0.3s. So we pool connections and reuse them — every existing
+# `conn = _get_conn(); ...; conn.close()` call now borrows/returns from the pool
+# (the proxy's .close() returns it instead of really closing). ~5× faster GETs.
 # ──────────────────────────────────────────────────────────────
+_POOL = None
+_POOL_LOCK = threading.Lock()
+
+
+def _get_pool():
+    global _POOL
+    if _POOL is None:
+        with _POOL_LOCK:
+            if _POOL is None:
+                if not POSTGRES_DSN:
+                    raise RuntimeError("POSTGRES_DSN not set in .env")
+                _POOL = _pgpool.ThreadedConnectionPool(DB_POOL_MIN, DB_POOL_MAX, POSTGRES_DSN)
+    return _POOL
+
+
+class _PooledConn:
+    """Proxy around a pooled psycopg2 connection. Delegates everything, but
+    .close() returns the connection to the pool instead of closing it, so all
+    existing `conn.close()` call sites become pool-returns with no code change."""
+
+    def __init__(self, conn, pool):
+        self._conn = conn
+        self._pool = pool
+
+    def close(self):
+        try:
+            if self._conn.closed == 0:
+                # Only rollback if a txn is actually open/aborted — skipping the
+                # no-op rollback saves a network round-trip on read-only calls.
+                if self._conn.info.transaction_status != psycopg2.extensions.TRANSACTION_STATUS_IDLE:
+                    try:
+                        self._conn.rollback()
+                    except Exception:
+                        pass
+                self._pool.putconn(self._conn)
+            else:
+                self._pool.putconn(self._conn, close=True)
+        except Exception:
+            try:
+                self._conn.close()
+            except Exception:
+                pass
+
+    def __getattr__(self, name):
+        return getattr(self._conn, name)
+
+    def __enter__(self):
+        return self._conn.__enter__()
+
+    def __exit__(self, *exc):
+        return self._conn.__exit__(*exc)
+
+
 def _get_conn():
-    if not POSTGRES_DSN:
-        raise RuntimeError("POSTGRES_DSN not set in .env")
+    """Borrow a connection from the pool. Returns a proxy whose .close()
+    returns it to the pool. Discards/replaces connections Neon has dropped."""
+    pool = _get_pool()
+    for _ in range(3):
+        conn = pool.getconn()
+        if conn.closed != 0:
+            pool.putconn(conn, close=True)  # stale (Neon dropped it) — drop + retry
+            continue
+        return _PooledConn(conn, pool)
+    # Last resort: a direct connection (won't be pooled)
     return psycopg2.connect(POSTGRES_DSN)
 
 
@@ -71,6 +142,7 @@ def init_schema() -> None:
                     social_profiles      JSONB,
                     sources              JSONB,
                     place_ids            JSONB,
+                    dedupe_key           TEXT,
                     scraped_at           TIMESTAMPTZ DEFAULT NOW(),
                     job_id               UUID REFERENCES jobs(job_id)
                 );
@@ -79,6 +151,7 @@ def init_schema() -> None:
                 CREATE INDEX IF NOT EXISTS idx_contractors_tier ON contractors(tier);
                 CREATE INDEX IF NOT EXISTS idx_contractors_phone ON contractors(phone);
                 CREATE INDEX IF NOT EXISTS idx_contractors_job_id ON contractors(job_id);
+                CREATE UNIQUE INDEX IF NOT EXISTS idx_contractors_dedupe_key ON contractors(dedupe_key);
 
                 CREATE TABLE IF NOT EXISTS stage_outputs (
                     id         BIGSERIAL PRIMARY KEY,
@@ -173,6 +246,28 @@ def init_schema() -> None:
                 );
 
                 CREATE INDEX IF NOT EXISTS idx_city_zips_city ON city_zips(city_id);
+
+                CREATE TABLE IF NOT EXISTS dbpr_licenses (
+                    id                  BIGSERIAL PRIMARY KEY,
+                    license_number      TEXT,
+                    occupation_code     TEXT,
+                    licensee_name       TEXT,
+                    dba_name            TEXT,
+                    normalized_name     TEXT,
+                    normalized_dba      TEXT,
+                    primary_status      TEXT,
+                    secondary_status    TEXT,
+                    license_status      TEXT,
+                    city                TEXT,
+                    state               TEXT,
+                    zip_code            TEXT,
+                    original_issue_date TEXT,
+                    expiration_date     TEXT,
+                    refreshed_at        TIMESTAMPTZ DEFAULT NOW()
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_dbpr_norm_name ON dbpr_licenses(normalized_name);
+                CREATE INDEX IF NOT EXISTS idx_dbpr_norm_dba ON dbpr_licenses(normalized_dba);
             """)
         print("✅ DB schema initialized")
     finally:
@@ -181,6 +276,26 @@ def init_schema() -> None:
     # Bootstrap default data — idempotent (each function checks if empty first)
     _seed_test_user_if_missing()
     _seed_cities_from_yaml_if_empty()
+
+
+# ──────────────────────────────────────────────────────────────
+# Dedupe key — single canonical key per business for insert-time UPSERT.
+# Priority mirrors PDF 3.4: normalized phone → domain → name + location.
+# ──────────────────────────────────────────────────────────────
+def compute_dedupe_key(record: Dict[str, Any]) -> str:
+    from utils.phone_normalizer import normalize_phone
+    from utils.url_normalizer import extract_domain
+    from utils.name_normalizer import normalize_name
+
+    phone = normalize_phone(record.get("phone")) if record.get("phone") else None
+    if phone:
+        return f"phone:{phone}"
+    domain = extract_domain(record.get("website")) if record.get("website") else None
+    if domain:
+        return f"domain:{domain}"
+    name = normalize_name(record.get("business_name") or "")
+    loc = (record.get("zip_code") or record.get("city") or "").strip()
+    return f"name:{name}|{loc}"
 
 
 # ──────────────────────────────────────────────────────────────
@@ -348,7 +463,10 @@ def get_running_job() -> Optional[Dict[str, Any]]:
 # Contractors
 # ──────────────────────────────────────────────────────────────
 def insert_contractor(record: Dict[str, Any]) -> int:
-    """Insert a contractor row. Returns inserted id."""
+    """Upsert a contractor row keyed by dedupe_key (phone→domain→name+loc).
+    Re-scraping the same business updates the existing row instead of creating
+    a duplicate (PDF 1.4: single deduplicated master). Returns the row id."""
+    dedupe_key = compute_dedupe_key(record)
     conn = _get_conn()
     try:
         with conn, conn.cursor() as cur:
@@ -361,7 +479,7 @@ def insert_contractor(record: Dict[str, Any]) -> int:
                     license_status, license_numbers, license_categories,
                     google_rating, google_review_count,
                     bbb_rating, bbb_accredited, years_in_business,
-                    social_profiles, sources, place_ids, job_id
+                    social_profiles, sources, place_ids, dedupe_key, job_id
                 ) VALUES (
                     %s, %s, %s, %s, %s,
                     %s, %s, %s,
@@ -369,8 +487,34 @@ def insert_contractor(record: Dict[str, Any]) -> int:
                     %s, %s, %s,
                     %s, %s,
                     %s, %s, %s,
-                    %s, %s, %s, %s
+                    %s, %s, %s, %s, %s
                 )
+                ON CONFLICT (dedupe_key) DO UPDATE SET
+                    business_name      = EXCLUDED.business_name,
+                    city               = EXCLUDED.city,
+                    zip_code           = EXCLUDED.zip_code,
+                    address            = EXCLUDED.address,
+                    tier               = EXCLUDED.tier,
+                    specialty_keywords = EXCLUDED.specialty_keywords,
+                    google_categories  = EXCLUDED.google_categories,
+                    services_listed    = EXCLUDED.services_listed,
+                    phone              = EXCLUDED.phone,
+                    email              = EXCLUDED.email,
+                    website            = EXCLUDED.website,
+                    owner_name         = EXCLUDED.owner_name,
+                    license_status     = EXCLUDED.license_status,
+                    license_numbers    = EXCLUDED.license_numbers,
+                    license_categories = EXCLUDED.license_categories,
+                    google_rating      = EXCLUDED.google_rating,
+                    google_review_count= EXCLUDED.google_review_count,
+                    bbb_rating         = EXCLUDED.bbb_rating,
+                    bbb_accredited     = EXCLUDED.bbb_accredited,
+                    years_in_business  = EXCLUDED.years_in_business,
+                    social_profiles    = EXCLUDED.social_profiles,
+                    sources            = EXCLUDED.sources,
+                    place_ids          = EXCLUDED.place_ids,
+                    scraped_at         = NOW(),
+                    job_id             = EXCLUDED.job_id
                 RETURNING id
                 """,
                 (
@@ -397,11 +541,11 @@ def insert_contractor(record: Dict[str, Any]) -> int:
                     json.dumps(record.get("social_profiles") or {}),
                     json.dumps(record.get("sources") or []),
                     json.dumps(record.get("place_ids") or []),
+                    dedupe_key,
                     record.get("job_id"),
                 ),
             )
-            new_id = cur.fetchone()[0]
-            return new_id
+            return cur.fetchone()[0]
     finally:
         conn.close()
 
@@ -477,6 +621,72 @@ def list_keywords(tier: Optional[str] = None) -> List[Dict[str, Any]]:
 
 
 # TODO: insert_keyword, update_keyword, delete_keyword, list_keyword_changes
+
+
+# ──────────────────────────────────────────────────────────────
+# DBPR licenses (bulk file — see agent/dbpr_loader.py)
+# ──────────────────────────────────────────────────────────────
+def dbpr_license_count() -> int:
+    """Row count in dbpr_licenses — used to decide first-time bootstrap."""
+    conn = _get_conn()
+    try:
+        with conn, conn.cursor() as cur:
+            cur.execute("SELECT COUNT(*) FROM dbpr_licenses")
+            return cur.fetchone()[0]
+    finally:
+        conn.close()
+
+
+def query_dbpr_by_names(normalized_names: List[str]) -> List[Dict[str, Any]]:
+    """Return dbpr_licenses rows whose normalized name OR dba matches any input."""
+    if not normalized_names:
+        return []
+    conn = _get_conn()
+    try:
+        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
+            cur.execute(
+                """
+                SELECT * FROM dbpr_licenses
+                WHERE normalized_name = ANY(%s) OR normalized_dba = ANY(%s)
+                """,
+                (normalized_names, normalized_names),
+            )
+            return [dict(r) for r in cur.fetchall()]
+    finally:
+        conn.close()
+
+
+def replace_dbpr_licenses(rows: List[tuple], chunk_size: int = 5000) -> int:
+    """Full replace of the dbpr_licenses table. rows = list of value-tuples
+    matching the INSERT column order below. Inserts in committed chunks so a
+    single huge transaction doesn't get dropped by the Neon pooler."""
+    from psycopg2.extras import execute_values
+
+    insert_sql = """
+        INSERT INTO dbpr_licenses (
+            license_number, occupation_code, licensee_name, dba_name,
+            normalized_name, normalized_dba, primary_status, secondary_status,
+            license_status, city, state, zip_code,
+            original_issue_date, expiration_date
+        ) VALUES %s
+    """
+
+    conn = _get_conn()
+    try:
+        with conn.cursor() as cur:
+            cur.execute("TRUNCATE dbpr_licenses RESTART IDENTITY")
+        conn.commit()
+
+        inserted = 0
+        for i in range(0, len(rows), chunk_size):
+            chunk = rows[i:i + chunk_size]
+            with conn.cursor() as cur:
+                execute_values(cur, insert_sql, chunk, page_size=chunk_size)
+            conn.commit()
+            inserted += len(chunk)
+        return inserted
+    finally:
+        conn.close()
 
 
 # ──────────────────────────────────────────────────────────────

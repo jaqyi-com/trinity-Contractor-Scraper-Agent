@@ -43,7 +43,7 @@ Credentials: `REQUIREMENTS.md`
 ```bash
 cp backend/.env.example backend/.env
 # Edit backend/.env — fill in:
-#   POSTGRES_DSN, OUTSCRAPER_API_KEY, HUNTER_API_KEY, APOLLO_API_KEY, PDL_API_KEY
+#   POSTGRES_DSN, APIFY_API_TOKEN, APOLLO_API_KEY
 ```
 
 Sign up for each service per `REQUIREMENTS.md`.
@@ -95,13 +95,11 @@ See `PLAN.md` → Stage 6 — Deployment. tl;dr:
 ## Status
 
 - [x] Folder skeleton
-- [x] Backend modules (stubs in place, real implementations TODO)
+- [x] Backend modules
 - [x] FastAPI routes
-- [x] Frontend skeleton with 5 tabs
-- [ ] Outscraper integration (`scraper_google.py`)
-- [ ] DBPR Playwright scraper (`scraper_dbpr.py`)
-- [ ] BBB Outscraper actor (`scraper_bbb.py`)
-- [ ] Hunter/Apollo/PDL enrichment (`enrichment.py`)
-- [ ] Keywords CRUD dialogs in UI
-- [ ] Results browser table
-- [ ] Logs view with stats
+- [x] Frontend with all tabs
+- [x] Apify Google Maps discovery (`scraper_google.py`)
+- [x] DBPR via bulk CSV + Apify fallback (`scraper_dbpr.py`, `dbpr_loader.py`)
+- [x] BBB Apify actor (`scraper_bbb.py`)
+- [x] Apollo email/owner/company enrichment (`enrichment.py`)
+- [x] Keywords CRUD, Results browser, Logs

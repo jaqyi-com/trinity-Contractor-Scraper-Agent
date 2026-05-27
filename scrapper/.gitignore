@@ -51,6 +51,5 @@ Thumbs.db
 *.swo
 *~
 
-# ───── Reference (don't commit prod scraper) ─────
-Scraping_code/
-Scraping_code.zip
+# ───── Build / TS cache ─────
+*.tsbuildinfo

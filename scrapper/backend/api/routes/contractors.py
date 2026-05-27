@@ -300,18 +300,43 @@ async def get_contractor(contractor_id: int):
 
 @router.get("/{contractor_id}/classification")
 async def contractor_classification(contractor_id: int):
-    """Audit trail for one contractor — the "why included" details."""
+    """Audit trail for one contractor — the "why included" details.
+
+    The classifier logs decisions before the contractor row exists, so
+    classification_log.contractor_id is never set. We instead link by the
+    Google place_id (logged per decision; stored as place_ids on the row),
+    falling back to the normalized business name.
+    """
     conn = _get_conn()
     try:
         with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(
-                """
-                SELECT * FROM classification_log
-                WHERE contractor_id = %s
-                ORDER BY created_at DESC
-                """,
+                "SELECT business_name, place_ids FROM contractors WHERE id = %s",
                 (contractor_id,),
             )
+            row = cur.fetchone()
+            if not row:
+                raise HTTPException(status_code=404, detail="Contractor not found")
+
+            place_ids = row.get("place_ids") or []
+            if place_ids:
+                cur.execute(
+                    """
+                    SELECT * FROM classification_log
+                    WHERE contractor_id = %s OR place_id = ANY(%s)
+                    ORDER BY created_at DESC
+                    """,
+                    (contractor_id, place_ids),
+                )
+            else:
+                cur.execute(
+                    """
+                    SELECT * FROM classification_log
+                    WHERE contractor_id = %s OR business_name = %s
+                    ORDER BY created_at DESC
+                    """,
+                    (contractor_id, row.get("business_name")),
+                )
             return [dict(r) for r in cur.fetchall()]
     finally:
         conn.close()

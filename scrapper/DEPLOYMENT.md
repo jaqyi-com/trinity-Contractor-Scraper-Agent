@@ -6,7 +6,7 @@ Production deployment for the Contractor Scraper Agent.
 - **Backend (API + Pipeline)**: Google Cloud Run
 - **Database**: Neon Postgres (already provisioned)
 
-> Scraping pipeline runs ~3–6 hours per full run (spec acceptance criteria). Cloud Run is chosen because it supports long-running containers, Playwright/Chromium, streaming responses, and no 4.5 MB body cap.
+> Scraping pipeline runs ~3–6 hours per full run (spec acceptance criteria). Cloud Run is chosen because it supports long-running containers, streaming responses, and no 4.5 MB body cap.
 
 ---
 
@@ -42,7 +42,7 @@ gcloud auth configure-docker us-central1-docker.pkg.dev
 │  (Frontend SPA) │            │  contractor-scraper-api  │
 │  Vite + React   │            │  - FastAPI / uvicorn     │
 └─────────────────┘            │  - Pipeline (asyncio bg) │
-                               │  - Playwright (Chromium) │
+                               │  - HTTP-API scrapers     │
                                └────────┬─────────────────┘
                                         │
                                         ▼
@@ -63,8 +63,9 @@ gcloud auth configure-docker us-central1-docker.pkg.dev
 Place this at `backend/Dockerfile`:
 
 ```dockerfile
-# Playwright official image — already has Chromium + system deps
-FROM mcr.microsoft.com/playwright/python:v1.41.0-jammy
+# Slim Python base — no browser needed (DBPR uses the bulk CSV + Apify, not
+# Playwright; BBB uses Apify). Small image, fast cold starts.
+FROM python:3.13-slim
 
 WORKDIR /app
 
@@ -82,7 +83,8 @@ EXPOSE 8080
 CMD ["sh", "-c", "uvicorn api.main:app --host 0.0.0.0 --port $PORT"]
 ```
 
-> Using the official Playwright base image saves ~10 min of build time vs `playwright install chromium` from scratch.
+> No Chromium/Playwright in the image — all scraping is via HTTP APIs
+> (Apify actors) and the official DBPR bulk CSV download.
 
 ### 3.2 Add `.dockerignore`
 
@@ -136,8 +138,8 @@ gcloud run deploy contractor-scraper-api \
     --memory=4Gi \
     --timeout=3600 \
     --port=8080 \
-    --set-env-vars="FRONTEND_URL=https://<your-frontend>.vercel.app,DATA_DIR=/tmp/data,EXPORT_DIR=/tmp/exports" \
-    --set-secrets="POSTGRES_DSN=postgres-dsn:latest,OUTSCRAPER_API_KEY=outscraper-key:latest,APOLLO_API_KEY=apollo-key:latest,HUNTER_API_KEY=hunter-key:latest,APIFY_API_TOKEN=apify-token:latest"
+    --set-env-vars="FRONTEND_URL=https://<your-frontend>.vercel.app,DATA_DIR=/tmp/data" \
+    --set-secrets="POSTGRES_DSN=postgres-dsn:latest,APIFY_API_TOKEN=apify-token:latest,APOLLO_API_KEY=apollo-key:latest"
 ```
 
 ### 3.6 Critical flags explained
@@ -146,7 +148,7 @@ gcloud run deploy contractor-scraper-api \
 |---|---|
 | `--no-cpu-throttling` | **Required** — background pipeline runs after HTTP response returns. Default mode throttles CPU when no request is active, which would freeze the scraper mid-run. |
 | `--min-instances=1` | Keep one warm instance always running. Without this, the container scales to zero after idle and kills any in-flight pipeline. |
-| `--cpu=2 --memory=4Gi` | Playwright + scraping needs headroom. 1 vCPU/512Mi default will OOM. |
+| `--cpu=2 --memory=4Gi` | Pipeline holds the DBPR bulk index + concurrent API calls in memory. 1 vCPU/512Mi default is tight. |
 | `--timeout=3600` | Per-request max (60 min). Pipeline runs in background after response, so this only matters for the longest sync endpoint (CSV export). 60 min is enough for 100k+ row exports. |
 | `--allow-unauthenticated` | Frontend calls the API publicly; auth is handled by JWT in app code. |
 
@@ -156,12 +158,12 @@ gcloud run deploy contractor-scraper-api \
 
 ### 4.1 Store secrets in Secret Manager (one-time)
 
+Only **two** provider keys are needed (plus the DB):
+
 ```bash
-echo -n "postgresql://neondb_owner:..." | gcloud secrets create postgres-dsn --data-file=-
-echo -n "<outscraper-key>" | gcloud secrets create outscraper-key --data-file=-
-echo -n "<apollo-key>" | gcloud secrets create apollo-key --data-file=-
-echo -n "<hunter-key>" | gcloud secrets create hunter-key --data-file=-
-echo -n "apify_api_5PQ5vUb2vPNxeagWOmHxROp2nHUG9V0nK0sj" | gcloud secrets create apify-token --data-file=-
+printf '%s' '<POSTGRES_DSN>'    | gcloud secrets create postgres-dsn --data-file=-
+printf '%s' '<APIFY_API_TOKEN>' | gcloud secrets create apify-token  --data-file=-
+printf '%s' '<APOLLO_API_KEY>'  | gcloud secrets create apollo-key   --data-file=-
 ```
 
 Give Cloud Run runtime access:
@@ -172,7 +174,7 @@ PROJECT_NUMBER=$(gcloud projects describe <PROJECT_ID> --format='value(projectNu
 SA="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 
 # Grant secret access
-for SECRET in postgres-dsn outscraper-key apollo-key hunter-key apify-token; do
+for SECRET in postgres-dsn apify-token apollo-key; do
     gcloud secrets add-iam-policy-binding $SECRET \
         --member="serviceAccount:$SA" \
         --role="roles/secretmanager.secretAccessor"
@@ -184,14 +186,10 @@ done
 | Variable | Where | Notes |
 |---|---|---|
 | `POSTGRES_DSN` | Secret Manager | Neon Postgres connection string (already provisioned) |
-| `OUTSCRAPER_API_KEY` | Secret Manager | Google Maps scraping |
-| `APOLLO_API_KEY` | Secret Manager | Email enrichment |
-| `HUNTER_API_KEY` | Secret Manager | Email enrichment fallback |
-| `PDL_API_KEY` | Secret Manager (optional) | People Data Labs — last-resort enrichment |
-| `APIFY_API_TOKEN` | Secret Manager | BBB scraper actor |
+| `APIFY_API_TOKEN` | Secret Manager | **Discovery** (Google Maps) + DBPR + BBB actors |
+| `APOLLO_API_KEY` | Secret Manager | **Enrichment** — email / owner / company (paid key reveals emails) |
 | `FRONTEND_URL` | Plain env | Vercel deployment URL (used in CORS) |
-| `DATA_DIR` | Plain env | `/tmp/data` — Cloud Run only allows `/tmp` writes |
-| `EXPORT_DIR` | Plain env | `/tmp/exports` — see below |
+| `DATA_DIR` | Plain env | `/tmp/data` — Cloud Run only allows `/tmp` writes (stage JSONL only) |
 
 > **`/tmp` is ephemeral.** Files written during a pipeline run survive only as long as the container instance. If JSONL stage files need to persist across restarts, use Google Cloud Storage (section 6). For CSV exports the answer is already covered — they stream directly in the HTTP response, no disk write needed.
 
@@ -253,9 +251,55 @@ gcloud storage buckets add-iam-policy-binding gs://<project-id>-scraper-data \
 
 ### 6.3 Code change
 
-Update `backend/agent/storage.py` to write to GCS via `google-cloud-storage` SDK. Add `google-cloud-storage>=2.10.0` to `requirements.txt`. Set `EXPORT_DIR=gs://<bucket>/exports`.
+Update `backend/agent/storage.py` to write to GCS via `google-cloud-storage` SDK. Add `google-cloud-storage>=2.10.0` to `requirements.txt`. Set `DATA_DIR=gs://<bucket>/data`.
 
 > If you skip GCS, the CSV export feature still works fully (it streams from the DB directly to the HTTP response — no disk involved).
+
+---
+
+## 6.5 Weekly DBPR license refresh (required)
+
+Stage 2 (license tagging) matches contractors against the **`dbpr_licenses`** table,
+which is loaded from Florida DBPR's free, official, weekly-updated bulk CSV
+(~266k construction licensees). The loader is `agent/dbpr_loader.py`:
+
+```bash
+# One-off / local
+cd backend && python -m agent.dbpr_loader
+```
+
+This downloads `CONSTRUCTIONLICENSE_1.csv`, parses it, and full-replaces the table.
+Businesses not found in the bulk file (e.g. Null&Void/delinquent licences, which
+DBPR omits from the extract) automatically fall back to the paid Apify DBPR
+verifier at scrape time — so the bulk table is the free fast-path, not the only path.
+
+### Schedule it weekly on Cloud Run
+
+Deploy the loader as a **Cloud Run Job** and trigger it weekly with Cloud Scheduler
+(the DBPR file refreshes weekly, so daily is wasteful):
+
+```bash
+# Create the job (reuses the same image as the API)
+gcloud run jobs create dbpr-refresh \
+    --image us-central1-docker.pkg.dev/<PROJECT_ID>/scraper/api:latest \
+    --region us-central1 \
+    --command python --args "-m,agent.dbpr_loader" \
+    --set-secrets="POSTGRES_DSN=postgres-dsn:latest" \
+    --set-secrets="APIFY_API_TOKEN=apify-token:latest" \
+    --task-timeout=600 --memory=1Gi
+
+# Trigger every Monday 06:00 UTC
+gcloud scheduler jobs create http dbpr-refresh-weekly \
+    --location us-central1 \
+    --schedule="0 6 * * 1" \
+    --uri="https://<region>-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/<PROJECT_ID>/jobs/dbpr-refresh:run" \
+    --http-method=POST \
+    --oauth-service-account-email=<PROJECT_NUMBER>-compute@developer.gserviceaccount.com
+```
+
+> The loader needs `POSTGRES_DSN`; `APIFY_API_TOKEN` is only used by the runtime
+> fallback at scrape time, not by the loader itself, but keeping it on the image
+> env is harmless.
 
 ---
 
@@ -296,7 +340,6 @@ No change from before:
 cd backend
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-playwright install chromium
 cp .env.example .env  # then fill in real values
 bash start.sh
 
@@ -342,7 +385,7 @@ curl -X POST https://<cloud-run-url>/api/auth/login \
 |---|---|
 | Cloud Run (min=1, 2 vCPU/4 GiB, always-on CPU) | ~$30–50/mo |
 | Neon Postgres | Existing (paid by client) |
-| Outscraper / Apollo / Hunter / Apify | Pay-per-use, ~$50–100 per full pipeline run |
+| Apify + Apollo | Pay-per-use, ~$50–100 per full pipeline run |
 | Vercel Pro | Existing |
 | Artifact Registry storage | <$1 |
 | **Total infra** | **~$30–50/mo idle, +per-run scraper costs** |
@@ -380,7 +423,54 @@ CSV export specifically:
 |---|---|---|
 | 502 from Cloud Run after deploy | Container failed to start; check uvicorn binds to `$PORT` | Check logs: `gcloud run services logs read contractor-scraper-api --region us-central1` |
 | Pipeline stops partway through | CPU throttled mid-run | Confirm `--no-cpu-throttling` and `--min-instances=1` are set |
-| Playwright errors "browser not found" | Wrong base image | Use `mcr.microsoft.com/playwright/python:vX.Y.Z-jammy` |
+| DBPR licenses all show "unlicensed"/"unknown" | Bulk table empty + Apify fallback failing | Run `python -m agent.dbpr_loader` (or let the first scrape auto-bootstrap it); check `APIFY_API_TOKEN` |
 | CORS errors in browser | `FRONTEND_URL` env var doesn't match deployed Vercel URL | Update via `gcloud run services update ... --update-env-vars FRONTEND_URL=...` |
 | CSV download fails for large sets | Cloud Run 60 min request cap hit | Either tighten filters or move export to Cloud Run Jobs (section 7) |
 | Stage JSONL files missing after redeploy | Container filesystem ephemeral | Expected — use GCS (section 6) only if persistence required |
+| Scrape returns only ~10 businesses per metro | The temporary discovery cap is active | Expected during testing — see §13 to lift it |
+
+---
+
+## 13. ⚠️ Discovery (Apify Google Maps) — TEMPORARY 10-RESULT CAP (remove before client handoff)
+
+Stage 1 (Google discovery) uses the **Apify Google Maps actor**
+`compass/crawler-google-places` — the sole discovery source (no separate
+Outscraper key). Code: `backend/agent/scraper_google.py` (`scrape_metro` →
+`_scrape_apify_maps` → `_apify_place_to_seed`). Needs `APIFY_API_TOKEN`.
+
+**A hardcoded safety cap is in place** so early/test runs can't scrape thousands
+of rows or run up Apify cost before the client is ready:
+
+```python
+# backend/agent/scraper_google.py
+DISCOVERY_RESULT_CAP = 10   # ← at most 10 businesses PER METRO
+```
+
+- With the cap, a full 6-metro run yields at most ~60 businesses total, and the
+  actor runs only the **first** search query (`queries[:1]`) per metro.
+- This intentionally does NOT meet the spec's "≥ 2,000 businesses" acceptance
+  criterion — it is a deliberate throttle for the pre-handoff phase.
+
+### 🔧 To go full-scale (when handing the client the real dataset)
+
+1. Edit `backend/agent/scraper_google.py`: set `DISCOVERY_RESULT_CAP = None`.
+   The actor then runs **all** `DEFAULT_QUERIES` per metro with
+   `maxCrawledPlacesPerSearch=120`.
+2. Confirm `APIFY_API_TOKEN` is funded (Apify Google Maps ≈ $50–75 for a full run).
+3. Redeploy. The next scrape discovers the full 3,000–5,000-business universe.
+
+> **Do not ship the cap to the client.** It silently limits output to 10/metro.
+> This is the single most important pre-handoff toggle.
+
+### Field mapping (`_apify_place_to_seed`, already implemented)
+Maps compass actor output: `title→business_name`, `address→address`,
+`postalCode→zip_code`, `phoneUnformatted→`E.164, `website→website`,
+`emails→email`, `categoryName/categories→google_categories`,
+`totalScore→google_rating`, `reviewsCount→google_review_count`,
+`facebooks/instagrams/linkedIns→social_profiles`. `scrapeContacts: true` pulls
+emails + socials in the same pass. Subtype include/exclude is enforced by the
+Stage-3 classifier, not at scrape time.
+
+> ⚠️ The live Apify Maps path is **wired and unit-mapped but not yet live-tested**
+> — the dev's Apify free credit was exhausted during build. Run one live scrape
+> on the funded production token to confirm before relying on it.
