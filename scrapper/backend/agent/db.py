@@ -68,7 +68,9 @@ def compute_dedupe_key(record: Dict[str, Any]) -> str:
 def _seed_test_user_if_missing() -> None:
     """Ensure a test user exists. Email 'test@example.com', password '123456'."""
     db = get_db()
-    if db.find_one("users", lambda r: r.get("email") == "test@example.com"):
+    existing = db.find_one("users", lambda r: r.get("email") == "test@example.com")
+    if existing:
+        print(f"🔎 [seed] test user already present (id={existing.get('id')}), skipping")
         return
     from api.auth import hash_password
     now = datetime.utcnow()
@@ -78,7 +80,10 @@ def _seed_test_user_if_missing() -> None:
         "password_hash": hash_password("123456"),
         "created_at": now,
     })
-    print("✅ Seeded test user: test@example.com / 123456")
+    # Force a flush so the row hits Sheets before the first login request,
+    # not 2s later when the background flusher next wakes.
+    db.flush_all()
+    print("✅ Seeded test user: test@example.com / 123456 (flushed)")
 
 
 def _seed_cities_from_yaml_if_empty() -> None:

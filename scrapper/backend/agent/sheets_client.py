@@ -197,11 +197,20 @@ class SheetsDB:
         if created:
             print(f"✅ [Sheets] created {created} new tabs")
 
+        # 🔎 DIAG — surface which spreadsheet we opened so production logs leave
+        # no doubt about which sheet the deploy is talking to.
+        try:
+            print(f"🔎 [Sheets] opened spreadsheet: title={self._spreadsheet.title!r} "
+                  f"id={SPREADSHEET_ID!r}")
+        except Exception:
+            pass
+
         self._load_mirror()
         self._start_flusher()
         self._bootstrapped = True
+        per_tab = ", ".join(f"{t}={len(self.mirror[t])}" for t in TAB_NAMES)
         print(f"✅ [Sheets] storage ready — "
-              f"{sum(len(m) for m in self.mirror.values())} rows mirrored across {len(TAB_NAMES)} tabs")
+              f"{sum(len(m) for m in self.mirror.values())} total rows  ({per_tab})")
 
     def _load_mirror(self) -> None:
         """Pull every tab into memory once. Subsequent reads are dict lookups."""
