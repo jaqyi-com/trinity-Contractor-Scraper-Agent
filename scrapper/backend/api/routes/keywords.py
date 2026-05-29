@@ -1,7 +1,7 @@
 # api/routes/keywords.py
 # Keywords CRUD endpoints — feeds Tab 2 of UI.
 
-from typing import Optional, Dict, Any, List
+from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
@@ -12,6 +12,7 @@ from agent.keywords import (
     delete_keyword,
     list_changes,
 )
+from agent import db
 from api.auth import get_current_user
 
 router = APIRouter(dependencies=[Depends(get_current_user)])
@@ -56,40 +57,15 @@ async def list_endpoint(
 @router.get("/facets")
 async def facets_endpoint():
     """Counts per tier — used by tier-tab badges."""
-    from agent.db import _get_conn
-    from psycopg2.extras import RealDictCursor
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT tier AS value,
-                       COUNT(*) AS n,
-                       COUNT(*) FILTER (WHERE active) AS n_active
-                FROM keywords
-                GROUP BY tier
-                ORDER BY tier
-                """
-            )
-            return [dict(r) for r in cur.fetchall()]
-    finally:
-        conn.close()
+    return db.keyword_facets()
 
 
 @router.get("/{keyword_id}")
 async def get_endpoint(keyword_id: int):
-    from agent.db import _get_conn
-    from psycopg2.extras import RealDictCursor
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM keywords WHERE id = %s", (keyword_id,))
-            row = cur.fetchone()
-            if not row:
-                raise HTTPException(status_code=404, detail="Keyword not found")
-            return dict(row)
-    finally:
-        conn.close()
+    row = db.get_keyword(keyword_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Keyword not found")
+    return row
 
 
 @router.post("")

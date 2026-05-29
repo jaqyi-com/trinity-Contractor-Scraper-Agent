@@ -27,7 +27,7 @@ from agent.schema import ContractorRow, GoogleSeed
 # (Previously each of METRO_WORKERS metro threads had its own pool, so real peak
 # was METRO_WORKERS × ENRICH_WORKERS.) Set this to your Apify plan's concurrency
 # limit — too low and a 5k-row run crawls (BBB ≈ 45s/row, so 5000/W × 45s).
-ENRICH_WORKERS = int(os.getenv("ENRICH_WORKERS", "16"))
+ENRICH_WORKERS = int(os.getenv("ENRICH_WORKERS", "18"))
 
 
 # ──────────────────────────────────────────────────────────────

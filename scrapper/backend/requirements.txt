@@ -7,7 +7,12 @@
 python-dotenv>=1.0.0
 pydantic>=2.5.0
 requests>=2.31.0
-psycopg2-binary>=2.9.9
+# psycopg2-binary removed — storage is now Google Sheets (see agent/sheets_client.py)
+
+# Google Sheets storage
+gspread>=6.1.0
+google-auth>=2.30.0
+pandas>=2.2.0                # in-memory DBPR index
 
 # Web framework + async
 fastapi>=0.110.0

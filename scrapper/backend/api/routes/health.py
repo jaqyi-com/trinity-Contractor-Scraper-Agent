@@ -2,23 +2,16 @@
 # /api/health endpoint — used by cron-job.org to keep Render service awake.
 
 from fastapi import APIRouter
-from agent.db import _get_conn
+
+from agent.db import ping
 
 router = APIRouter()
 
 
 @router.get("/health")
 async def health():
-    """Health check. Reports DB connectivity."""
-    db_ok = False
-    try:
-        conn = _get_conn()
-        conn.close()
-        db_ok = True
-    except Exception:
-        pass
-
+    """Health check. Reports storage (Google Sheets) connectivity."""
     return {
         "status": "ok",
-        "db": "connected" if db_ok else "disconnected",
+        "db": "connected" if ping() else "disconnected",
     }

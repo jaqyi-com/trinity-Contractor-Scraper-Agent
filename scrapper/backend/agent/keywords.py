@@ -1,15 +1,14 @@
 # keywords.py
-# DB-backed keyword store + CRUD helpers (used by classifier + API routes).
-# Wraps agent/db.py keyword functions and adds change-log tracking.
+# DB-backed keyword store + CRUD with change-log tracking.
+# All storage is via agent/db.py (Google Sheets backend).
 
-import json
-from typing import List, Optional, Dict, Any
-from agent.db import _get_conn
+from typing import Any, Dict, List, Optional
+
+from agent import db
 
 
 def list_keywords(tier: Optional[str] = None) -> List[Dict[str, Any]]:
-    from agent.db import list_keywords as _list
-    return _list(tier)
+    return db.list_keywords(tier)
 
 
 def create_keyword(
@@ -19,38 +18,29 @@ def create_keyword(
     created_by: str = "user",
     reason: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Insert new keyword + log change."""
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO keywords (tier, keyword, notes, created_by)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (tier, keyword) DO NOTHING
-                RETURNING id, tier, keyword, active, notes, created_at, updated_at, created_by
-                """,
-                (tier, keyword.lower(), notes, created_by),
-            )
-            row = cur.fetchone()
-            if not row:
-                return {}
-            new_id = row[0]
-            cur.execute(
-                """
-                INSERT INTO keyword_changes (keyword_id, action, tier, keyword, after_data, changed_by, reason)
-                VALUES (%s, 'CREATE', %s, %s, %s, %s, %s)
-                """,
-                (new_id, tier, keyword.lower(),
-                 json.dumps({"tier": tier, "keyword": keyword.lower(), "active": True, "notes": notes}),
-                 created_by, reason),
-            )
-            return {
-                "id": new_id, "tier": row[1], "keyword": row[2], "active": row[3],
-                "notes": row[4], "created_by": row[7],
-            }
-    finally:
-        conn.close()
+    """Insert + log. Returns {} if (tier, keyword) already exists."""
+    created = db.insert_keyword_raw(tier, keyword, notes, created_by)
+    if not created:
+        return {}
+    db.insert_keyword_change({
+        "keyword_id": created["id"],
+        "action": "CREATE",
+        "tier": tier,
+        "keyword": keyword.lower(),
+        "after_data": {
+            "tier": tier, "keyword": keyword.lower(), "active": True, "notes": notes,
+        },
+        "changed_by": created_by,
+        "reason": reason,
+    })
+    return {
+        "id": created["id"],
+        "tier": created["tier"],
+        "keyword": created["keyword"],
+        "active": created["active"],
+        "notes": created.get("notes"),
+        "created_by": created.get("created_by"),
+    }
 
 
 def update_keyword(
@@ -59,51 +49,42 @@ def update_keyword(
     changed_by: str = "user",
     reason: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Update keyword + log change."""
     if not updates:
         return None
-
     allowed = {"keyword", "active", "notes"}
     safe = {k: v for k, v in updates.items() if k in allowed}
     if not safe:
         return None
 
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute("SELECT tier, keyword, active, notes FROM keywords WHERE id = %s", (keyword_id,))
-            before = cur.fetchone()
-            if not before:
-                return None
-            before_data = {"tier": before[0], "keyword": before[1], "active": before[2], "notes": before[3]}
+    before = db.get_keyword(keyword_id)
+    if not before:
+        return None
+    before_data = {
+        "tier": before.get("tier"), "keyword": before.get("keyword"),
+        "active": before.get("active"), "notes": before.get("notes"),
+    }
+    after = db.update_keyword_raw(keyword_id, safe)
+    if not after:
+        return None
+    after_data = {
+        "tier": after.get("tier"), "keyword": after.get("keyword"),
+        "active": after.get("active"), "notes": after.get("notes"),
+    }
+    action = "UPDATE"
+    if "active" in safe:
+        action = "ACTIVATE" if safe["active"] else "DEACTIVATE"
 
-            set_clause = ", ".join(f"{k} = %s" for k in safe)
-            values = list(safe.values()) + [keyword_id]
-            cur.execute(
-                f"UPDATE keywords SET {set_clause}, updated_at = NOW() WHERE id = %s",
-                values,
-            )
-
-            cur.execute("SELECT tier, keyword, active, notes FROM keywords WHERE id = %s", (keyword_id,))
-            after = cur.fetchone()
-            after_data = {"tier": after[0], "keyword": after[1], "active": after[2], "notes": after[3]}
-
-            action = "UPDATE"
-            if "active" in safe:
-                action = "ACTIVATE" if safe["active"] else "DEACTIVATE"
-
-            cur.execute(
-                """
-                INSERT INTO keyword_changes (keyword_id, action, tier, keyword, before_data, after_data, changed_by, reason)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (keyword_id, action, after[0], after[1],
-                 json.dumps(before_data), json.dumps(after_data),
-                 changed_by, reason),
-            )
-            return after_data
-    finally:
-        conn.close()
+    db.insert_keyword_change({
+        "keyword_id": keyword_id,
+        "action": action,
+        "tier": after_data["tier"],
+        "keyword": after_data["keyword"],
+        "before_data": before_data,
+        "after_data": after_data,
+        "changed_by": changed_by,
+        "reason": reason,
+    })
+    return after_data
 
 
 def delete_keyword(
@@ -111,37 +92,24 @@ def delete_keyword(
     changed_by: str = "user",
     reason: Optional[str] = None,
 ) -> bool:
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute("SELECT tier, keyword, active, notes FROM keywords WHERE id = %s", (keyword_id,))
-            before = cur.fetchone()
-            if not before:
-                return False
-            before_data = {"tier": before[0], "keyword": before[1], "active": before[2], "notes": before[3]}
-
-            cur.execute(
-                """
-                INSERT INTO keyword_changes (keyword_id, action, tier, keyword, before_data, changed_by, reason)
-                VALUES (%s, 'DELETE', %s, %s, %s, %s, %s)
-                """,
-                (keyword_id, before[0], before[1], json.dumps(before_data), changed_by, reason),
-            )
-            cur.execute("DELETE FROM keywords WHERE id = %s", (keyword_id,))
-            return True
-    finally:
-        conn.close()
+    before = db.get_keyword(keyword_id)
+    if not before:
+        return False
+    before_data = {
+        "tier": before.get("tier"), "keyword": before.get("keyword"),
+        "active": before.get("active"), "notes": before.get("notes"),
+    }
+    db.insert_keyword_change({
+        "keyword_id": keyword_id,
+        "action": "DELETE",
+        "tier": before_data["tier"],
+        "keyword": before_data["keyword"],
+        "before_data": before_data,
+        "changed_by": changed_by,
+        "reason": reason,
+    })
+    return db.delete_keyword_raw(keyword_id)
 
 
 def list_changes(keyword_id: int) -> List[Dict[str, Any]]:
-    from psycopg2.extras import RealDictCursor
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM keyword_changes WHERE keyword_id = %s ORDER BY changed_at DESC",
-                (keyword_id,),
-            )
-            return [dict(r) for r in cur.fetchall()]
-    finally:
-        conn.close()
+    return db.list_keyword_changes(keyword_id)

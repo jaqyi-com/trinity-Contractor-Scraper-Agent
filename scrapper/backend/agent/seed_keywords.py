@@ -1,8 +1,8 @@
 # seed_keywords.py
-# One-time seed: insert PDF Section 1.2 + 3.3 keywords into `keywords` table.
+# One-time seed: insert PDF Section 1.2 + 3.3 keywords into the keywords tab.
 # Run with: python -m agent.seed_keywords
 
-from agent.db import _get_conn, init_schema
+from agent import db
 
 
 SEED = {
@@ -56,32 +56,20 @@ SEED = {
 
 
 def seed_keywords():
-    """Insert seed keywords if `keywords` table is empty."""
-    init_schema()
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM keywords")
-            count = cur.fetchone()[0]
-            if count > 0:
-                print(f"⏩ Keywords table already has {count} rows — skipping seed")
-                return
+    """Insert seed keywords if the keywords tab is empty."""
+    db.init_schema()
+    existing = db.list_keywords()
+    if existing:
+        print(f"⏩ Keywords already has {len(existing)} rows — skipping seed")
+        return
 
-            inserted = 0
-            for tier, words in SEED.items():
-                for kw in words:
-                    cur.execute(
-                        """
-                        INSERT INTO keywords (tier, keyword, created_by)
-                        VALUES (%s, %s, %s)
-                        ON CONFLICT (tier, keyword) DO NOTHING
-                        """,
-                        (tier, kw.lower(), "system"),
-                    )
-                    inserted += 1
-            print(f"✅ Seeded {inserted} keywords from PDF defaults")
-    finally:
-        conn.close()
+    inserted = 0
+    for tier, words in SEED.items():
+        for kw in words:
+            row = db.insert_keyword_raw(tier, kw.lower(), notes=None, created_by="system")
+            if row:
+                inserted += 1
+    print(f"✅ Seeded {inserted} keywords from PDF defaults")
 
 
 if __name__ == "__main__":

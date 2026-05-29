@@ -1,298 +1,56 @@
 # db.py
-# psycopg2 + raw SQL — production scraper pattern.
-# Self-bootstrapping: CREATE TABLE IF NOT EXISTS runs on first connection.
+# Storage layer — Google Sheets (replaces psycopg2/Postgres).
+#
+# The public surface mirrors the old Postgres helpers byte-for-byte so callers
+# (pipeline, processor, api/routes/*) don't change: same function names, same
+# arguments, same return shapes. The bodies route through agent.sheets_client,
+# which holds an in-memory mirror + batched write buffer + background flusher.
+#
+# DBPR licenses are NOT stored here anymore — they live in a per-process pandas
+# DataFrame loaded from the official Florida CSV on demand (see dbpr_loader.py).
 
 import os
-import json
 import uuid
-from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional
 
-import threading
-
-import psycopg2
-import psycopg2.extensions
-from psycopg2.extras import RealDictCursor, execute_values
-from psycopg2 import pool as _pgpool
 from dotenv import load_dotenv
+
+from agent.sheets_client import get_db
+from utils.phone_normalizer import normalize_phone
+from utils.url_normalizer import extract_domain
+from utils.name_normalizer import normalize_name
 
 load_dotenv()
 
-POSTGRES_DSN = os.getenv("POSTGRES_DSN")
-DB_POOL_MIN = int(os.getenv("DB_POOL_MIN", "3"))   # pre-warmed conns for parallel page-load calls
-DB_POOL_MAX = int(os.getenv("DB_POOL_MAX", "20"))
-
 
 # ──────────────────────────────────────────────────────────────
-# Connection POOL
-# Opening a fresh Neon connection costs ~1.9s (remote + SSL handshake); the
-# query itself is ~0.3s. So we pool connections and reuse them — every existing
-# `conn = _get_conn(); ...; conn.close()` call now borrows/returns from the pool
-# (the proxy's .close() returns it instead of really closing). ~5× faster GETs.
-# ──────────────────────────────────────────────────────────────
-_POOL = None
-_POOL_LOCK = threading.Lock()
-
-
-def _get_pool():
-    global _POOL
-    if _POOL is None:
-        with _POOL_LOCK:
-            if _POOL is None:
-                if not POSTGRES_DSN:
-                    raise RuntimeError("POSTGRES_DSN not set in .env")
-                _POOL = _pgpool.ThreadedConnectionPool(DB_POOL_MIN, DB_POOL_MAX, POSTGRES_DSN)
-    return _POOL
-
-
-class _PooledConn:
-    """Proxy around a pooled psycopg2 connection. Delegates everything, but
-    .close() returns the connection to the pool instead of closing it, so all
-    existing `conn.close()` call sites become pool-returns with no code change."""
-
-    def __init__(self, conn, pool):
-        self._conn = conn
-        self._pool = pool
-
-    def close(self):
-        try:
-            if self._conn.closed == 0:
-                # Only rollback if a txn is actually open/aborted — skipping the
-                # no-op rollback saves a network round-trip on read-only calls.
-                if self._conn.info.transaction_status != psycopg2.extensions.TRANSACTION_STATUS_IDLE:
-                    try:
-                        self._conn.rollback()
-                    except Exception:
-                        pass
-                self._pool.putconn(self._conn)
-            else:
-                self._pool.putconn(self._conn, close=True)
-        except Exception:
-            try:
-                self._conn.close()
-            except Exception:
-                pass
-
-    def __getattr__(self, name):
-        return getattr(self._conn, name)
-
-    def __enter__(self):
-        return self._conn.__enter__()
-
-    def __exit__(self, *exc):
-        return self._conn.__exit__(*exc)
-
-
-def _get_conn():
-    """Borrow a connection from the pool. Returns a proxy whose .close()
-    returns it to the pool. Discards/replaces connections Neon has dropped."""
-    pool = _get_pool()
-    for _ in range(3):
-        conn = pool.getconn()
-        if conn.closed != 0:
-            pool.putconn(conn, close=True)  # stale (Neon dropped it) — drop + retry
-            continue
-        return _PooledConn(conn, pool)
-    # Last resort: a direct connection (won't be pooled)
-    return psycopg2.connect(POSTGRES_DSN)
-
-
-# ──────────────────────────────────────────────────────────────
-# Schema bootstrap — runs once at startup
+# Schema bootstrap — equivalent of old init_schema() but for Sheets.
+# Connects, creates missing tabs + header rows, loads mirror into RAM.
+# Idempotent: safe to call from FastAPI lifespan, CLI scripts, tests.
 # ──────────────────────────────────────────────────────────────
 def init_schema() -> None:
-    """Create all tables if they don't exist. Idempotent."""
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute("""
-                CREATE TABLE IF NOT EXISTS jobs (
-                    job_id            UUID PRIMARY KEY,
-                    status            TEXT NOT NULL,
-                    current_stage     TEXT,
-                    stages_progress   JSONB,
-                    started_at        TIMESTAMPTZ DEFAULT NOW(),
-                    finished_at       TIMESTAMPTZ,
-                    error             TEXT,
-                    keywords_snapshot JSONB
-                );
-
-                CREATE TABLE IF NOT EXISTS contractors (
-                    id                   BIGSERIAL PRIMARY KEY,
-                    business_name        TEXT NOT NULL,
-                    city                 TEXT,
-                    zip_code             TEXT,
-                    address              TEXT,
-                    tier                 TEXT,
-                    specialty_keywords   JSONB,
-                    google_categories    JSONB,
-                    services_listed      JSONB,
-                    phone                TEXT,
-                    email                TEXT,
-                    website              TEXT,
-                    owner_name           TEXT,
-                    license_status       TEXT,
-                    license_numbers      JSONB,
-                    license_categories   JSONB,
-                    google_rating        REAL,
-                    google_review_count  INTEGER,
-                    bbb_rating           TEXT,
-                    bbb_accredited       BOOLEAN,
-                    years_in_business    INTEGER,
-                    social_profiles      JSONB,
-                    sources              JSONB,
-                    place_ids            JSONB,
-                    dedupe_key           TEXT,
-                    scraped_at           TIMESTAMPTZ DEFAULT NOW(),
-                    job_id               UUID REFERENCES jobs(job_id)
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_contractors_city ON contractors(city);
-                CREATE INDEX IF NOT EXISTS idx_contractors_tier ON contractors(tier);
-                CREATE INDEX IF NOT EXISTS idx_contractors_phone ON contractors(phone);
-                CREATE INDEX IF NOT EXISTS idx_contractors_job_id ON contractors(job_id);
-                CREATE UNIQUE INDEX IF NOT EXISTS idx_contractors_dedupe_key ON contractors(dedupe_key);
-
-                CREATE TABLE IF NOT EXISTS stage_outputs (
-                    id         BIGSERIAL PRIMARY KEY,
-                    job_id     UUID REFERENCES jobs(job_id),
-                    stage_name TEXT,
-                    row_index  INTEGER,
-                    data       JSONB,
-                    created_at TIMESTAMPTZ DEFAULT NOW()
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_stage_outputs_job_stage
-                    ON stage_outputs(job_id, stage_name);
-
-                CREATE TABLE IF NOT EXISTS keywords (
-                    id          BIGSERIAL PRIMARY KEY,
-                    tier        TEXT NOT NULL,
-                    keyword     TEXT NOT NULL,
-                    active      BOOLEAN DEFAULT TRUE,
-                    notes       TEXT,
-                    created_at  TIMESTAMPTZ DEFAULT NOW(),
-                    updated_at  TIMESTAMPTZ DEFAULT NOW(),
-                    created_by  TEXT DEFAULT 'system',
-                    UNIQUE(tier, keyword)
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_keywords_tier_active
-                    ON keywords(tier, active);
-
-                CREATE TABLE IF NOT EXISTS keyword_changes (
-                    id          BIGSERIAL PRIMARY KEY,
-                    keyword_id  BIGINT REFERENCES keywords(id) ON DELETE SET NULL,
-                    action      TEXT NOT NULL,
-                    tier        TEXT,
-                    keyword     TEXT,
-                    before_data JSONB,
-                    after_data  JSONB,
-                    changed_by  TEXT,
-                    changed_at  TIMESTAMPTZ DEFAULT NOW(),
-                    reason      TEXT
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_keyword_changes_keyword_id
-                    ON keyword_changes(keyword_id);
-                CREATE INDEX IF NOT EXISTS idx_keyword_changes_changed_at
-                    ON keyword_changes(changed_at);
-
-                CREATE TABLE IF NOT EXISTS classification_log (
-                    id                  BIGSERIAL PRIMARY KEY,
-                    job_id              UUID REFERENCES jobs(job_id),
-                    contractor_id       BIGINT REFERENCES contractors(id) ON DELETE SET NULL,
-                    business_name       TEXT,
-                    place_id            TEXT,
-                    decision            TEXT NOT NULL,
-                    assigned_tier       TEXT,
-                    matched_keywords    JSONB,
-                    exclusion_keywords  JSONB,
-                    classifier_text     TEXT,
-                    reason              TEXT,
-                    created_at          TIMESTAMPTZ DEFAULT NOW()
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_classification_log_job_id
-                    ON classification_log(job_id);
-                CREATE INDEX IF NOT EXISTS idx_classification_log_decision
-                    ON classification_log(decision);
-                CREATE INDEX IF NOT EXISTS idx_classification_log_tier
-                    ON classification_log(assigned_tier);
-
-                CREATE TABLE IF NOT EXISTS users (
-                    id            BIGSERIAL PRIMARY KEY,
-                    email         TEXT NOT NULL UNIQUE,
-                    name          TEXT NOT NULL,
-                    password_hash TEXT NOT NULL,
-                    created_at    TIMESTAMPTZ DEFAULT NOW()
-                );
-
-                CREATE TABLE IF NOT EXISTS cities (
-                    id         BIGSERIAL PRIMARY KEY,
-                    name       TEXT NOT NULL,
-                    state      TEXT NOT NULL DEFAULT 'FL',
-                    created_at TIMESTAMPTZ DEFAULT NOW(),
-                    updated_at TIMESTAMPTZ DEFAULT NOW(),
-                    UNIQUE(name, state)
-                );
-
-                CREATE TABLE IF NOT EXISTS city_zips (
-                    id         BIGSERIAL PRIMARY KEY,
-                    city_id    BIGINT NOT NULL REFERENCES cities(id) ON DELETE CASCADE,
-                    zip_code   TEXT NOT NULL,
-                    created_at TIMESTAMPTZ DEFAULT NOW(),
-                    UNIQUE(city_id, zip_code)
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_city_zips_city ON city_zips(city_id);
-
-                CREATE TABLE IF NOT EXISTS dbpr_licenses (
-                    id                  BIGSERIAL PRIMARY KEY,
-                    license_number      TEXT,
-                    occupation_code     TEXT,
-                    licensee_name       TEXT,
-                    dba_name            TEXT,
-                    normalized_name     TEXT,
-                    normalized_dba      TEXT,
-                    primary_status      TEXT,
-                    secondary_status    TEXT,
-                    license_status      TEXT,
-                    city                TEXT,
-                    state               TEXT,
-                    zip_code            TEXT,
-                    original_issue_date TEXT,
-                    expiration_date     TEXT,
-                    refreshed_at        TIMESTAMPTZ DEFAULT NOW()
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_dbpr_norm_name ON dbpr_licenses(normalized_name);
-                CREATE INDEX IF NOT EXISTS idx_dbpr_norm_dba ON dbpr_licenses(normalized_dba);
-
-                CREATE TABLE IF NOT EXISTS app_settings (
-                    key        TEXT PRIMARY KEY,
-                    value      TEXT,
-                    updated_at TIMESTAMPTZ DEFAULT NOW()
-                );
-            """)
-        print("✅ DB schema initialized")
-    finally:
-        conn.close()
-
-    # Bootstrap default data — idempotent (each function checks if empty first)
+    db = get_db()
+    # bootstrap() is itself idempotent (no-op after first call).
+    db.bootstrap()
+    # Seed defaults (also idempotent: each checks for existing rows first).
     _seed_test_user_if_missing()
     _seed_cities_from_yaml_if_empty()
 
 
+# Back-compat shim — a few callers still import `_get_conn`. After the rewrite
+# nothing should actually call it; raising loudly makes any stragglers obvious.
+def _get_conn():  # noqa: D401
+    raise RuntimeError(
+        "_get_conn() removed: storage moved from Postgres to Google Sheets. "
+        "Use the typed helpers in agent/db.py (e.g. list_keywords, list_classification_log)."
+    )
+
+
 # ──────────────────────────────────────────────────────────────
-# Dedupe key — single canonical key per business for insert-time UPSERT.
-# Priority mirrors PDF 3.4: normalized phone → domain → name + location.
+# Dedupe key — same rule the old Postgres UPSERT used (phone → domain → name+loc).
 # ──────────────────────────────────────────────────────────────
 def compute_dedupe_key(record: Dict[str, Any]) -> str:
-    from utils.phone_normalizer import normalize_phone
-    from utils.url_normalizer import extract_domain
-    from utils.name_normalizer import normalize_name
-
     phone = normalize_phone(record.get("phone")) if record.get("phone") else None
     if phone:
         return f"phone:{phone}"
@@ -305,78 +63,57 @@ def compute_dedupe_key(record: Dict[str, Any]) -> str:
 
 
 # ──────────────────────────────────────────────────────────────
-# Seed defaults — called from init_schema; safe to re-run
+# Seed defaults — called from init_schema; safe to re-run.
 # ──────────────────────────────────────────────────────────────
 def _seed_test_user_if_missing() -> None:
     """Ensure a test user exists. Email 'test@example.com', password '123456'."""
+    db = get_db()
+    if db.find_one("users", lambda r: r.get("email") == "test@example.com"):
+        return
     from api.auth import hash_password
-
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute("SELECT id FROM users WHERE email = %s", ("test@example.com",))
-            if cur.fetchone():
-                return
-            cur.execute(
-                "INSERT INTO users (email, name, password_hash) VALUES (%s, %s, %s)",
-                ("test@example.com", "Test User", hash_password("123456")),
-            )
-        print("✅ Seeded test user: test@example.com / 123456")
-    finally:
-        conn.close()
+    now = datetime.utcnow()
+    db.insert("users", {
+        "email": "test@example.com",
+        "name": "Test User",
+        "password_hash": hash_password("123456"),
+        "created_at": now,
+    })
+    print("✅ Seeded test user: test@example.com / 123456")
 
 
 def _seed_cities_from_yaml_if_empty() -> None:
-    """Load config/cities.yaml into cities + city_zips tables on first boot."""
+    """Load config/cities.yaml into cities + city_zips tabs on first boot."""
     import yaml
     from pathlib import Path
 
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM cities")
-            if cur.fetchone()[0] > 0:
-                return
+    db = get_db()
+    if db.count("cities") > 0:
+        return
 
-            yaml_path = Path(__file__).resolve().parent.parent / "config" / "cities.yaml"
-            if not yaml_path.exists():
-                print(f"⏩ No cities.yaml at {yaml_path} — skipping city seed")
-                return
+    yaml_path = Path(__file__).resolve().parent.parent / "config" / "cities.yaml"
+    if not yaml_path.exists():
+        print(f"⏩ No cities.yaml at {yaml_path} — skipping city seed")
+        return
 
-            data = yaml.safe_load(yaml_path.read_text())
-            cities = data.get("cities", []) if isinstance(data, dict) else []
-            total_zips = 0
-            for c in cities:
-                cur.execute(
-                    """
-                    INSERT INTO cities (name, state)
-                    VALUES (%s, %s)
-                    ON CONFLICT (name, state) DO NOTHING
-                    RETURNING id
-                    """,
-                    (c.get("name"), c.get("state", "FL")),
-                )
-                row = cur.fetchone()
-                if not row:
-                    cur.execute(
-                        "SELECT id FROM cities WHERE name = %s AND state = %s",
-                        (c.get("name"), c.get("state", "FL")),
-                    )
-                    row = cur.fetchone()
-                city_id = row[0]
-                for z in c.get("zips", []) or []:
-                    cur.execute(
-                        """
-                        INSERT INTO city_zips (city_id, zip_code)
-                        VALUES (%s, %s)
-                        ON CONFLICT (city_id, zip_code) DO NOTHING
-                        """,
-                        (city_id, str(z)),
-                    )
-                    total_zips += 1
-        print(f"✅ Seeded {len(cities)} cities + {total_zips} ZIPs from cities.yaml")
-    finally:
-        conn.close()
+    data = yaml.safe_load(yaml_path.read_text())
+    cities = data.get("cities", []) if isinstance(data, dict) else []
+    total_zips = 0
+    now = datetime.utcnow()
+    for c in cities:
+        city = db.insert("cities", {
+            "name": c.get("name"),
+            "state": c.get("state", "FL"),
+            "created_at": now,
+            "updated_at": now,
+        })
+        for z in c.get("zips", []) or []:
+            db.insert("city_zips", {
+                "city_id": city["id"],
+                "zip_code": str(z),
+                "created_at": now,
+            })
+            total_zips += 1
+    print(f"✅ Seeded {len(cities)} cities + {total_zips} ZIPs from cities.yaml")
 
 
 # ──────────────────────────────────────────────────────────────
@@ -384,397 +121,413 @@ def _seed_cities_from_yaml_if_empty() -> None:
 # ──────────────────────────────────────────────────────────────
 def create_job() -> str:
     job_id = str(uuid.uuid4())
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO jobs (job_id, status) VALUES (%s, %s)",
-                (job_id, "pending"),
-            )
-    finally:
-        conn.close()
+    db = get_db()
+    db.insert("jobs", {
+        "job_id": job_id,
+        "status": "pending",
+        "started_at": datetime.utcnow(),
+    })
     return job_id
 
 
 def update_job(job_id: str, **fields) -> None:
-    """Update jobs row. Accepts status, current_stage, stages_progress, error, finished_at, keywords_snapshot."""
     if not fields:
         return
-
-    # JSON-encode dict fields
-    if "stages_progress" in fields and not isinstance(fields["stages_progress"], str):
-        fields["stages_progress"] = json.dumps(fields["stages_progress"])
-    if "keywords_snapshot" in fields and not isinstance(fields["keywords_snapshot"], str):
-        fields["keywords_snapshot"] = json.dumps(fields["keywords_snapshot"])
-
-    set_clauses = ", ".join(f"{k} = %s" for k in fields.keys())
-    values = list(fields.values()) + [job_id]
-
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute(f"UPDATE jobs SET {set_clauses} WHERE job_id = %s", values)
-    finally:
-        conn.close()
+    db = get_db()
+    # Old Postgres code JSON-encoded these before passing through; now the sheets
+    # encoder handles JSON serialisation, so we just hand the native dict in.
+    db.update("jobs", job_id, fields)
 
 
 def get_job(job_id: str) -> Optional[Dict[str, Any]]:
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute("SELECT * FROM jobs WHERE job_id = %s", (job_id,))
-            row = cur.fetchone()
-            return dict(row) if row else None
-    finally:
-        conn.close()
+    return get_db().get_by_id("jobs", job_id)
 
 
 def list_jobs(limit: int = 50) -> List[Dict[str, Any]]:
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT * FROM jobs ORDER BY started_at DESC LIMIT %s",
-                (limit,),
-            )
-            return [dict(r) for r in cur.fetchall()]
-    finally:
-        conn.close()
+    rows = get_db().all_rows("jobs")
+    rows.sort(key=lambda r: _dt_key(r.get("started_at")), reverse=True)
+    return rows[:limit]
 
 
 def get_running_job() -> Optional[Dict[str, Any]]:
-    """
-    Return the currently active job (status='pending' or 'running') if any.
-    Used by /api/jobs/start to prevent duplicate concurrent runs,
-    and by /api/jobs/current on frontend page-load to restore polling state.
-    """
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT * FROM jobs
-                WHERE status IN ('pending', 'running')
-                ORDER BY started_at DESC
-                LIMIT 1
-                """
-            )
-            row = cur.fetchone()
-            return dict(row) if row else None
-    finally:
-        conn.close()
+    rows = get_db().find("jobs", lambda r: r.get("status") in ("pending", "running"))
+    if not rows:
+        return None
+    rows.sort(key=lambda r: _dt_key(r.get("started_at")), reverse=True)
+    return rows[0]
 
 
 # ──────────────────────────────────────────────────────────────
 # Contractors
 # ──────────────────────────────────────────────────────────────
 def insert_contractor(record: Dict[str, Any]) -> int:
-    """Upsert a contractor row keyed by dedupe_key (phone→domain→name+loc).
-    Re-scraping the same business updates the existing row instead of creating
-    a duplicate (PDF 1.4: single deduplicated master). Returns the row id."""
-    dedupe_key = compute_dedupe_key(record)
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO contractors (
-                    business_name, city, zip_code, address, tier,
-                    specialty_keywords, google_categories, services_listed,
-                    phone, email, website, owner_name,
-                    license_status, license_numbers, license_categories,
-                    google_rating, google_review_count,
-                    bbb_rating, bbb_accredited, years_in_business,
-                    social_profiles, sources, place_ids, dedupe_key, job_id
-                ) VALUES (
-                    %s, %s, %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s, %s, %s,
-                    %s, %s, %s,
-                    %s, %s,
-                    %s, %s, %s,
-                    %s, %s, %s, %s, %s
-                )
-                ON CONFLICT (dedupe_key) DO UPDATE SET
-                    business_name      = EXCLUDED.business_name,
-                    city               = EXCLUDED.city,
-                    zip_code           = EXCLUDED.zip_code,
-                    address            = EXCLUDED.address,
-                    tier               = EXCLUDED.tier,
-                    specialty_keywords = EXCLUDED.specialty_keywords,
-                    google_categories  = EXCLUDED.google_categories,
-                    services_listed    = EXCLUDED.services_listed,
-                    phone              = EXCLUDED.phone,
-                    email              = EXCLUDED.email,
-                    website            = EXCLUDED.website,
-                    owner_name         = EXCLUDED.owner_name,
-                    license_status     = EXCLUDED.license_status,
-                    license_numbers    = EXCLUDED.license_numbers,
-                    license_categories = EXCLUDED.license_categories,
-                    google_rating      = EXCLUDED.google_rating,
-                    google_review_count= EXCLUDED.google_review_count,
-                    bbb_rating         = EXCLUDED.bbb_rating,
-                    bbb_accredited     = EXCLUDED.bbb_accredited,
-                    years_in_business  = EXCLUDED.years_in_business,
-                    social_profiles    = EXCLUDED.social_profiles,
-                    sources            = EXCLUDED.sources,
-                    place_ids          = EXCLUDED.place_ids,
-                    scraped_at         = NOW(),
-                    job_id             = EXCLUDED.job_id
-                RETURNING id
-                """,
-                (
-                    record.get("business_name"),
-                    record.get("city"),
-                    record.get("zip_code"),
-                    record.get("address"),
-                    record.get("tier"),
-                    json.dumps(record.get("specialty_keywords") or []),
-                    json.dumps(record.get("google_categories") or []),
-                    json.dumps(record.get("services_listed") or []),
-                    record.get("phone"),
-                    record.get("email"),
-                    record.get("website"),
-                    record.get("owner_name"),
-                    record.get("license_status", "unknown"),
-                    json.dumps(record.get("license_numbers") or []),
-                    json.dumps(record.get("license_categories") or []),
-                    record.get("google_rating"),
-                    record.get("google_review_count"),
-                    record.get("bbb_rating"),
-                    record.get("bbb_accredited"),
-                    record.get("years_in_business"),
-                    json.dumps(record.get("social_profiles") or {}),
-                    json.dumps(record.get("sources") or []),
-                    json.dumps(record.get("place_ids") or []),
-                    dedupe_key,
-                    record.get("job_id"),
-                ),
-            )
-            return cur.fetchone()[0]
-    finally:
-        conn.close()
+    """Upsert a contractor keyed by dedupe_key. Re-scraping the same business
+    updates its row in place (same id) instead of creating a duplicate."""
+    db = get_db()
+    payload = {
+        "business_name": record.get("business_name"),
+        "city": record.get("city"),
+        "zip_code": record.get("zip_code"),
+        "address": record.get("address"),
+        "tier": record.get("tier"),
+        "specialty_keywords": record.get("specialty_keywords") or [],
+        "google_categories": record.get("google_categories") or [],
+        "services_listed": record.get("services_listed") or [],
+        "phone": record.get("phone"),
+        "email": record.get("email"),
+        "website": record.get("website"),
+        "owner_name": record.get("owner_name"),
+        "license_status": record.get("license_status", "unknown"),
+        "license_numbers": record.get("license_numbers") or [],
+        "license_categories": record.get("license_categories") or [],
+        "google_rating": record.get("google_rating"),
+        "google_review_count": record.get("google_review_count"),
+        "bbb_rating": record.get("bbb_rating"),
+        "bbb_accredited": record.get("bbb_accredited"),
+        "years_in_business": record.get("years_in_business"),
+        "social_profiles": record.get("social_profiles") or {},
+        "sources": record.get("sources") or [],
+        "place_ids": record.get("place_ids") or [],
+        "dedupe_key": compute_dedupe_key(record),
+        "scraped_at": datetime.utcnow(),
+        "job_id": record.get("job_id"),
+    }
+    saved = db.upsert("contractors", payload, unique_field="dedupe_key")
+    return int(saved["id"])
+
+
+def list_contractors(
+    filters: Optional[Dict[str, Any]] = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    limit: int = 50,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """Filtered, sorted, paginated contractor list.
+
+    `filters` keys (all optional, see api/routes/contractors.py for the shape):
+      job_id, city[list], tier[list], license_status[list], search, business_name,
+      zip_code, address, owner_name, bbb_rating,
+      specialty_keywords, google_categories, services_listed,
+      license_numbers, license_categories, sources, place_ids,
+      has_email, has_phone, has_website, bbb_accredited,
+      min_rating, min_review_count, min_years.
+    """
+    f = filters or {}
+    rows = get_db().all_rows("contractors")
+    rows = _filter_contractors(rows, f)
+
+    reverse = (sort_dir or "desc").lower() != "asc"
+    rows.sort(key=lambda r: _sort_key(r, sort_by), reverse=reverse)
+    total = len(rows)
+    page = rows[offset: offset + limit]
+    return {"total": total, "limit": limit, "offset": offset, "rows": page}
+
+
+def iter_contractors_filtered(
+    filters: Optional[Dict[str, Any]] = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+):
+    """Streaming iterator for CSV export (no pagination)."""
+    f = filters or {}
+    rows = get_db().all_rows("contractors")
+    rows = _filter_contractors(rows, f)
+    reverse = (sort_dir or "desc").lower() != "asc"
+    rows.sort(key=lambda r: _sort_key(r, sort_by), reverse=reverse)
+    for r in rows:
+        yield r
+
+
+def get_contractor(contractor_id: int) -> Optional[Dict[str, Any]]:
+    return get_db().get_by_id("contractors", contractor_id)
+
+
+def contractor_facets(job_id: Optional[str] = None) -> Dict[str, Any]:
+    rows = get_db().all_rows("contractors")
+    if job_id:
+        rows = [r for r in rows if r.get("job_id") == job_id]
+
+    def _counts(field: str) -> List[Dict[str, Any]]:
+        from collections import Counter
+        c = Counter(r.get(field) for r in rows if r.get(field))
+        return [{"value": v, "n": n} for v, n in c.most_common()]
+
+    return {
+        "total": len(rows),
+        "cities": _counts("city"),
+        "tiers": _counts("tier"),
+        "license_statuses": _counts("license_status"),
+    }
+
+
+def get_contractor_classification(contractor_id: int) -> List[Dict[str, Any]]:
+    contractor = get_db().get_by_id("contractors", contractor_id)
+    if not contractor:
+        return []
+    place_ids = set(contractor.get("place_ids") or [])
+    name = contractor.get("business_name")
+
+    def _matches(r: Dict[str, Any]) -> bool:
+        if r.get("contractor_id") == contractor_id:
+            return True
+        if r.get("place_id") and r["place_id"] in place_ids:
+            return True
+        if not place_ids and name and r.get("business_name") == name:
+            return True
+        return False
+
+    rows = get_db().find("classification_log", _matches)
+    rows.sort(key=lambda r: _dt_key(r.get("created_at")), reverse=True)
+    return rows
+
+
+def list_contractors_for_job(job_id: str) -> List[Dict[str, Any]]:
+    """Used by dedupe.dedupe_all_for_job — return all rows for one job, ordered by id."""
+    rows = get_db().find("contractors", lambda r: r.get("job_id") == job_id)
+    rows.sort(key=lambda r: r.get("id") or 0)
+    return rows
+
+
+def update_contractor(contractor_id: int, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    return get_db().update("contractors", contractor_id, fields)
+
+
+def delete_contractors_by_ids(ids: List[int]) -> int:
+    db = get_db()
+    n = 0
+    for cid in ids:
+        if db.delete("contractors", cid):
+            n += 1
+    return n
 
 
 # ──────────────────────────────────────────────────────────────
 # Classification log
 # ──────────────────────────────────────────────────────────────
 def insert_classification_log(record: Dict[str, Any]) -> None:
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO classification_log (
-                    job_id, contractor_id, business_name, place_id,
-                    decision, assigned_tier,
-                    matched_keywords, exclusion_keywords,
-                    classifier_text, reason
-                ) VALUES (
-                    %s, %s, %s, %s,
-                    %s, %s,
-                    %s, %s,
-                    %s, %s
-                )
-                """,
-                (
-                    record.get("job_id"),
-                    record.get("contractor_id"),
-                    record.get("business_name"),
-                    record.get("place_id"),
-                    record.get("decision"),
-                    record.get("assigned_tier"),
-                    json.dumps(record.get("matched_keywords") or []),
-                    json.dumps(record.get("exclusion_keywords") or []),
-                    record.get("classifier_text", ""),
-                    record.get("reason", ""),
-                ),
-            )
-    finally:
-        conn.close()
+    get_db().insert("classification_log", {
+        "job_id": record.get("job_id"),
+        "contractor_id": record.get("contractor_id"),
+        "business_name": record.get("business_name"),
+        "place_id": record.get("place_id"),
+        "decision": record.get("decision"),
+        "assigned_tier": record.get("assigned_tier"),
+        "matched_keywords": record.get("matched_keywords") or [],
+        "exclusion_keywords": record.get("exclusion_keywords") or [],
+        "classifier_text": record.get("classifier_text", ""),
+        "reason": record.get("reason", ""),
+        "created_at": datetime.utcnow(),
+    })
 
 
 def insert_classification_logs(records: List[Dict[str, Any]], chunk_size: int = 1000) -> int:
-    """Bulk-insert classification decisions. The phased pipeline classifies every
-    unique seed in one pass, so a per-row INSERT would be thousands of sequential
-    round-trips; execute_values batches them into a handful of statements."""
+    """Bulk insert. Background flusher batches the writes into Sheets calls."""
     if not records:
         return 0
+    now = datetime.utcnow()
+    payload = [{
+        "job_id": r.get("job_id"),
+        "contractor_id": r.get("contractor_id"),
+        "business_name": r.get("business_name"),
+        "place_id": r.get("place_id"),
+        "decision": r.get("decision"),
+        "assigned_tier": r.get("assigned_tier"),
+        "matched_keywords": r.get("matched_keywords") or [],
+        "exclusion_keywords": r.get("exclusion_keywords") or [],
+        "classifier_text": r.get("classifier_text", ""),
+        "reason": r.get("reason", ""),
+        "created_at": now,
+    } for r in records]
+    inserted = get_db().bulk_insert("classification_log", payload)
+    return len(inserted)
 
-    sql = """
-        INSERT INTO classification_log (
-            job_id, contractor_id, business_name, place_id,
-            decision, assigned_tier, matched_keywords, exclusion_keywords,
-            classifier_text, reason
-        ) VALUES %s
-    """
-    conn = _get_conn()
-    try:
-        n = 0
-        for i in range(0, len(records), chunk_size):
-            chunk = records[i:i + chunk_size]
-            vals = [
-                (
-                    r.get("job_id"),
-                    r.get("contractor_id"),
-                    r.get("business_name"),
-                    r.get("place_id"),
-                    r.get("decision"),
-                    r.get("assigned_tier"),
-                    json.dumps(r.get("matched_keywords") or []),
-                    json.dumps(r.get("exclusion_keywords") or []),
-                    r.get("classifier_text", ""),
-                    r.get("reason", ""),
-                )
-                for r in chunk
-            ]
-            with conn, conn.cursor() as cur:
-                execute_values(cur, sql, vals, page_size=chunk_size)
-            n += len(chunk)
-        return n
-    finally:
-        conn.close()
+
+def list_classification_log(
+    job_id: Optional[str] = None,
+    decision: Optional[List[str]] = None,
+    tier: Optional[List[str]] = None,
+    search: Optional[str] = None,
+    sort_by: str = "created_at",
+    sort_dir: str = "desc",
+    limit: int = 100,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    rows = get_db().all_rows("classification_log")
+    if job_id:
+        rows = [r for r in rows if r.get("job_id") == job_id]
+    if decision:
+        rows = [r for r in rows if r.get("decision") in decision]
+    if tier:
+        rows = [r for r in rows if r.get("assigned_tier") in tier]
+    if search:
+        s = search.lower()
+        def _matches(r: Dict[str, Any]) -> bool:
+            for f in ("business_name", "reason", "classifier_text"):
+                v = r.get(f) or ""
+                if s in str(v).lower():
+                    return True
+            return False
+        rows = [r for r in rows if _matches(r)]
+
+    reverse = (sort_dir or "desc").lower() != "asc"
+    rows.sort(key=lambda r: (_sort_key(r, sort_by), -(r.get("id") or 0)), reverse=reverse)
+    total = len(rows)
+    return {"total": total, "limit": limit, "offset": offset, "rows": rows[offset: offset + limit]}
+
+
+def classification_facets(job_id: Optional[str] = None) -> Dict[str, Any]:
+    from collections import Counter
+    rows = get_db().all_rows("classification_log")
+    if job_id:
+        rows = [r for r in rows if r.get("job_id") == job_id]
+
+    decisions = Counter(r.get("decision") for r in rows if r.get("decision"))
+    tiers = Counter(r.get("assigned_tier") for r in rows if r.get("assigned_tier"))
+    return {
+        "total": len(rows),
+        "decisions": [{"value": v, "n": n} for v, n in decisions.most_common()],
+        "tiers": [{"value": v, "n": n} for v, n in tiers.most_common()],
+    }
+
+
+def classification_stats(job_id: Optional[str] = None) -> Dict[str, Any]:
+    from collections import Counter
+    rows = get_db().all_rows("classification_log")
+    if job_id:
+        rows = [r for r in rows if r.get("job_id") == job_id]
+    by_decision = dict(Counter(r.get("decision") for r in rows if r.get("decision")))
+    tiers = Counter(r.get("assigned_tier") for r in rows if r.get("assigned_tier"))
+    return {
+        "by_decision": by_decision,
+        "by_tier": [{"assigned_tier": t, "n": n} for t, n in tiers.most_common()],
+    }
+
+
+def get_classification_log(log_id: int) -> Optional[Dict[str, Any]]:
+    return get_db().get_by_id("classification_log", log_id)
 
 
 # ──────────────────────────────────────────────────────────────
 # Keywords (used by classifier.py + API routes)
 # ──────────────────────────────────────────────────────────────
 def get_active_keywords() -> List[Dict[str, Any]]:
-    """Load all active keywords. Returns list of {tier, keyword} dicts."""
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT id, tier, keyword FROM keywords WHERE active = TRUE"
-            )
-            return [dict(r) for r in cur.fetchall()]
-    finally:
-        conn.close()
+    rows = get_db().find("keywords", lambda r: r.get("active") is True)
+    return [{"id": r.get("id"), "tier": r.get("tier"), "keyword": r.get("keyword")} for r in rows]
 
 
 def list_keywords(tier: Optional[str] = None) -> List[Dict[str, Any]]:
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            if tier:
-                cur.execute(
-                    "SELECT * FROM keywords WHERE tier = %s ORDER BY keyword",
-                    (tier,),
-                )
-            else:
-                cur.execute("SELECT * FROM keywords ORDER BY tier, keyword")
-            return [dict(r) for r in cur.fetchall()]
-    finally:
-        conn.close()
+    rows = get_db().all_rows("keywords")
+    if tier:
+        rows = [r for r in rows if r.get("tier") == tier]
+        rows.sort(key=lambda r: (r.get("keyword") or "").lower())
+    else:
+        rows.sort(key=lambda r: ((r.get("tier") or ""), (r.get("keyword") or "").lower()))
+    return rows
 
 
-# TODO: insert_keyword, update_keyword, delete_keyword, list_keyword_changes
+def get_keyword(keyword_id: int) -> Optional[Dict[str, Any]]:
+    return get_db().get_by_id("keywords", keyword_id)
+
+
+def keyword_facets() -> List[Dict[str, Any]]:
+    from collections import Counter
+    rows = get_db().all_rows("keywords")
+    by_tier: Dict[str, Dict[str, int]] = {}
+    for r in rows:
+        t = r.get("tier")
+        if not t:
+            continue
+        d = by_tier.setdefault(t, {"value": t, "n": 0, "n_active": 0})
+        d["n"] += 1
+        if r.get("active"):
+            d["n_active"] += 1
+    return sorted(by_tier.values(), key=lambda d: d["value"])
+
+
+def insert_keyword_raw(tier: str, keyword: str, notes: Optional[str], created_by: str) -> Dict[str, Any]:
+    """Insert a keyword. Returns the new row, or {} if (tier, keyword) duplicate."""
+    db = get_db()
+    keyword_lc = keyword.lower()
+    if db.find_one("keywords", lambda r: r.get("tier") == tier and r.get("keyword") == keyword_lc):
+        return {}
+    now = datetime.utcnow()
+    return db.insert("keywords", {
+        "tier": tier,
+        "keyword": keyword_lc,
+        "active": True,
+        "notes": notes,
+        "created_by": created_by,
+        "created_at": now,
+        "updated_at": now,
+    })
+
+
+def update_keyword_raw(keyword_id: int, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    return get_db().update("keywords", keyword_id, {**updates, "updated_at": datetime.utcnow()})
+
+
+def delete_keyword_raw(keyword_id: int) -> bool:
+    return get_db().delete("keywords", keyword_id)
+
+
+def insert_keyword_change(record: Dict[str, Any]) -> Dict[str, Any]:
+    return get_db().insert("keyword_changes", {
+        "keyword_id": record.get("keyword_id"),
+        "action": record.get("action"),
+        "tier": record.get("tier"),
+        "keyword": record.get("keyword"),
+        "before_data": record.get("before_data"),
+        "after_data": record.get("after_data"),
+        "changed_by": record.get("changed_by"),
+        "changed_at": datetime.utcnow(),
+        "reason": record.get("reason"),
+    })
+
+
+def list_keyword_changes(keyword_id: int) -> List[Dict[str, Any]]:
+    rows = get_db().find("keyword_changes", lambda r: r.get("keyword_id") == keyword_id)
+    rows.sort(key=lambda r: _dt_key(r.get("changed_at")), reverse=True)
+    return rows
 
 
 # ──────────────────────────────────────────────────────────────
-# DBPR licenses (bulk file — see agent/dbpr_loader.py)
+# DBPR licenses — see agent/dbpr_loader.py (in-memory DataFrame, not Sheets)
 # ──────────────────────────────────────────────────────────────
 def dbpr_license_count() -> int:
-    """Row count in dbpr_licenses (e.g. for health checks / diagnostics)."""
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute("SELECT COUNT(*) FROM dbpr_licenses")
-            return cur.fetchone()[0]
-    finally:
-        conn.close()
+    from agent.dbpr_loader import dbpr_count
+    return dbpr_count()
 
 
 def query_dbpr_by_names(normalized_names: List[str]) -> List[Dict[str, Any]]:
-    """Return dbpr_licenses rows whose normalized name OR dba matches any input."""
-    if not normalized_names:
-        return []
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT * FROM dbpr_licenses
-                WHERE normalized_name = ANY(%s) OR normalized_dba = ANY(%s)
-                """,
-                (normalized_names, normalized_names),
-            )
-            return [dict(r) for r in cur.fetchall()]
-    finally:
-        conn.close()
-
-
-def replace_dbpr_licenses(rows: List[tuple], chunk_size: int = 5000) -> int:
-    """Full replace of the dbpr_licenses table. rows = list of value-tuples
-    matching the INSERT column order below. Inserts in committed chunks so a
-    single huge transaction doesn't get dropped by the Neon pooler."""
-    from psycopg2.extras import execute_values
-
-    insert_sql = """
-        INSERT INTO dbpr_licenses (
-            license_number, occupation_code, licensee_name, dba_name,
-            normalized_name, normalized_dba, primary_status, secondary_status,
-            license_status, city, state, zip_code,
-            original_issue_date, expiration_date
-        ) VALUES %s
-    """
-
-    conn = _get_conn()
-    try:
-        with conn.cursor() as cur:
-            cur.execute("TRUNCATE dbpr_licenses RESTART IDENTITY")
-        conn.commit()
-
-        inserted = 0
-        for i in range(0, len(rows), chunk_size):
-            chunk = rows[i:i + chunk_size]
-            with conn.cursor() as cur:
-                execute_values(cur, insert_sql, chunk, page_size=chunk_size)
-            conn.commit()
-            inserted += len(chunk)
-        return inserted
-    finally:
-        conn.close()
+    from agent.dbpr_loader import query_by_normalized_names
+    return query_by_normalized_names(normalized_names)
 
 
 # ──────────────────────────────────────────────────────────────
-# App settings (key/value) — e.g. max_final_records per pipeline run
+# App settings (key/value)
 # ──────────────────────────────────────────────────────────────
-# Default cap on how many final records a single pipeline run returns. Bounds
-# enrichment cost; user-editable via the Settings UI / API.
 DEFAULT_MAX_FINAL_RECORDS = 5000
 
 
 def get_setting(key: str, default: Optional[str] = None) -> Optional[str]:
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute("SELECT value FROM app_settings WHERE key = %s", (key,))
-            row = cur.fetchone()
-            return row[0] if row else default
-    finally:
-        conn.close()
+    row = get_db().get_by_id("app_settings", key)
+    if not row:
+        return default
+    val = row.get("value")
+    return val if val is not None else default
 
 
 def set_setting(key: str, value: str) -> None:
-    """Upsert a setting value (stored as text)."""
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO app_settings (key, value, updated_at)
-                VALUES (%s, %s, NOW())
-                ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-                """,
-                (key, str(value)),
-            )
-    finally:
-        conn.close()
+    db = get_db()
+    existing = db.get_by_id("app_settings", key)
+    if existing:
+        db.update("app_settings", key, {"value": str(value), "updated_at": datetime.utcnow()})
+    else:
+        db.insert("app_settings", {"key": key, "value": str(value), "updated_at": datetime.utcnow()})
 
 
 def get_max_final_records() -> int:
-    """Configured per-run final-record cap (falls back to the default)."""
     raw = get_setting("max_final_records")
     if raw is None:
         return DEFAULT_MAX_FINAL_RECORDS
@@ -789,185 +542,236 @@ def get_max_final_records() -> int:
 # Users (auth)
 # ──────────────────────────────────────────────────────────────
 def get_user_by_email(email: str) -> Optional[Dict[str, Any]]:
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT id, email, name, password_hash, created_at FROM users WHERE email = %s",
-                (email,),
-            )
-            row = cur.fetchone()
-            return dict(row) if row else None
-    finally:
-        conn.close()
+    return get_db().find_one("users", lambda r: r.get("email") == email)
 
 
 def create_user(email: str, name: str, password_hash: str) -> Dict[str, Any]:
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                INSERT INTO users (email, name, password_hash)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (email) DO NOTHING
-                RETURNING id, email, name, created_at
-                """,
-                (email, name, password_hash),
-            )
-            row = cur.fetchone()
-            return dict(row) if row else {}
-    finally:
-        conn.close()
+    db = get_db()
+    if db.find_one("users", lambda r: r.get("email") == email):
+        return {}
+    return db.insert("users", {
+        "email": email,
+        "name": name,
+        "password_hash": password_hash,
+        "created_at": datetime.utcnow(),
+    })
 
 
 # ──────────────────────────────────────────────────────────────
-# Cities + ZIPs
+# Cities + ZIPs (with zips inlined into each city row, like the old SQL view)
 # ──────────────────────────────────────────────────────────────
+def _city_with_zips(city: Dict[str, Any]) -> Dict[str, Any]:
+    if not city:
+        return city
+    zips = get_db().find("city_zips", lambda r: r.get("city_id") == city.get("id"))
+    zip_codes = sorted(z["zip_code"] for z in zips if z.get("zip_code"))
+    return {**city, "zips": zip_codes}
+
+
 def list_cities() -> List[Dict[str, Any]]:
-    """Return all cities with their zips inlined as a list."""
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT c.id, c.name, c.state, c.created_at, c.updated_at,
-                       COALESCE(
-                           ARRAY_AGG(z.zip_code ORDER BY z.zip_code) FILTER (WHERE z.zip_code IS NOT NULL),
-                           ARRAY[]::TEXT[]
-                       ) AS zips
-                FROM cities c
-                LEFT JOIN city_zips z ON z.city_id = c.id
-                GROUP BY c.id
-                ORDER BY c.name
-                """
-            )
-            return [dict(r) for r in cur.fetchall()]
-    finally:
-        conn.close()
+    cities = get_db().all_rows("cities")
+    cities.sort(key=lambda c: (c.get("name") or "").lower())
+    return [_city_with_zips(c) for c in cities]
 
 
 def get_city(city_id: int) -> Optional[Dict[str, Any]]:
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                """
-                SELECT c.id, c.name, c.state, c.created_at, c.updated_at,
-                       COALESCE(
-                           ARRAY_AGG(z.zip_code ORDER BY z.zip_code) FILTER (WHERE z.zip_code IS NOT NULL),
-                           ARRAY[]::TEXT[]
-                       ) AS zips
-                FROM cities c
-                LEFT JOIN city_zips z ON z.city_id = c.id
-                WHERE c.id = %s
-                GROUP BY c.id
-                """,
-                (city_id,),
-            )
-            row = cur.fetchone()
-            return dict(row) if row else None
-    finally:
-        conn.close()
+    city = get_db().get_by_id("cities", city_id)
+    return _city_with_zips(city) if city else None
 
 
 def create_city(name: str, state: str, zips: Optional[List[str]] = None) -> Optional[Dict[str, Any]]:
-    """Create city; if name+state already exists, return None."""
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute(
-                """
-                INSERT INTO cities (name, state)
-                VALUES (%s, %s)
-                ON CONFLICT (name, state) DO NOTHING
-                RETURNING id
-                """,
-                (name, state),
-            )
-            row = cur.fetchone()
-            if not row:
-                return None
-            city_id = row[0]
-            for z in zips or []:
-                cur.execute(
-                    """
-                    INSERT INTO city_zips (city_id, zip_code)
-                    VALUES (%s, %s)
-                    ON CONFLICT DO NOTHING
-                    """,
-                    (city_id, str(z).strip()),
-                )
-    finally:
-        conn.close()
-    return get_city(city_id)
+    db = get_db()
+    if db.find_one("cities", lambda r: r.get("name") == name and r.get("state") == state):
+        return None
+    now = datetime.utcnow()
+    city = db.insert("cities", {"name": name, "state": state, "created_at": now, "updated_at": now})
+    for z in zips or []:
+        zc = str(z).strip()
+        if not zc:
+            continue
+        db.insert("city_zips", {"city_id": city["id"], "zip_code": zc, "created_at": now})
+    return get_city(city["id"])
 
 
 def update_city(city_id: int, name: Optional[str] = None, state: Optional[str] = None) -> Optional[Dict[str, Any]]:
-    fields = {}
+    fields: Dict[str, Any] = {}
     if name is not None:
         fields["name"] = name
     if state is not None:
         fields["state"] = state
     if not fields:
         return get_city(city_id)
-
-    set_clause = ", ".join(f"{k} = %s" for k in fields)
-    values = list(fields.values()) + [city_id]
-
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute(
-                f"UPDATE cities SET {set_clause}, updated_at = NOW() WHERE id = %s",
-                values,
-            )
-            if cur.rowcount == 0:
-                return None
-    finally:
-        conn.close()
-    return get_city(city_id)
+    fields["updated_at"] = datetime.utcnow()
+    updated = get_db().update("cities", city_id, fields)
+    return _city_with_zips(updated) if updated else None
 
 
 def delete_city(city_id: int) -> bool:
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute("DELETE FROM cities WHERE id = %s", (city_id,))
-            return cur.rowcount > 0
-    finally:
-        conn.close()
+    db = get_db()
+    if not db.get_by_id("cities", city_id):
+        return False
+    # Cascade: remove all city_zips for this city, then the city itself.
+    zips = db.find("city_zips", lambda r: r.get("city_id") == city_id)
+    for z in zips:
+        db.delete("city_zips", z["id"])
+    return db.delete("cities", city_id)
 
 
 def add_zip(city_id: int, zip_code: str) -> bool:
-    """Add a single ZIP to a city. Returns False if city doesn't exist or zip duplicate."""
-    conn = _get_conn()
-    try:
-        with conn, conn.cursor() as cur:
-            cur.execute("SELECT 1 FROM cities WHERE id = %s", (city_id,))
-            if not cur.fetchone():
-                return False
-            cur.execute(
-                """
-                INSERT INTO city_zips (city_id, zip_code)
-                VALUES (%s, %s)
-                ON CONFLICT (city_id, zip_code) DO NOTHING
-                """,
-                (city_id, zip_code.strip()),
-            )
-            return cur.rowcount > 0
-    finally:
-        conn.close()
+    db = get_db()
+    if not db.get_by_id("cities", city_id):
+        return False
+    zc = zip_code.strip()
+    if db.find_one("city_zips", lambda r: r.get("city_id") == city_id and r.get("zip_code") == zc):
+        return False
+    db.insert("city_zips", {"city_id": city_id, "zip_code": zc, "created_at": datetime.utcnow()})
+    return True
 
 
 def remove_zip(city_id: int, zip_code: str) -> bool:
-    conn = _get_conn()
+    db = get_db()
+    target = db.find_one("city_zips", lambda r: r.get("city_id") == city_id and r.get("zip_code") == zip_code.strip())
+    if not target:
+        return False
+    return db.delete("city_zips", target["id"])
+
+
+# ──────────────────────────────────────────────────────────────
+# Health
+# ──────────────────────────────────────────────────────────────
+def ping() -> bool:
+    """Cheap connectivity check — returns True if the spreadsheet is reachable."""
     try:
-        with conn, conn.cursor() as cur:
-            cur.execute(
-                "DELETE FROM city_zips WHERE city_id = %s AND zip_code = %s",
-                (city_id, zip_code.strip()),
-            )
-            return cur.rowcount > 0
-    finally:
-        conn.close()
+        get_db()
+        return True
+    except Exception as e:
+        print(f"⚠️  ping() failed: {e}")
+        return False
+
+
+# ──────────────────────────────────────────────────────────────
+# Internal filter / sort helpers (replaces the WHERE clause builder)
+# ──────────────────────────────────────────────────────────────
+_TEXT_COLS = ("business_name", "zip_code", "address", "owner_name", "bbb_rating")
+_JSON_COLS = (
+    "specialty_keywords", "google_categories", "services_listed",
+    "license_numbers", "license_categories", "sources", "place_ids",
+)
+
+
+def _contains_ci(haystack: Any, needle: str) -> bool:
+    if haystack is None:
+        return False
+    return needle.lower() in str(haystack).lower()
+
+
+def _json_contains_ci(value: Any, needle: str) -> bool:
+    if not value:
+        return False
+    if isinstance(value, (list, tuple)):
+        return any(needle.lower() in str(v).lower() for v in value if v is not None)
+    if isinstance(value, dict):
+        return any(needle.lower() in str(v).lower() for v in value.values() if v is not None) \
+            or any(needle.lower() in str(k).lower() for k in value.keys())
+    return needle.lower() in str(value).lower()
+
+
+def _filter_contractors(rows: List[Dict[str, Any]], f: Dict[str, Any]) -> List[Dict[str, Any]]:
+    out = rows
+
+    job_id = f.get("job_id")
+    if job_id:
+        out = [r for r in out if r.get("job_id") == job_id]
+
+    for field in ("city", "tier", "license_status"):
+        vals = f.get(field)
+        if vals:
+            out = [r for r in out if r.get(field) in vals]
+
+    if f.get("search"):
+        s = f["search"].lower()
+        out = [r for r in out if any(
+            _contains_ci(r.get(col), s)
+            for col in ("business_name", "phone", "email", "website", "address")
+        )]
+
+    for col in _TEXT_COLS:
+        val = f.get(col)
+        if val:
+            out = [r for r in out if _contains_ci(r.get(col), val)]
+
+    for col in _JSON_COLS:
+        val = f.get(col)
+        if val:
+            out = [r for r in out if _json_contains_ci(r.get(col), val)]
+
+    if f.get("has_email") is not None:
+        if f["has_email"]:
+            out = [r for r in out if r.get("email")]
+        else:
+            out = [r for r in out if not r.get("email")]
+    if f.get("has_phone") is not None:
+        if f["has_phone"]:
+            out = [r for r in out if r.get("phone")]
+        else:
+            out = [r for r in out if not r.get("phone")]
+    if f.get("has_website") is not None:
+        if f["has_website"]:
+            out = [r for r in out if r.get("website")]
+        else:
+            out = [r for r in out if not r.get("website")]
+
+    if f.get("bbb_accredited") is not None:
+        out = [r for r in out if bool(r.get("bbb_accredited")) == bool(f["bbb_accredited"])]
+
+    if f.get("min_rating") is not None:
+        out = [r for r in out if (r.get("google_rating") or 0) >= f["min_rating"]]
+    if f.get("min_review_count") is not None:
+        out = [r for r in out if (r.get("google_review_count") or 0) >= f["min_review_count"]]
+    if f.get("min_years") is not None:
+        out = [r for r in out if (r.get("years_in_business") or 0) >= f["min_years"]]
+
+    return out
+
+
+def _dt_key(value: Any) -> datetime:
+    """Coerce a datetime cell to comparable naive-UTC.
+
+    PG migration brought back TIMESTAMPTZ values as tz-aware datetimes; new
+    writes via datetime.utcnow() are naive. Mixing them in sort() raises
+    TypeError. Normalising at the comparison layer is the cheapest fix —
+    every sort by *_at goes through here.
+    """
+    if value is None:
+        return datetime.min
+    if isinstance(value, datetime):
+        return value.astimezone(timezone.utc).replace(tzinfo=None) if value.tzinfo else value
+    # Fallback: ISO string from a half-decoded cell — try to parse, else push to min.
+    try:
+        s = str(value)
+        dt = datetime.fromisoformat(s)
+        return dt.astimezone(timezone.utc).replace(tzinfo=None) if dt.tzinfo else dt
+    except (TypeError, ValueError):
+        return datetime.min
+
+
+def _sort_key(row: Dict[str, Any], field: str) -> Any:
+    """Tolerant of None — pushes None to one end consistently.
+    Datetime fields are normalised to naive-UTC so tz-aware/tz-naive mixes
+    don't blow up sort()."""
+    v = row.get(field)
+    if v is None:
+        # Heterogeneous sort: sentinel that sorts last in DESC, first in ASC.
+        return (1, "")
+    if isinstance(v, datetime):
+        return (0, _dt_key(v))
+    if isinstance(v, str):
+        # Strings that look like ISO datetimes get sorted as datetimes so a
+        # mixed-tz tab still sorts coherently.
+        if "T" in v and len(v) >= 10:
+            try:
+                return (0, _dt_key(v))
+            except Exception:
+                pass
+        return (0, v.lower())
+    return (0, v)
