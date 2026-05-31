@@ -257,6 +257,7 @@ function KeywordDialog({
   const [active, setActive] = useState(existing?.active ?? true);
   const [reason, setReason] = useState("");
   const [selectedTier, setSelectedTier] = useState(existing?.tier ?? tier);
+  const [error, setError] = useState<string | null>(null);
 
   const save = useMutation({
     mutationFn: () => {
@@ -276,7 +277,20 @@ function KeywordDialog({
       });
     },
     onSuccess: onSaved,
-    onError,
+    onError: (e) => {
+      // 409 (duplicate keyword) and other failures must surface inside the
+      // dialog — the parent's global banner is hidden behind this modal's backdrop.
+      if (e instanceof ApiError) {
+        setError(
+          e.status === 409
+            ? e.detail?.detail || "This keyword already exists for the selected tier."
+            : e.detail?.detail || e.detail?.error || `Error ${e.status}`,
+        );
+      } else {
+        setError((e as Error).message);
+      }
+      onError(e);
+    },
   });
 
   return (
@@ -285,13 +299,20 @@ function KeywordDialog({
         <h2 className="text-lg font-semibold mb-1">{existing ? "Edit keyword" : "Add keyword"}</h2>
         <p className="text-xs text-muted-foreground mb-4">All edits are written to <code>keyword_changes</code>.</p>
 
+        {error && (
+          <div className="mb-4 flex items-start gap-2 rounded-md bg-destructive/10 text-destructive p-3 text-sm">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         <div className="space-y-3">
           {!existing && (
             <div>
               <label className="text-sm font-medium block mb-1">Tier</label>
               <select
                 value={selectedTier}
-                onChange={(e) => setSelectedTier(e.target.value)}
+                onChange={(e) => { setSelectedTier(e.target.value); setError(null); }}
                 className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 {TIERS.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -303,7 +324,7 @@ function KeywordDialog({
             <input
               autoFocus
               value={text}
-              onChange={(e) => setText(e.target.value)}
+              onChange={(e) => { setText(e.target.value); setError(null); }}
               placeholder="e.g. sheetrock"
               className="w-full rounded-md border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
             />
