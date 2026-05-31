@@ -69,9 +69,18 @@ export default function History() {
     },
     { id: "duration", header: "Duration", enableSorting: false,
       cell: ({ row }) => {
-        const a = new Date(row.original.started_at).getTime();
-        const b = row.original.finished_at ? new Date(row.original.finished_at).getTime() : Date.now();
-        const sec = Math.floor((b - a) / 1000);
+        const { started_at, finished_at, status } = row.original;
+        const running = status === "running" || status === "pending";
+        // Duration = finished − started (actual pipeline runtime). Only count
+        // live elapsed time for jobs still running; a terminal job with no
+        // finished_at predates finish-stamping, so its real duration is unknown.
+        const end = finished_at
+          ? new Date(finished_at).getTime()
+          : running
+            ? Date.now()
+            : null;
+        if (end == null) return <EmptyValue />;
+        const sec = Math.floor((end - new Date(started_at).getTime()) / 1000);
         const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
         return <span className="text-xs font-mono">{h ? `${h}h ` : ""}{m}m {s}s</span>;
       },
