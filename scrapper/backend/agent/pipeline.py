@@ -12,6 +12,7 @@
 
 import os
 import traceback
+from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from agent.db import (
@@ -145,10 +146,11 @@ def run_pipeline(job_id: str) -> None:
             status="completed",
             current_stage="completed",
             stages_progress=progress,
+            finished_at=datetime.utcnow(),
         )
         print(f"\n🎯 Pipeline COMPLETED — job_id={job_id} — {enrich_summary['saved']} records saved")
 
     except Exception as e:
         traceback.print_exc()
-        update_job(job_id, status="failed", error=str(e))
+        update_job(job_id, status="failed", error=str(e), finished_at=datetime.utcnow())
         print(f"\n❌ Pipeline FAILED — job_id={job_id}: {e}")
