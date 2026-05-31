@@ -406,6 +406,7 @@ function AddCityDialog({
   const [name, setName] = useState("");
   const [state, setState] = useState("FL");
   const [zipsRaw, setZipsRaw] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   const create = useMutation({
     mutationFn: () =>
@@ -421,7 +422,20 @@ function AddCityDialog({
       onCreated();
       onClose();
     },
-    onError,
+    onError: (e) => {
+      // 409 (city already exists) and other failures must surface inside the
+      // dialog — the parent's global banner is hidden behind this modal's backdrop.
+      if (e instanceof ApiError) {
+        setError(
+          e.status === 409
+            ? e.detail?.detail || "This city already exists."
+            : e.detail?.detail || `Error ${e.status}`,
+        );
+      } else {
+        setError((e as Error).message);
+      }
+      onError(e);
+    },
   });
 
   return (
@@ -438,13 +452,20 @@ function AddCityDialog({
           Cities + ZIPs feed the scraper. ZIPs can be added later too.
         </p>
 
+        {error && (
+          <div className="mb-4 flex items-start gap-2 rounded-md bg-destructive/10 text-destructive p-3 text-sm">
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
         <div className="space-y-3">
           <div>
             <label className="text-sm font-medium block mb-1">Name</label>
             <input
               autoFocus
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={(e) => { setName(e.target.value); setError(null); }}
               placeholder="e.g. Sarasota"
               className="w-full rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
@@ -453,7 +474,7 @@ function AddCityDialog({
             <label className="text-sm font-medium block mb-1">State</label>
             <input
               value={state}
-              onChange={(e) => setState(e.target.value.toUpperCase())}
+              onChange={(e) => { setState(e.target.value.toUpperCase()); setError(null); }}
               maxLength={2}
               className="w-20 rounded-md border bg-background px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary"
             />
