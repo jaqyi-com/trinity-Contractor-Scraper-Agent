@@ -423,8 +423,8 @@ function AddCityDialog({
       onClose();
     },
     onError: (e) => {
-      // 409 (city already exists) and other failures must surface inside the
-      // dialog — the parent's global banner is hidden behind this modal's backdrop.
+      // Show errors only inside this dialog (not the parent's global banner,
+      // which would duplicate the message behind the modal backdrop).
       if (e instanceof ApiError) {
         setError(
           e.status === 409
@@ -434,7 +434,6 @@ function AddCityDialog({
       } else {
         setError((e as Error).message);
       }
-      onError(e);
     },
   });
 
