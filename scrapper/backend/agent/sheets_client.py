@@ -40,7 +40,31 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive",
 ]
 SPREADSHEET_ID = os.getenv("GOOGLE_SHEETS_ID")
+# Service-account creds from individual env vars (preferred in deploy — never
+# ship the key in the repo/image). If GOOGLE_CLIENT_EMAIL + GOOGLE_PRIVATE_KEY
+# are set, these win over the file fallback (local dev).
 CREDS_FILE = os.getenv("GOOGLE_CREDENTIALS_FILE", "./google-credentials.json")
+
+
+def _creds_info_from_env() -> Optional[Dict[str, str]]:
+    """Build a service-account info dict from individual env vars.
+    Returns None if the required vars aren't set (caller falls back to file)."""
+    client_email = os.getenv("GOOGLE_CLIENT_EMAIL")
+    private_key = os.getenv("GOOGLE_PRIVATE_KEY")
+    if not client_email or not private_key:
+        return None
+    # Env vars store newlines as the literal two chars "\n" — restore real ones,
+    # otherwise the PEM is malformed and signing fails with "Invalid JWT Signature".
+    private_key = private_key.replace("\\n", "\n")
+    return {
+        "type": "service_account",
+        "project_id": os.getenv("GOOGLE_PROJECT_ID", ""),
+        "private_key_id": os.getenv("GOOGLE_PRIVATE_KEY_ID", ""),
+        "private_key": private_key,
+        "client_email": client_email,
+        "client_id": os.getenv("GOOGLE_CLIENT_ID", ""),
+        "token_uri": os.getenv("GOOGLE_TOKEN_URI", "https://oauth2.googleapis.com/token"),
+    }
 FLUSH_ROWS = int(os.getenv("SHEETS_FLUSH_ROWS", "200"))
 FLUSH_SECONDS = float(os.getenv("SHEETS_FLUSH_SECONDS", "2.0"))
 
@@ -149,14 +173,25 @@ class SheetsDB:
     def _connect(self) -> None:
         if not SPREADSHEET_ID:
             raise RuntimeError("GOOGLE_SHEETS_ID not set in .env")
-        creds_path = Path(CREDS_FILE)
-        if not creds_path.is_absolute():
-            # Resolve relative to backend/ (the directory containing .env)
-            creds_path = Path(__file__).resolve().parent.parent / creds_path
-        if not creds_path.exists():
-            raise RuntimeError(f"Service-account credentials not found at {creds_path}")
 
-        creds = Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
+        # Prefer creds from env vars (deploy/secret) — falls back to the file
+        # (local dev). This keeps the key out of the repo and the image.
+        info = _creds_info_from_env()
+        if info:
+            creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+            print(f"🔑 [Sheets] using env-var credentials "
+                  f"(client_email={info.get('client_email')!r})")
+        else:
+            creds_path = Path(CREDS_FILE)
+            if not creds_path.is_absolute():
+                # Resolve relative to backend/ (the directory containing .env)
+                creds_path = Path(__file__).resolve().parent.parent / creds_path
+            if not creds_path.exists():
+                raise RuntimeError(
+                    f"No credentials: set GOOGLE_CREDENTIALS_JSON env var, or place "
+                    f"the service-account file at {creds_path}"
+                )
+            creds = Credentials.from_service_account_file(str(creds_path), scopes=SCOPES)
         self._client = gspread.authorize(creds)
         self._spreadsheet = _with_retry(self._client.open_by_key, SPREADSHEET_ID)
 
