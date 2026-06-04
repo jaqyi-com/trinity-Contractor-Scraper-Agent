@@ -79,3 +79,6 @@ async def get_current_user(token: Optional[str] = Depends(oauth2_scheme)) -> Dic
         "name": payload.get("name"),
         "user_id": payload.get("user_id"),
     }
+
+
+#a
