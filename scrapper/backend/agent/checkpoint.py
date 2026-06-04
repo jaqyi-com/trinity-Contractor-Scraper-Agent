@@ -1,4 +1,4 @@
-# checkpoint.py
+# checkpoint.py  
 # Pipeline stop/resume checkpoints, stored in the non-mirrored `stage_outputs`
 # tab (see sheets_schema.EPHEMERAL_TABS). The working row-set at a phase boundary
 # is serialised here so a paused/failed run can resume WITHOUT re-running the
