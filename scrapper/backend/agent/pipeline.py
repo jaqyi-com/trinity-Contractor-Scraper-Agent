@@ -59,22 +59,6 @@ def _apply_cap(rows, limit):
     return ranked[:limit]
 
 
-def _publish_run_sheet(job_id: str, rows_with_status: list) -> None:
-    """Write this run's rows (each tagged new/updated/unchanged) to a per-run
-    Drive spreadsheet, and link it on the job. Reuses the sheet on resume.
-    No-op if the feature isn't configured (DRIVE_RESULTS_FOLDER_ID unset)."""
-    from agent import dynamic_sheets
-    if not dynamic_sheets.is_enabled():
-        return
-    job = get_job(job_id) or {}
-    sid = job.get("result_sheet_id")
-    if not sid:
-        when = datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-        sid, url, title = dynamic_sheets.create_run_sheet(job_id, when)
-        update_job(job_id, result_sheet_id=sid, result_sheet_url=url, result_sheet_name=title)
-    dynamic_sheets.write_run_rows(sid, rows_with_status)
-
-
 def _stop_requested(job_id: str, progress: dict) -> bool:
     """Check the stop flag (set by POST /jobs/{id}/stop, stored in job_control).
     If set, mark the job paused and return True so the caller bails out cleanly.
@@ -208,13 +192,6 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
             update_job(job_id, current_stage="enrich")
             dbpr_index = fetch_licenses_for_seeds(rows)  # rows expose .business_name
             enrich_summary = enrich_and_insert_rows(rows, dbpr_index, job_id)
-            # Publish this run's results to its own dated Drive spreadsheet
-            # (master tab is untouched). Non-fatal — never fail the run over it.
-            try:
-                _publish_run_sheet(job_id, enrich_summary.get("rows", []))
-            except Exception as e:
-                print(f"⚠️  [dynamic-sheet] publish skipped: {e}")
-                traceback.print_exc()
             progress["enrich"] = {"status": "done", "saved": enrich_summary["saved"]}
             # Data is now persisted to the contractors tab — dedupe_final carries nothing.
             save_checkpoint(job_id, "dedupe_final", [])

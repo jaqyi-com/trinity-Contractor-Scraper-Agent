@@ -164,21 +164,16 @@ def _norm_for_diff(v: Any) -> Any:
     return v
 
 
-def compute_change_status(record: Dict[str, Any]) -> str:
-    """Classify a contractor payload against the existing master row (matched by
-    dedupe_key), BEFORE it's upserted: 'new' | 'updated' | 'unchanged'.
-    Used to tag rows in the per-run result sheet (see agent/dynamic_sheets.py)."""
-    db = get_db()
-    key = compute_dedupe_key(record)
-    existing = db.find_one("contractors", lambda r: r.get("dedupe_key") == key)
-    if existing is None:
-        return "new"
-    for k, v in record.items():
+def _contractor_changed(new: Dict[str, Any], existing: Dict[str, Any]) -> bool:
+    """True if any meaningful field differs between a new contractor payload and
+    the latest stored version (ignoring id/dedupe_key/scraped_at/job_id). Drives
+    the versioned-insert decision in insert_contractor()."""
+    for k, v in new.items():
         if k in _CHANGE_IGNORE_FIELDS:
             continue
         if _norm_for_diff(v) != _norm_for_diff(existing.get(k)):
-            return "updated"
-    return "unchanged"
+            return True
+    return False
 
 
 # ──────────────────────────────────────────────────────────────
@@ -246,10 +241,14 @@ def _seed_cities_from_yaml_if_empty() -> None:
 def create_job() -> str:
     job_id = str(uuid.uuid4())
     db = get_db()
+    # Each run gets a unique human-friendly batch name ("Batch 1", "Batch 2", …)
+    # so the UI can filter/download contractors by batch.
+    n = db.count("jobs") + 1
     db.insert("jobs", {
         "job_id": job_id,
         "status": "pending",
         "started_at": datetime.utcnow(),
+        "name": f"Batch {n}",
     })
     # Flush so the row exists in Sheets before a Cloud Run Job worker (separate
     # process) boots and looks for it. Harmless in thread mode.
@@ -298,8 +297,14 @@ def get_running_job() -> Optional[Dict[str, Any]]:
 # Contractors
 # ──────────────────────────────────────────────────────────────
 def insert_contractor(record: Dict[str, Any]) -> int:
-    """Upsert a contractor keyed by dedupe_key. Re-scraping the same business
-    updates its row in place (same id) instead of creating a duplicate."""
+    """Versioned save keyed by dedupe_key:
+      • not in DB                 → insert a new row
+      • in DB but data CHANGED    → insert a NEW row (new id + this run's job_id +
+                                    fresh scraped_at) — the old version is kept
+      • in DB and UNCHANGED       → no write (skip), return the existing id
+
+    So the contractors tab keeps a per-batch history of each business; filtering
+    by job (batch) shows what that run added/changed."""
     db = get_db()
     payload = {
         "business_name": record.get("business_name"),
@@ -329,7 +334,14 @@ def insert_contractor(record: Dict[str, Any]) -> int:
         "scraped_at": datetime.utcnow(),
         "job_id": record.get("job_id"),
     }
-    saved = db.upsert("contractors", payload, unique_field="dedupe_key")
+    key = payload["dedupe_key"]
+    existing = db.find("contractors", lambda r: r.get("dedupe_key") == key)
+    if existing:
+        latest = max(existing, key=lambda r: r.get("id") or 0)
+        if not _contractor_changed(payload, latest):
+            return int(latest["id"])          # unchanged → skip
+        # changed → fall through and insert a new version
+    saved = db.insert("contractors", payload)  # new id
     return int(saved["id"])
 
 
@@ -359,40 +371,6 @@ def list_contractors(
     total = len(rows)
     page = rows[offset: offset + limit]
     return {"total": total, "limit": limit, "offset": offset, "rows": page}
-
-
-def filter_sort_paginate(
-    rows: List[Dict[str, Any]],
-    filters: Optional[Dict[str, Any]] = None,
-    sort_by: str = "id",
-    sort_dir: str = "desc",
-    limit: int = 50,
-    offset: int = 0,
-) -> Dict[str, Any]:
-    """Apply the SAME contractor filter/sort/paginate to an arbitrary row list
-    (e.g. rows read from a per-run dynamic result sheet, not the master tab)."""
-    rows = _filter_contractors(rows, filters or {})
-    reverse = (sort_dir or "desc").lower() != "asc"
-    rows = sorted(rows, key=lambda r: _sort_key(r, sort_by), reverse=reverse)
-    total = len(rows)
-    return {"total": total, "limit": limit, "offset": offset, "rows": rows[offset: offset + limit]}
-
-
-def list_result_sheets() -> List[Dict[str, Any]]:
-    """All runs that produced a dynamic result spreadsheet, newest first — for
-    the UI's sheet picker."""
-    _refresh_jobs()
-    rows = get_db().all_rows("jobs")
-    out = [{
-        "job_id": r.get("job_id"),
-        "name": r.get("result_sheet_name"),
-        "url": r.get("result_sheet_url"),
-        "sheet_id": r.get("result_sheet_id"),
-        "status": r.get("status"),
-        "started_at": r.get("started_at"),
-    } for r in rows if r.get("result_sheet_id")]
-    out.sort(key=lambda r: _dt_key(r.get("started_at")), reverse=True)
-    return out
 
 
 def iter_contractors_filtered(

@@ -33,8 +33,11 @@ SCHEMA: Dict[str, Dict[str, Any]] = {
             "job_id", "status", "current_stage", "stages_progress",
             "started_at", "finished_at", "error", "keywords_snapshot",
             "resume_from",
-            # Per-run dynamic result spreadsheet (Drive) — see agent/dynamic_sheets.py
+            # DEPRECATED — dynamic-sheets feature removed. Kept only so existing
+            # sheets' column positions stay aligned (never written anymore).
             "result_sheet_id", "result_sheet_url", "result_sheet_name",
+            # Batch name for this run ("Batch 1", …) — the UI filters contractors by it.
+            "name",
         ],
         "id_field": "job_id",
         "id_kind": "uuid",

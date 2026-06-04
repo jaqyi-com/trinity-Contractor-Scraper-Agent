@@ -291,14 +291,6 @@ class SheetsDB:
                         self.counters[tab] = key
             self._next_sheet_row[tab] = len(all_values) + 1
 
-    def gspread_client(self) -> "gspread.Client":
-        """The authorized gspread client — for creating/opening spreadsheets
-        OUTSIDE the managed tabs (e.g. per-run dynamic result sheets). Ensures
-        we're connected first."""
-        if not self._bootstrapped:
-            self.bootstrap()
-        return self._client
-
     def reload_tab(self, tab: str) -> None:
         """Re-pull ONE tab from Sheets into the mirror, replacing what's there.
 

@@ -88,18 +88,6 @@ export type Contractor = {
   place_ids: string[] | null;
   scraped_at: string;
   job_id: string;
-  // Only present when viewing a per-run dynamic result sheet.
-  change_status?: "new" | "updated" | "unchanged" | null;
-};
-
-/** A per-run dynamic result spreadsheet (one per pipeline run). */
-export type ResultSheet = {
-  job_id: string;
-  name: string | null;
-  url: string | null;
-  sheet_id: string | null;
-  status: string | null;
-  started_at: string | null;
 };
 
 /** Full query surface for the contractor grid + CSV export.
@@ -249,12 +237,6 @@ export const api = {
   getContractor: (id: number) => request<Contractor>(`/api/contractors/${id}`),
   contractorClassification: (id: number) =>
     request<ClassificationLog[]>(`/api/contractors/${id}/classification`),
-
-  // Per-run dynamic result sheets
-  listResultSheets: () => request<ResultSheet[]>("/api/result-sheets"),
-  currentResultSheet: () => request<ResultSheet | null>("/api/result-sheets/current"),
-  listSheetContractors: (jobId: string, params: ContractorQuery = {}) =>
-    request<Paged<Contractor>>(`/api/result-sheets/${jobId}/contractors${qs(params)}`),
 
   exportContractors: async (params: Omit<ContractorQuery, "limit" | "offset"> = {}) => {
     const token = tokenStore.get();
