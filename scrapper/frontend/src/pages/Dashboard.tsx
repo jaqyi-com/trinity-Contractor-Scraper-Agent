@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Play, AlertTriangle, Save, Check } from "lucide-react";
+import { Play, Square, RotateCw, X, AlertTriangle, Save, Check } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
+import JobProgress from "@/components/JobProgress";
 
 export default function Dashboard() {
   const queryClient = useQueryClient();
@@ -27,9 +28,7 @@ export default function Dashboard() {
   const maxInvalid = !Number.isInteger(parsedMax) || parsedMax < 1 || parsedMax > 100000;
   const maxUnchanged = settings.data && parsedMax === settings.data.max_final_records;
 
-  // ─── Mount recovery: check if a job is already running ───
-  // This handles: page refresh, new tab, browser restart.
-  // If server reports an active job, we attach polling immediately.
+  // ─── Mount recovery: attach to an already-active job (running OR paused) ───
   const currentJob = useQuery({
     queryKey: ["job-current"],
     queryFn: () => api.getCurrentJob(),
@@ -42,7 +41,25 @@ export default function Dashboard() {
     }
   }, [currentJob.data, jobId]);
 
-  // ─── Start job mutation ───
+  // ─── Live status polling ───
+  const status = useQuery({
+    queryKey: ["job-status", jobId],
+    queryFn: () => api.getJobStatus(jobId!),
+    enabled: !!jobId,
+    refetchInterval: (q) => {
+      const s = q.state.data?.status;
+      return s === "completed" || s === "failed" || s === "cancelled" ? false : 2000;
+    },
+  });
+
+  const s = status.data;
+  const isRunning = s?.status === "pending" || s?.status === "running";
+  const isPaused = s?.status === "paused";
+  const isFailed = s?.status === "failed";
+  const isDone = s?.status === "completed";
+  const stopPending = !!s?.stop_requested && isRunning;
+
+  // ─── Mutations ───
   const startJob = useMutation({
     mutationFn: () => api.startJob(),
     onSuccess: (data) => {
@@ -51,41 +68,48 @@ export default function Dashboard() {
     },
     onError: (err) => {
       if (err instanceof ApiError && err.status === 409) {
-        // Server says a job is already running — attach to it
         const detail = err.detail?.detail || err.detail;
         const existingId = detail?.existing_job_id;
         if (existingId) {
           setJobId(existingId);
-          setConflictMsg(
-            `A job was already running (started ${detail.started_at}). Attached to existing job.`,
-          );
+          setConflictMsg(`A job was already active (status ${detail.status}). Attached to it.`);
         }
       }
     },
   });
 
-  // ─── Live status polling ───
-  const status = useQuery({
-    queryKey: ["job-status", jobId],
-    queryFn: () => api.getJobStatus(jobId!),
-    enabled: !!jobId,
-    refetchInterval: (q) => {
-      const s = q.state.data?.status;
-      return s === "completed" || s === "failed" || s === "interrupted" ? false : 2000;
+  const refetchStatus = () =>
+    queryClient.invalidateQueries({ queryKey: ["job-status", jobId] });
+
+  const stopJob = useMutation({
+    mutationFn: () => api.stopJob(jobId!),
+    onSuccess: refetchStatus,
+  });
+  const resumeJob = useMutation({
+    mutationFn: () => api.resumeJob(jobId!),
+    onSuccess: refetchStatus,
+  });
+  const cancelJob = useMutation({
+    mutationFn: () => api.cancelJob(jobId!),
+    onSuccess: () => {
+      refetchStatus();
+      queryClient.invalidateQueries({ queryKey: ["job-current"] });
     },
   });
 
-  // ─── Button disable logic ───
-  // Disabled when ANY job is active OR the request is in flight.
-  const isActive =
-    status.data?.status === "pending" || status.data?.status === "running";
-  const buttonDisabled = isActive || startJob.isPending || currentJob.isLoading;
+  const startDisabled =
+    isRunning || isPaused || startJob.isPending || currentJob.isLoading || resumeJob.isPending;
+
+  // Total metros — for the discovery sub-progress %.
+  const cities = useQuery({ queryKey: ["cities"], queryFn: () => api.listCities() });
+  const totalMetros = cities.data?.length;
 
   return (
     <div className="p-8 max-w-4xl mx-auto">
       <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
       <p className="text-muted-foreground mb-8">
-        Start the full Florida contractor scrape pipeline. Pipeline runs 2-6 hours in background — no timeout.
+        Start the full Florida contractor scrape pipeline. Runs in the background — stop and
+        resume any time without re-running the expensive discovery stage.
       </p>
 
       {/* Run config — max final records per run */}
@@ -94,8 +118,8 @@ export default function Dashboard() {
           Max final records per run
         </label>
         <p className="text-xs text-muted-foreground mb-3">
-          The pipeline returns at most this many deduplicated records (strongest tiers
-          first). Bounds enrichment cost. Applies to the next run. Default{" "}
+          The pipeline returns at most this many deduplicated records (strongest tiers first).
+          Bounds enrichment cost. Applies to the next run. Default{" "}
           {settings.data?.default_max_final_records ?? 5000}.
         </p>
         <div className="flex items-center gap-2">
@@ -125,9 +149,7 @@ export default function Dashboard() {
           <p className="text-xs text-destructive mt-2">Enter a whole number between 1 and 100,000.</p>
         )}
         {saveSettings.isError && (
-          <p className="text-xs text-destructive mt-2">
-            {(saveSettings.error as Error).message}
-          </p>
+          <p className="text-xs text-destructive mt-2">{(saveSettings.error as Error).message}</p>
         )}
       </div>
 
@@ -139,48 +161,87 @@ export default function Dashboard() {
         </div>
       )}
 
-      <button
-        onClick={() => startJob.mutate()}
-        disabled={buttonDisabled}
-        className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-6 py-3 text-base font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
-      >
-        <Play className="h-5 w-5" />
-        {isActive
-          ? `Running... (${status.data?.status})`
-          : startJob.isPending
-            ? "Starting..."
-            : "Start Full Scrape"}
-      </button>
+      {/* ─── Action buttons ─── */}
+      <div className="flex flex-wrap items-center gap-3">
+        <button
+          onClick={() => startJob.mutate()}
+          disabled={startDisabled}
+          className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-6 py-3 text-base font-semibold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+        >
+          <Play className="h-5 w-5" />
+          {isRunning
+            ? `Running... (${s?.status})`
+            : startJob.isPending
+              ? "Starting..."
+              : "Start Full Scrape"}
+        </button>
 
-      {/* Generic error (non-409) */}
+        {/* Stop — only while running */}
+        {isRunning && (
+          <button
+            onClick={() => stopJob.mutate()}
+            disabled={stopJob.isPending || stopPending}
+            className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-5 py-3 text-base font-semibold hover:bg-amber-100 disabled:opacity-60 transition"
+          >
+            <Square className="h-5 w-5" />
+            {stopPending ? "Stopping after current stage..." : "Stop"}
+          </button>
+        )}
+
+        {/* Resume + Cancel — when paused or failed */}
+        {(isPaused || isFailed) && (
+          <>
+            <button
+              onClick={() => resumeJob.mutate()}
+              disabled={resumeJob.isPending}
+              className="inline-flex items-center gap-2 rounded-md bg-primary text-primary-foreground px-5 py-3 text-base font-semibold hover:bg-primary/90 disabled:opacity-50 transition"
+            >
+              <RotateCw className="h-5 w-5" />
+              {resumeJob.isPending ? "Resuming..." : `Resume${s?.resume_from ? ` (${s.resume_from})` : ""}`}
+            </button>
+            {isPaused && (
+              <button
+                onClick={() => cancelJob.mutate()}
+                disabled={cancelJob.isPending}
+                className="inline-flex items-center gap-2 rounded-md border border-destructive/30 text-destructive px-5 py-3 text-base font-semibold hover:bg-destructive/10 disabled:opacity-50 transition"
+              >
+                <X className="h-5 w-5" />
+                {cancelJob.isPending ? "Cancelling..." : "Cancel"}
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Generic start error (non-409) */}
       {startJob.isError && !(startJob.error instanceof ApiError && startJob.error.status === 409) && (
         <div className="mt-4 p-3 rounded-md bg-destructive/10 text-destructive text-sm">
           Error: {(startJob.error as Error).message}
         </div>
       )}
 
-      {/* Live status panel */}
-      {status.data && (
+      {/* ─── Live status + animated phase progress ─── */}
+      {s && (
         <div className="mt-8 p-6 rounded-lg border bg-card">
-          <h3 className="font-semibold mb-3">Job: {status.data.job_id}</h3>
-          <div className="text-sm space-y-1">
-            <div>
-              Status: <span className="font-mono">{status.data.status}</span>
-            </div>
-            <div>
-              Current stage: <span className="font-mono">{status.data.current_stage || "—"}</span>
-            </div>
-            <div>Started: {status.data.started_at}</div>
-            {status.data.finished_at && <div>Finished: {status.data.finished_at}</div>}
-            {status.data.error && (
-              <div className="text-destructive">Error: {status.data.error}</div>
+          <div className="flex items-center justify-between mb-5 gap-3">
+            <h3 className="font-semibold truncate">
+              Job <span className="font-mono text-sm text-muted-foreground">{s.job_id}</span>
+            </h3>
+            {stopPending && (
+              <span className="text-xs text-amber-700 shrink-0">
+                Stopping — will pause at next stage
+              </span>
             )}
           </div>
-          {status.data.stages_progress && (
-            <pre className="mt-4 p-3 rounded bg-muted text-xs overflow-auto">
-              {JSON.stringify(status.data.stages_progress, null, 2)}
-            </pre>
-          )}
+
+          <JobProgress job={s} totalMetros={totalMetros} />
+
+          <div className="mt-5 border-t pt-4 text-sm space-y-1 text-muted-foreground">
+            <div>Current stage: <span className="font-mono text-foreground">{s.current_stage || "—"}</span></div>
+            <div>Started: {s.started_at}</div>
+            {s.finished_at && <div>Finished: {s.finished_at}</div>}
+            {s.error && <div className="text-destructive">Error: {s.error}</div>}
+          </div>
         </div>
       )}
     </div>

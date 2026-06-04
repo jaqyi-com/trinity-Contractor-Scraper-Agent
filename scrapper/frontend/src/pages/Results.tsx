@@ -3,7 +3,7 @@ import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import type { ColumnDef, SortingState, VisibilityState } from "@tanstack/react-table";
 import {
   Users, Search, X, Star, Download, Loader2, ExternalLink,
-  SlidersHorizontal, ChevronDown, Check,
+  SlidersHorizontal, ChevronDown, Check, FileSpreadsheet,
   Facebook, Instagram, Linkedin, Twitter, Youtube, Link2,
 } from "lucide-react";
 import { api, type Contractor, type ContractorQuery } from "@/lib/api";
@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 // "Columns" show/hide menu. Every output-schema field is represented.
 const COLUMN_LABELS: { id: string; label: string }[] = [
   { id: "business_name", label: "Business" },
+  { id: "change_status", label: "Change" },
   { id: "city", label: "City" },
   { id: "zip_code", label: "Zip" },
   { id: "address", label: "Address" },
@@ -79,6 +80,21 @@ export default function Results() {
     queryFn: () => api.contractorFacets(),
   });
 
+  // ── Result-set source: a per-run dynamic sheet, or the cumulative master ──
+  // "" = master (contractors tab); otherwise a job_id whose run sheet we view.
+  const sheets = useQuery({ queryKey: ["result-sheets"], queryFn: () => api.listResultSheets() });
+  const [sheetJobId, setSheetJobId] = useState<string>("");
+  const sheetInit = useRef(false);
+  useEffect(() => {
+    // Default to the most recent run's sheet on first load (user can switch).
+    if (!sheetInit.current && sheets.data) {
+      sheetInit.current = true;
+      if (sheets.data.length) setSheetJobId(sheets.data[0].job_id);
+    }
+  }, [sheets.data]);
+  const usingSheet = !!sheetJobId;
+  const selectedSheet = sheets.data?.find((s) => s.job_id === sheetJobId) ?? null;
+
   function resetPage() {
     setPageIndex((p) => (p !== 0 ? 0 : p));
   }
@@ -130,8 +146,9 @@ export default function Results() {
   };
 
   const query = useQuery({
-    queryKey: ["contractors", apiParams],
-    queryFn: () => api.listContractors(apiParams),
+    queryKey: ["contractors", sheetJobId, apiParams],
+    queryFn: () =>
+      usingSheet ? api.listSheetContractors(sheetJobId, apiParams) : api.listContractors(apiParams),
     placeholderData: keepPreviousData,
   });
 
@@ -189,6 +206,15 @@ export default function Results() {
     {
       id: "tier", accessorKey: "tier", header: "Tier",
       cell: ({ getValue }) => { const v = getValue() as string | null; return v ? <Badge variant={tierVariant(v)}>{v}</Badge> : <EmptyValue />; },
+    },
+    {
+      id: "change_status", accessorKey: "change_status", header: "Change", enableSorting: false,
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        if (!v) return <EmptyValue />;
+        const variant = v === "new" ? "success" : v === "updated" ? "warning" : "muted";
+        return <Badge variant={variant}>{v}</Badge>;
+      },
     },
     {
       id: "specialty_keywords", header: "Tier keywords", enableSorting: false,
@@ -356,6 +382,38 @@ export default function Results() {
       </div>
 
       <div className="rounded-lg border bg-card p-3 mb-4">
+        {/* Result-set selector: which run's sheet to view (or the cumulative master) */}
+        <div className="flex flex-wrap items-center gap-2 mb-2 pb-2 border-b">
+          <FileSpreadsheet className="h-4 w-4 text-primary shrink-0" />
+          <span className="text-xs font-medium text-muted-foreground">Result set:</span>
+          <select
+            value={sheetJobId}
+            onChange={(e) => { setSheetJobId(e.target.value); resetPage(); }}
+            className="rounded-md border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary max-w-[340px]"
+          >
+            <option value="">Master — all runs (cumulative)</option>
+            {sheets.data?.map((s) => (
+              <option key={s.job_id} value={s.job_id}>
+                {s.name || `Run ${s.job_id.slice(0, 8)}`}
+                {s.status && s.status !== "completed" ? ` · ${s.status}` : ""}
+              </option>
+            ))}
+          </select>
+          {usingSheet && selectedSheet?.url && (
+            <a
+              href={selectedSheet.url} target="_blank" rel="noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+            >
+              Open in Google Sheets <ExternalLink className="h-3 w-3" />
+            </a>
+          )}
+          {usingSheet && (
+            <span className="text-[11px] text-muted-foreground">
+              showing this run's snapshot · <b>new/updated/unchanged</b> tagged
+            </span>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative flex-1 min-w-[220px]">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -386,14 +444,16 @@ export default function Results() {
             </button>
           )}
 
-          <button
-            onClick={handleExport}
-            disabled={!canExport}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            {isExporting ? "Exporting…" : `Download CSV${exportCount > 0 ? ` (${exportCount.toLocaleString()})` : ""}`}
-          </button>
+          {!usingSheet && (
+            <button
+              onClick={handleExport}
+              disabled={!canExport}
+              className="ml-auto inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              {isExporting ? "Exporting…" : `Download CSV${exportCount > 0 ? ` (${exportCount.toLocaleString()})` : ""}`}
+            </button>
+          )}
         </div>
       </div>
 

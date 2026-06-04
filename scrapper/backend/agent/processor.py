@@ -15,7 +15,7 @@ from agent.matcher import match_license_by_name
 from agent.scraper_bbb import enrich_bbb
 from agent.enrichment import enrich_email, apollo_company
 from utils.url_normalizer import extract_domain
-from agent.db import insert_contractor, insert_classification_logs
+from agent.db import insert_contractor, insert_classification_logs, compute_change_status, get_contractor
 from agent.storage import write_stage_jsonl
 from agent.schema import ContractorRow, GoogleSeed
 
@@ -148,7 +148,7 @@ def _enrich_one(row: ContractorRow) -> None:
 
 def enrich_and_insert_rows(rows: List[ContractorRow], dbpr_index: list, job_id: str) -> dict:
     """License-match → parallel BBB/Apollo enrich → UPSERT each row to the DB."""
-    summary = {"saved": 0, "errors": []}
+    summary = {"saved": 0, "errors": [], "rows": []}
     if not rows:
         return summary
 
@@ -173,12 +173,16 @@ def enrich_and_insert_rows(rows: List[ContractorRow], dbpr_index: list, job_id: 
     with ThreadPoolExecutor(max_workers=ENRICH_WORKERS) as ex:
         list(ex.map(_enrich_one, rows))
 
-    # ─── Persist ───
+    # ─── Persist (UPSERT into the master tab) + capture per-run change status ───
     for row in rows:
         try:
-            insert_contractor(row.model_dump(mode="json"))
+            rec = row.model_dump(mode="json")
+            status = compute_change_status(rec)   # compare BEFORE the upsert
+            cid = insert_contractor(rec)
+            saved = get_contractor(cid) or rec     # full stored row (with id)
+            summary["rows"].append({**saved, "change_status": status})
             summary["saved"] += 1
-            print(f"💾 Saved: {row.business_name} ({row.tier})")
+            print(f"💾 Saved ({status}): {row.business_name} ({row.tier})")
         except Exception as e:
             print(f"❌ DB insert failed for {row.business_name}: {e}")
             summary["errors"].append({"stage": "insert", "name": row.business_name, "error": str(e)})
