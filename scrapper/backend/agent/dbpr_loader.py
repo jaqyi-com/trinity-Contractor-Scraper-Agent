@@ -1,24 +1,26 @@
 # dbpr_loader.py
-# In-memory DBPR licensee store — replaces the old dbpr_licenses Postgres table.
+# Streaming DBPR licensee lookup — low-memory replacement for the old
+# "load all 266k rows into a pandas DataFrame + dict index" approach.
 #
-# Flow:
-#   1. Pipeline start (or first query) calls refresh_dbpr_licenses().
-#   2. We download the official Florida CSV (~266k rows) once per process,
-#      parse it into a pandas DataFrame, and build a dict index keyed by
-#      normalized_name → list[record].
-#   3. query_by_normalized_names() is now a microsecond dict lookup; no SQL,
-#      no Sheets round-trip, no rate limit.
+# Why the rewrite:
+#   The old loader downloaded the ~266k-row Florida CSV and built BOTH a pandas
+#   DataFrame AND two dict indexes in process memory (~700MB–1GB). On a 512MB
+#   container that OOM-crashed exactly at the DBPR stage.
 #
-# Sheets is intentionally NOT used for DBPR: 266k * 15 columns = ~4M cells —
-# under the 10M hard cap but borderline, and every refresh would consume a huge
-# write quota. Holding it in process memory is faster AND cheaper.
+# How it works now:
+#   The pipeline only ever needs to match the (capped, ~5k) discovered business
+#   names against DBPR. So instead of indexing all 266k rows, we STREAM the CSV
+#   once and keep ONLY the rows whose normalized name/DBA is in the requested
+#   set. Peak memory ≈ the target name set + the handful of matched records
+#   (a few MB), never the whole file.
+#
+# Sheets is intentionally NOT used for DBPR: 266k rows would also blow the
+# in-memory sheet mirror (see sheets_client._load_mirror). The official CSV,
+# streamed on demand, is both fresher and cheaper.
 
 import csv
-import io
-import threading
 from typing import Any, Dict, List, Optional
 
-import pandas as pd
 import requests
 
 from utils.name_normalizer import normalize_name
@@ -33,6 +35,11 @@ C_LICNUM_NUMERIC = 12
 C_PRIMARY, C_SECONDARY = 13, 14
 C_ORIG_DATE, C_EXP_DATE = 15, 17
 C_FULL_LICNUM = 20
+
+# Last-stream stats — exposed via dbpr_count() for the health endpoint. Lives
+# only in memory; reset on every query. Never holds row data.
+_last_scanned = 0
+_last_matched = 0
 
 
 def _map_status(primary: str, secondary: str) -> tuple[str, str]:
@@ -69,102 +76,67 @@ def _row_to_record(row: list) -> Optional[Dict[str, Any]]:
     }
 
 
-# ──────────────────────────────────────────────────────────────
-# In-process cache
-#   _df    — DataFrame (kept around for analysis; queries use _index)
-#   _index — dict[normalized_name] -> list[record dict], for O(1) lookups
-# Both are populated together inside the lock.
-# ──────────────────────────────────────────────────────────────
-_df: Optional[pd.DataFrame] = None
-_index: Dict[str, List[Dict[str, Any]]] = {}
-_dba_index: Dict[str, List[Dict[str, Any]]] = {}
-_lock = threading.Lock()
+def _stream_rows():
+    """Yield raw CSV rows one at a time without buffering the whole file.
 
-
-def _build_index(records: List[Dict[str, Any]]) -> None:
-    global _df, _index, _dba_index
-    _df = pd.DataFrame.from_records(records)
-    _index = {}
-    _dba_index = {}
-    for r in records:
-        n = r.get("normalized_name")
-        if n:
-            _index.setdefault(n, []).append(r)
-        d = r.get("normalized_dba")
-        if d:
-            _dba_index.setdefault(d, []).append(r)
-
-
-def refresh_dbpr_licenses() -> int:
-    """Download the bulk CSV and reload the in-memory index. Returns row count.
-
-    Called once at the start of every pipeline run (see agent/pipeline.py).
-    Failures leave the previous index intact so the pipeline can fall back to
-    Apify verification per metro instead of stalling.
+    iter_lines() streams the response body line-by-line; each line is decoded
+    latin-1 (the extract's encoding) and fed to csv.reader so quoted commas in
+    names/addresses are handled. The DBPR extract puts one record per physical
+    line (no embedded newlines), so line-by-line parsing is safe.
     """
-    print(f"⬇️  [DBPR] downloading {CSV_URL}")
-    resp = requests.get(CSV_URL, timeout=DOWNLOAD_TIMEOUT)
+    resp = requests.get(CSV_URL, stream=True, timeout=DOWNLOAD_TIMEOUT)
     resp.raise_for_status()
-    text = resp.content.decode("latin-1")
-    reader = csv.reader(io.StringIO(text))
-
-    records: List[Dict[str, Any]] = []
-    skipped = 0
-    for raw in reader:
-        rec = _row_to_record(raw)
-        if rec:
-            records.append(rec)
-        else:
-            skipped += 1
-
-    print(f"📊 [DBPR] parsed {len(records)} rows ({skipped} skipped)")
-
-    with _lock:
-        _build_index(records)
-    print(f"✅ [DBPR] indexed {len(records)} license rows in-memory "
-          f"({len(_index)} unique normalized names, {len(_dba_index)} unique normalized DBAs)")
-    return len(records)
-
-
-def _ensure_loaded() -> None:
-    """Lazy load — first lookup triggers a download if we never refreshed."""
-    if _df is None:
-        refresh_dbpr_licenses()
-
-
-def dbpr_count() -> int:
-    if _df is None:
-        return 0
-    return int(len(_df))
+    lines = (raw.decode("latin-1") for raw in resp.iter_lines() if raw)
+    yield from csv.reader(lines)
 
 
 def query_by_normalized_names(normalized_names: List[str]) -> List[Dict[str, Any]]:
-    """Return DBPR records whose normalized name OR DBA matches any input."""
-    if not normalized_names:
+    """Stream the DBPR CSV and return records whose normalized name OR DBA
+    matches any input. Memory stays bounded: only matches are retained.
+
+    Called once per pipeline run from the License Match stage
+    (scraper_dbpr.fetch_licenses_for_seeds → db.query_dbpr_by_names).
+    """
+    global _last_scanned, _last_matched
+    targets = {n for n in normalized_names if n}
+    if not targets:
         return []
-    _ensure_loaded()
-    with _lock:
-        results: List[Dict[str, Any]] = []
-        seen_ids = set()
-        for n in normalized_names:
-            for r in _index.get(n, ()):
-                key = id(r)
-                if key not in seen_ids:
-                    seen_ids.add(key)
-                    results.append(r)
-            for r in _dba_index.get(n, ()):
-                key = id(r)
-                if key not in seen_ids:
-                    seen_ids.add(key)
-                    results.append(r)
-        return results
+
+    print(f"⬇️  [DBPR] streaming {CSV_URL} — matching {len(targets)} names")
+    results: List[Dict[str, Any]] = []
+    scanned = 0
+    for raw in _stream_rows():
+        scanned += 1
+        if len(raw) <= C_FULL_LICNUM:
+            continue
+        name = (raw[C_NAME] or "").strip()
+        if not name:
+            continue
+        # Normalize only the match keys up front; build the full record only on a hit.
+        nn = normalize_name(name)
+        dba = (raw[C_DBA] or "").strip()
+        nd = normalize_name(dba) if dba else None
+        if nn in targets or (nd and nd in targets):
+            rec = _row_to_record(raw)
+            if rec:
+                results.append(rec)
+
+    _last_scanned = scanned
+    _last_matched = len(results)
+    print(f"✅ [DBPR] scanned {scanned} rows, matched {len(results)} license records "
+          f"({len(targets)} names requested)")
+    return results
 
 
-def query_dataframe() -> Optional[pd.DataFrame]:
-    """Direct DF access for callers that want pandas filtering. Returns None if not loaded."""
-    return _df
+def dbpr_count() -> int:
+    """Rows scanned in the most recent stream (0 before the first query).
+    Kept for the health endpoint / back-compat — holds no row data."""
+    return _last_scanned
 
 
 if __name__ == "__main__":
-    n = refresh_dbpr_licenses()
-    print(f"Loaded {n} licenses.")
+    # Smoke test: match a couple of known names without loading the whole file.
+    hits = query_by_normalized_names([normalize_name("CRACCHIOLO, SAM A JR")])
+    print(f"Matched {len(hits)} record(s).")
+    for h in hits[:3]:
+        print(h)

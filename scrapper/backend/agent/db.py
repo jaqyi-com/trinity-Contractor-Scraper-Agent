@@ -6,10 +6,13 @@
 # arguments, same return shapes. The bodies route through agent.sheets_client,
 # which holds an in-memory mirror + batched write buffer + background flusher.
 #
-# DBPR licenses are NOT stored here anymore — they live in a per-process pandas
-# DataFrame loaded from the official Florida CSV on demand (see dbpr_loader.py).
+# DBPR licenses are NOT stored here — they are streamed from the official
+# Florida CSV and match-filtered on demand (see dbpr_loader.py), so the 266k-row
+# file never sits in memory.
 
 import os
+import time
+import threading
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -22,6 +25,92 @@ from utils.url_normalizer import extract_domain
 from utils.name_normalizer import normalize_name
 
 load_dotenv()
+
+
+# ──────────────────────────────────────────────────────────────
+# Runner mode — "thread" (pipeline runs in this process's background thread,
+# the default for local dev) or "cloud_run_job" (pipeline runs in a separate
+# Cloud Run Job container). In job mode the API service and the worker are
+# different processes sharing the spreadsheet, so the service must read job
+# state LIVE from Sheets instead of its stale in-RAM mirror.
+# ──────────────────────────────────────────────────────────────
+def _runner_is_job() -> bool:
+    # Explicit override wins (set PIPELINE_RUNNER=thread to force in-process even
+    # on Cloud Run, e.g. for debugging).
+    explicit = os.getenv("PIPELINE_RUNNER")
+    if explicit:
+        return explicit.lower() == "cloud_run_job"
+    # Auto-detect: Cloud Run injects K_SERVICE on services and CLOUD_RUN_EXECUTION
+    # on jobs; our worker also gets JOB_ID. Any of these ⇒ we're on Cloud Run ⇒
+    # use job mode. Locally none are set ⇒ thread mode. No env config needed.
+    return bool(os.getenv("K_SERVICE") or os.getenv("CLOUD_RUN_EXECUTION") or os.getenv("JOB_ID"))
+
+
+def _is_job_worker() -> bool:
+    # The Cloud Run Job execution is launched with JOB_ID set (see agent/run_job.py).
+    # The API service never has it. The worker is the jobs-tab writer, so it must
+    # NOT reload that tab (it would clobber its own un-flushed progress).
+    return bool(os.getenv("JOB_ID"))
+
+
+_JOBS_RELOAD_INTERVAL = float(os.getenv("JOBS_RELOAD_INTERVAL", "2.0"))
+_jobs_reload_at = 0.0
+_jobs_reload_lock = threading.Lock()
+
+
+def _refresh_jobs() -> None:
+    """In Cloud Run Job mode, refresh the `jobs` mirror from Sheets so the API
+    service sees the worker's live progress. Throttled, and only on the service
+    side (never the worker — it owns the writes). No-op in thread mode."""
+    if not _runner_is_job() or _is_job_worker():
+        return
+    global _jobs_reload_at
+    now = time.monotonic()
+    if now - _jobs_reload_at < _JOBS_RELOAD_INTERVAL:
+        return
+    with _jobs_reload_lock:
+        if time.monotonic() - _jobs_reload_at < _JOBS_RELOAD_INTERVAL:
+            return
+        try:
+            get_db().reload_tab("jobs")
+            _jobs_reload_at = time.monotonic()
+        except Exception as e:
+            print(f"⚠️  [jobs] live reload failed (using cached): {e}")
+
+
+# ──────────────────────────────────────────────────────────────
+# Stop control — lives in the `job_control` tab, separate from `jobs`, so the
+# service (stop writer) and worker (progress writer) never clobber each other.
+# ──────────────────────────────────────────────────────────────
+def request_job_stop(job_id: str) -> None:
+    """Service-side: raise the stop flag and flush so the worker process sees it."""
+    db = get_db()
+    db.upsert("job_control", {
+        "job_id": job_id,
+        "stop_requested": True,
+        "updated_at": datetime.utcnow(),
+    }, unique_field="job_id")
+    db.flush_all()  # make it visible to the worker (separate process) immediately
+
+
+def clear_job_stop(job_id: str) -> None:
+    """Worker-side: lower the stop flag once we've acted on it (paused)."""
+    db = get_db()
+    if db.get_by_id("job_control", job_id):
+        db.update("job_control", job_id, {"stop_requested": False, "updated_at": datetime.utcnow()})
+
+
+def is_stop_requested(job_id: str) -> bool:
+    """Worker-side: has a stop been requested? Reads the control tab LIVE in job
+    mode (the service is in another process); cheap — the tab is tiny."""
+    db = get_db()
+    if _runner_is_job():
+        try:
+            db.reload_tab("job_control")
+        except Exception as e:
+            print(f"⚠️  [job_control] live reload failed (using cached): {e}")
+    row = db.get_by_id("job_control", job_id)
+    return bool(row and row.get("stop_requested"))
 
 
 # ──────────────────────────────────────────────────────────────
@@ -60,6 +149,36 @@ def compute_dedupe_key(record: Dict[str, Any]) -> str:
     name = normalize_name(record.get("business_name") or "")
     loc = (record.get("zip_code") or record.get("city") or "").strip()
     return f"name:{name}|{loc}"
+
+
+# Fields that change every run regardless of real data changes — ignored when
+# deciding new/updated/unchanged for the per-run result sheet.
+_CHANGE_IGNORE_FIELDS = {"id", "dedupe_key", "scraped_at", "job_id"}
+
+
+def _norm_for_diff(v: Any) -> Any:
+    """Treat None / "" / [] / {} as the same 'empty' so cosmetic differences
+    don't read as changes."""
+    if v is None or v == "" or v == [] or v == {}:
+        return None
+    return v
+
+
+def compute_change_status(record: Dict[str, Any]) -> str:
+    """Classify a contractor payload against the existing master row (matched by
+    dedupe_key), BEFORE it's upserted: 'new' | 'updated' | 'unchanged'.
+    Used to tag rows in the per-run result sheet (see agent/dynamic_sheets.py)."""
+    db = get_db()
+    key = compute_dedupe_key(record)
+    existing = db.find_one("contractors", lambda r: r.get("dedupe_key") == key)
+    if existing is None:
+        return "new"
+    for k, v in record.items():
+        if k in _CHANGE_IGNORE_FIELDS:
+            continue
+        if _norm_for_diff(v) != _norm_for_diff(existing.get(k)):
+            return "updated"
+    return "unchanged"
 
 
 # ──────────────────────────────────────────────────────────────
@@ -132,6 +251,9 @@ def create_job() -> str:
         "status": "pending",
         "started_at": datetime.utcnow(),
     })
+    # Flush so the row exists in Sheets before a Cloud Run Job worker (separate
+    # process) boots and looks for it. Harmless in thread mode.
+    db.flush_all()
     return job_id
 
 
@@ -145,17 +267,27 @@ def update_job(job_id: str, **fields) -> None:
 
 
 def get_job(job_id: str) -> Optional[Dict[str, Any]]:
-    return get_db().get_by_id("jobs", job_id)
+    _refresh_jobs()
+    job = get_db().get_by_id("jobs", job_id)
+    if job:
+        # Surface the stop flag (control tab) on the job object for the frontend.
+        ctrl = get_db().get_by_id("job_control", job_id)
+        job["stop_requested"] = bool(ctrl and ctrl.get("stop_requested"))
+    return job
 
 
 def list_jobs(limit: int = 50) -> List[Dict[str, Any]]:
+    _refresh_jobs()
     rows = get_db().all_rows("jobs")
     rows.sort(key=lambda r: _dt_key(r.get("started_at")), reverse=True)
     return rows[:limit]
 
 
 def get_running_job() -> Optional[Dict[str, Any]]:
-    rows = get_db().find("jobs", lambda r: r.get("status") in ("pending", "running"))
+    # "paused" is active-but-stopped: it still blocks a new /start (the user must
+    # resume or cancel it first) and is surfaced to the frontend on mount.
+    _refresh_jobs()
+    rows = get_db().find("jobs", lambda r: r.get("status") in ("pending", "running", "paused"))
     if not rows:
         return None
     rows.sort(key=lambda r: _dt_key(r.get("started_at")), reverse=True)
@@ -227,6 +359,40 @@ def list_contractors(
     total = len(rows)
     page = rows[offset: offset + limit]
     return {"total": total, "limit": limit, "offset": offset, "rows": page}
+
+
+def filter_sort_paginate(
+    rows: List[Dict[str, Any]],
+    filters: Optional[Dict[str, Any]] = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+    limit: int = 50,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """Apply the SAME contractor filter/sort/paginate to an arbitrary row list
+    (e.g. rows read from a per-run dynamic result sheet, not the master tab)."""
+    rows = _filter_contractors(rows, filters or {})
+    reverse = (sort_dir or "desc").lower() != "asc"
+    rows = sorted(rows, key=lambda r: _sort_key(r, sort_by), reverse=reverse)
+    total = len(rows)
+    return {"total": total, "limit": limit, "offset": offset, "rows": rows[offset: offset + limit]}
+
+
+def list_result_sheets() -> List[Dict[str, Any]]:
+    """All runs that produced a dynamic result spreadsheet, newest first — for
+    the UI's sheet picker."""
+    _refresh_jobs()
+    rows = get_db().all_rows("jobs")
+    out = [{
+        "job_id": r.get("job_id"),
+        "name": r.get("result_sheet_name"),
+        "url": r.get("result_sheet_url"),
+        "sheet_id": r.get("result_sheet_id"),
+        "status": r.get("status"),
+        "started_at": r.get("started_at"),
+    } for r in rows if r.get("result_sheet_id")]
+    out.sort(key=lambda r: _dt_key(r.get("started_at")), reverse=True)
+    return out
 
 
 def iter_contractors_filtered(
@@ -497,7 +663,7 @@ def list_keyword_changes(keyword_id: int) -> List[Dict[str, Any]]:
 
 
 # ──────────────────────────────────────────────────────────────
-# DBPR licenses — see agent/dbpr_loader.py (in-memory DataFrame, not Sheets)
+# DBPR licenses — see agent/dbpr_loader.py (streamed CSV match, not Sheets/memory)
 # ──────────────────────────────────────────────────────────────
 def dbpr_license_count() -> int:
     from agent.dbpr_loader import dbpr_count

@@ -12,7 +12,12 @@ requests>=2.31.0
 # Google Sheets storage
 gspread>=6.1.0
 google-auth>=2.30.0
-pandas>=2.2.0                # in-memory DBPR index
+# pandas removed — DBPR is now streamed + match-filtered (agent/dbpr_loader.py),
+# no in-memory DataFrame.
+
+# Cloud Run Jobs — the API service triggers the pipeline as a Cloud Run Job
+# (PIPELINE_RUNNER=cloud_run_job). Not imported in thread mode.
+google-cloud-run>=0.10.0
 
 # Web framework + async
 fastapi>=0.110.0

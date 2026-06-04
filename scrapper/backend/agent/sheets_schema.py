@@ -32,12 +32,28 @@ SCHEMA: Dict[str, Dict[str, Any]] = {
         "headers": [
             "job_id", "status", "current_stage", "stages_progress",
             "started_at", "finished_at", "error", "keywords_snapshot",
+            "resume_from",
+            # Per-run dynamic result spreadsheet (Drive) — see agent/dynamic_sheets.py
+            "result_sheet_id", "result_sheet_url", "result_sheet_name",
         ],
         "id_field": "job_id",
         "id_kind": "uuid",
         "json_fields": {"stages_progress", "keywords_snapshot"},
         "datetime_fields": {"started_at", "finished_at"},
         "bool_fields": set(),
+        "int_fields": set(),
+        "float_fields": set(),
+    },
+    # Stop signal lives here, NOT in `jobs`, so the API service (writer of the
+    # stop flag) and the pipeline worker (writer of progress) never clobber each
+    # other's fields when they run as separate processes (Cloud Run Job mode).
+    "job_control": {
+        "headers": ["job_id", "stop_requested", "updated_at"],
+        "id_field": "job_id",
+        "id_kind": "composite",
+        "json_fields": set(),
+        "datetime_fields": {"updated_at"},
+        "bool_fields": {"stop_requested"},
         "int_fields": set(),
         "float_fields": set(),
     },
@@ -157,6 +173,12 @@ SCHEMA: Dict[str, Dict[str, Any]] = {
 }
 
 TAB_NAMES: List[str] = list(SCHEMA.keys())
+
+# Ephemeral tabs are created at bootstrap but NOT loaded into the in-RAM mirror
+# (_load_mirror skips them). They hold large, short-lived data — e.g. pipeline
+# stage checkpoints for stop/resume — that would otherwise blow the 512MB mirror.
+# Read/written via the direct SheetsDB.ephemeral_* helpers, never the mirror.
+EPHEMERAL_TABS: Set[str] = {"stage_outputs"}
 
 
 # ──────────────────────────────────────────────────────────────

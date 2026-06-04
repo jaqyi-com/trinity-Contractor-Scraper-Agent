@@ -28,7 +28,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 from dotenv import load_dotenv
 
-from agent.sheets_schema import SCHEMA, TAB_NAMES, encode_row, decode_row, headers_for
+from agent.sheets_schema import SCHEMA, TAB_NAMES, EPHEMERAL_TABS, encode_row, decode_row, headers_for
 
 load_dotenv()
 
@@ -215,11 +215,20 @@ class SheetsDB:
                 if not first_row:
                     _with_retry(ws.update, [spec_headers], "A1", value_input_option="RAW")
                 elif first_row != spec_headers:
-                    missing = [h for h in spec_headers if h not in first_row]
-                    extra = [h for h in first_row if h not in spec_headers]
-                    if missing or extra:
-                        print(f"⚠️  [Sheets] tab '{tab}' headers differ from schema "
-                              f"(missing={missing}, extra={extra}) — using schema order.")
+                    # Pure additions at the end (existing headers are a prefix of the
+                    # schema) → upgrade the header row in place so the sheet stays
+                    # self-describing. This is the safe migration path when we append
+                    # new columns (e.g. jobs.stop_requested / resume_from).
+                    if len(spec_headers) > len(first_row) and spec_headers[:len(first_row)] == first_row:
+                        _with_retry(ws.update, [spec_headers], "A1", value_input_option="RAW")
+                        print(f"🔧 [Sheets] tab '{tab}' headers extended "
+                              f"{len(first_row)}→{len(spec_headers)} cols")
+                    else:
+                        missing = [h for h in spec_headers if h not in first_row]
+                        extra = [h for h in first_row if h not in spec_headers]
+                        if missing or extra:
+                            print(f"⚠️  [Sheets] tab '{tab}' headers differ from schema "
+                                  f"(missing={missing}, extra={extra}) — using schema order.")
             else:
                 ws = _with_retry(
                     self._spreadsheet.add_worksheet,
@@ -248,8 +257,16 @@ class SheetsDB:
               f"{sum(len(m) for m in self.mirror.values())} total rows  ({per_tab})")
 
     def _load_mirror(self) -> None:
-        """Pull every tab into memory once. Subsequent reads are dict lookups."""
+        """Pull every tab into memory once. Subsequent reads are dict lookups.
+
+        Ephemeral tabs (EPHEMERAL_TABS) are skipped — they hold large, short-lived
+        data and are accessed only via the direct ephemeral_* helpers, never RAM.
+        """
         for tab in TAB_NAMES:
+            if tab in EPHEMERAL_TABS:
+                # Never mirror — keep the mirror dict empty; direct I/O only.
+                self._next_sheet_row[tab] = 2
+                continue
             ws = self.worksheets[tab]
             all_values = _with_retry(ws.get_all_values)  # single API call per tab
             if len(all_values) <= 1:
@@ -273,6 +290,50 @@ class SheetsDB:
                     if key > self.counters[tab]:
                         self.counters[tab] = key
             self._next_sheet_row[tab] = len(all_values) + 1
+
+    def gspread_client(self) -> "gspread.Client":
+        """The authorized gspread client — for creating/opening spreadsheets
+        OUTSIDE the managed tabs (e.g. per-run dynamic result sheets). Ensures
+        we're connected first."""
+        if not self._bootstrapped:
+            self.bootstrap()
+        return self._client
+
+    def reload_tab(self, tab: str) -> None:
+        """Re-pull ONE tab from Sheets into the mirror, replacing what's there.
+
+        Used in Cloud Run Job mode where the API service and the pipeline worker
+        are separate processes sharing the spreadsheet: the service calls this to
+        see the worker's live progress. The network fetch happens OUTSIDE the lock
+        (only the swap is locked) so reads/writes aren't blocked during the call.
+
+        ⚠️ Only safe to call in a process that does NOT itself buffer writes for
+        this tab — otherwise it would clobber un-flushed in-memory changes. The
+        worker (jobs-tab writer) must never reload `jobs`; see agent/db.py gating.
+        """
+        if tab in EPHEMERAL_TABS:
+            return
+        ws = self.worksheets[tab]
+        all_values = _with_retry(ws.get_all_values)  # network: outside the lock
+        id_field = SCHEMA[tab]["id_field"]
+        id_kind = SCHEMA[tab]["id_kind"]
+        new_mirror: Dict[Any, Dict[str, Any]] = {}
+        new_index: Dict[Any, int] = {}
+        max_counter = self.counters[tab]
+        for offset, raw in enumerate(all_values[1:] if len(all_values) > 1 else []):
+            rec = decode_row(tab, raw)
+            key = rec.get(id_field)
+            if key is None:
+                continue
+            new_mirror[key] = rec
+            new_index[key] = offset + 2
+            if id_kind == "int" and isinstance(key, int) and key > max_counter:
+                max_counter = key
+        with self.lock:
+            self.mirror[tab] = new_mirror
+            self.sheet_row_index[tab] = new_index
+            self.counters[tab] = max_counter
+            self._next_sheet_row[tab] = (len(all_values) + 1) if all_values else 2
 
     # ──────────────────────────────────────────────────────────
     # Public read API (all hit RAM)
@@ -540,6 +601,38 @@ class SheetsDB:
                     self.pending_writes[tab].setdefault(key, (kind, encoded))
                 self.pending_deletes[tab].extend(deletes)
             print(f"⚠️  [Sheets] flush failed for '{tab}', requeued {len(pending)} writes: {e}")
+
+    # ──────────────────────────────────────────────────────────
+    # Ephemeral-tab I/O — for EPHEMERAL_TABS only. Bypasses the mirror and the
+    # write buffer entirely: writes/reads hit Sheets directly. Used for big,
+    # short-lived data (pipeline stage checkpoints) that must NOT live in RAM.
+    # Only one job runs at a time (enforced by the /start guard), so a checkpoint
+    # save safely replaces the whole tab's data region.
+    # ──────────────────────────────────────────────────────────
+    def ephemeral_write(self, tab: str, encoded_rows: List[List[str]]) -> None:
+        """Replace the tab's data (everything below the header) with these rows."""
+        ws = self.worksheets[tab]
+        last_col = _col_letter(len(SCHEMA[tab]["headers"]))
+        _with_retry(ws.batch_clear, [f"A2:{last_col}"])
+        if encoded_rows:
+            _with_retry(
+                ws.append_rows, encoded_rows,
+                value_input_option="RAW",
+                insert_data_option="INSERT_ROWS",
+                table_range="A1",
+            )
+
+    def ephemeral_read(self, tab: str) -> List[List[str]]:
+        """Return the tab's raw data rows (header stripped). One API call."""
+        ws = self.worksheets[tab]
+        vals = _with_retry(ws.get_all_values)
+        return vals[1:] if len(vals) > 1 else []
+
+    def ephemeral_clear(self, tab: str) -> None:
+        """Wipe the tab's data region (keep the header row)."""
+        ws = self.worksheets[tab]
+        last_col = _col_letter(len(SCHEMA[tab]["headers"]))
+        _with_retry(ws.batch_clear, [f"A2:{last_col}"])
 
     def close(self) -> None:
         self._stop.set()
