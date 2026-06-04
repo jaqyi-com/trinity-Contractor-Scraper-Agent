@@ -46,6 +46,12 @@ export default function History() {
   const pageRows = sorted.slice(pageIndex * pageSize, (pageIndex + 1) * pageSize);
 
   const columns = useMemo<ColumnDef<any, any>[]>(() => [
+    { id: "name", accessorKey: "name", header: "Batch",
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return v ? <span className="font-medium text-sm whitespace-nowrap">{v}</span> : <EmptyValue />;
+      },
+    },
     { id: "job_id", accessorKey: "job_id", header: "Job ID",
       cell: ({ getValue }) => <code className="text-xs font-mono">{(getValue() as string).slice(0, 8)}…</code>,
     },

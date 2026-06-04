@@ -16,7 +16,6 @@ import { cn } from "@/lib/utils";
 // "Columns" show/hide menu. Every output-schema field is represented.
 const COLUMN_LABELS: { id: string; label: string }[] = [
   { id: "business_name", label: "Business" },
-  { id: "change_status", label: "Change" },
   { id: "city", label: "City" },
   { id: "zip_code", label: "Zip" },
   { id: "address", label: "Address" },
@@ -80,20 +79,10 @@ export default function Results() {
     queryFn: () => api.contractorFacets(),
   });
 
-  // ── Result-set source: a per-run dynamic sheet, or the cumulative master ──
-  // "" = master (contractors tab); otherwise a job_id whose run sheet we view.
-  const sheets = useQuery({ queryKey: ["result-sheets"], queryFn: () => api.listResultSheets() });
-  const [sheetJobId, setSheetJobId] = useState<string>("");
-  const sheetInit = useRef(false);
-  useEffect(() => {
-    // Default to the most recent run's sheet on first load (user can switch).
-    if (!sheetInit.current && sheets.data) {
-      sheetInit.current = true;
-      if (sheets.data.length) setSheetJobId(sheets.data[0].job_id);
-    }
-  }, [sheets.data]);
-  const usingSheet = !!sheetJobId;
-  const selectedSheet = sheets.data?.find((s) => s.job_id === sheetJobId) ?? null;
+  // ── Batch filter: every pipeline run is a "Batch N"; filter contractors by it ──
+  // "" = all batches (whole DB); otherwise a job_id.
+  const jobs = useQuery({ queryKey: ["jobs-list"], queryFn: () => api.listJobs() });
+  const [batchJobId, setBatchJobId] = useState<string>("");
 
   function resetPage() {
     setPageIndex((p) => (p !== 0 ? 0 : p));
@@ -116,6 +105,7 @@ export default function Results() {
   };
 
   const apiParams: ContractorQuery = {
+    job_id: batchJobId || undefined,
     search: debSearch.trim() || undefined,
     city: cityFilter ? [cityFilter] : undefined,
     tier: tierFilter ? [tierFilter] : undefined,
@@ -146,9 +136,8 @@ export default function Results() {
   };
 
   const query = useQuery({
-    queryKey: ["contractors", sheetJobId, apiParams],
-    queryFn: () =>
-      usingSheet ? api.listSheetContractors(sheetJobId, apiParams) : api.listContractors(apiParams),
+    queryKey: ["contractors", apiParams],
+    queryFn: () => api.listContractors(apiParams),
     placeholderData: keepPreviousData,
   });
 
@@ -184,6 +173,9 @@ export default function Results() {
 
   const exportCount = query.data?.total ?? 0;
   const canExport = exportCount > 0 && !isExporting;
+  // What the CSV will contain — follows the Batch dropdown (all batches or one batch).
+  const selectedBatch = jobs.data?.find((j: any) => j.job_id === batchJobId) as any;
+  const batchLabel = batchJobId ? (selectedBatch?.name || "batch") : "all batches";
 
   // ── Columns: one per output-schema field ──
   const columns = useMemo<ColumnDef<Contractor, any>[]>(() => [
@@ -206,15 +198,6 @@ export default function Results() {
     {
       id: "tier", accessorKey: "tier", header: "Tier",
       cell: ({ getValue }) => { const v = getValue() as string | null; return v ? <Badge variant={tierVariant(v)}>{v}</Badge> : <EmptyValue />; },
-    },
-    {
-      id: "change_status", accessorKey: "change_status", header: "Change", enableSorting: false,
-      cell: ({ getValue }) => {
-        const v = getValue() as string | null;
-        if (!v) return <EmptyValue />;
-        const variant = v === "new" ? "success" : v === "updated" ? "warning" : "muted";
-        return <Badge variant={variant}>{v}</Badge>;
-      },
     },
     {
       id: "specialty_keywords", header: "Tier keywords", enableSorting: false,
@@ -382,34 +365,26 @@ export default function Results() {
       </div>
 
       <div className="rounded-lg border bg-card p-3 mb-4">
-        {/* Result-set selector: which run's sheet to view (or the cumulative master) */}
+        {/* Batch filter: show the whole DB, or just one run's (batch's) rows */}
         <div className="flex flex-wrap items-center gap-2 mb-2 pb-2 border-b">
           <FileSpreadsheet className="h-4 w-4 text-primary shrink-0" />
-          <span className="text-xs font-medium text-muted-foreground">Result set:</span>
+          <span className="text-xs font-medium text-muted-foreground">Batch:</span>
           <select
-            value={sheetJobId}
-            onChange={(e) => { setSheetJobId(e.target.value); resetPage(); }}
+            value={batchJobId}
+            onChange={(e) => { setBatchJobId(e.target.value); resetPage(); }}
             className="rounded-md border bg-background px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary max-w-[340px]"
           >
-            <option value="">Master — all runs (cumulative)</option>
-            {sheets.data?.map((s) => (
-              <option key={s.job_id} value={s.job_id}>
-                {s.name || `Run ${s.job_id.slice(0, 8)}`}
-                {s.status && s.status !== "completed" ? ` · ${s.status}` : ""}
+            <option value="">All batches (whole DB)</option>
+            {jobs.data?.map((j: any) => (
+              <option key={j.job_id} value={j.job_id}>
+                {j.name || `Run ${String(j.job_id).slice(0, 8)}`}
+                {j.status && j.status !== "completed" ? ` · ${j.status}` : ""}
               </option>
             ))}
           </select>
-          {usingSheet && selectedSheet?.url && (
-            <a
-              href={selectedSheet.url} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
-            >
-              Open in Google Sheets <ExternalLink className="h-3 w-3" />
-            </a>
-          )}
-          {usingSheet && (
+          {batchJobId && (
             <span className="text-[11px] text-muted-foreground">
-              showing this run's snapshot · <b>new/updated/unchanged</b> tagged
+              showing only this batch's added/changed rows
             </span>
           )}
         </div>
@@ -444,16 +419,14 @@ export default function Results() {
             </button>
           )}
 
-          {!usingSheet && (
-            <button
-              onClick={handleExport}
-              disabled={!canExport}
-              className="ml-auto inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-              {isExporting ? "Exporting…" : `Download CSV${exportCount > 0 ? ` (${exportCount.toLocaleString()})` : ""}`}
-            </button>
-          )}
+          <button
+            onClick={handleExport}
+            disabled={!canExport}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {isExporting ? "Exporting…" : `Download CSV · ${batchLabel}${exportCount > 0 ? ` (${exportCount.toLocaleString()})` : ""}`}
+          </button>
         </div>
       </div>
 

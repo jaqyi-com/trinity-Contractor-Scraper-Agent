@@ -45,13 +45,20 @@ The pipeline checkpoints its working set after every phase to a non-mirrored
 boundary (the expensive discovery never re-runs). **Resume** continues from the checkpoint;
 **Cancel** discards a paused run. Progress shows as a live animated stepper in the UI.
 
-### Per-run dynamic result sheets
+### Versioned save + batches
 
-Each run also writes its results to its **own dated Google Sheet** in a shared Drive folder,
-one row per business tagged `change_status` = **new / updated / unchanged** (vs the master
-tab). The cumulative `contractors` master tab is unchanged. In the UI's **Results** page a
-selector picks the result set: default = latest run's sheet, or "Master — all runs", or any
-past run; each run links out to "Open in Google Sheets".
+All results live in the single `contractors` tab (no extra spreadsheets). Each run is a
+**batch** with a unique name (`Batch 1`, `Batch 2`, …).
+At save time (`db.insert_contractor`), each business is matched by dedupe key against the DB:
+
+- **not in DB** → insert a new row
+- **in DB but data changed** → insert a **new version** (new id + this batch's `job_id` +
+  fresh `scraped_at`); the old version is kept
+- **in DB and unchanged** → skip (no write)
+
+So the tab keeps a per-batch history. In the UI's **Results** page a **Batch** dropdown
+filters by run (all batches = whole DB; a batch = the rows that run added/changed). The
+post-insert dedupe sweep runs only within a batch, so versions across batches are preserved.
 
 ---
 
@@ -71,7 +78,6 @@ No keys needed for Florida DBPR (free official CSV) or Google Maps/BBB (accessed
 Copy `backend/.env.example` → `backend/.env` (local) or set them on Cloud Run. Essentials:
 
 - **Sheets:** `GOOGLE_SHEETS_ID`, `GOOGLE_CLIENT_EMAIL`, `GOOGLE_PRIVATE_KEY`
-- **Dynamic sheets:** `DRIVE_RESULTS_FOLDER_ID`
 - **Scraping:** `APIFY_API_TOKEN`, `APOLLO_API_KEY`
 - **Auth:** `JWT_SECRET`
 
@@ -130,13 +136,6 @@ default SA, `<project-number>-compute@developer.gserviceaccount.com`) two roles,
 
 > Sheets/Apify auth uses the env credentials (not the runtime SA), so the Job needs no extra data permissions.
 
-### Dynamic result sheets — Drive folder setup
-
-1. In Google Drive, create a folder (e.g. "Contractor Scraper Runs").
-2. Share it with `GOOGLE_CLIENT_EMAIL` as **Editor**.
-3. Copy the folder ID from its URL and set `DRIVE_RESULTS_FOLDER_ID` on the service.
-
-(Native Google Sheets don't count against storage quota, so the service account can create them freely.)
 
 ### Frontend (Vercel)
 
@@ -150,17 +149,12 @@ Cloud Run → **Jobs** → `contractor-pipeline-job` → **Executions** → pick
 
 ---
 
-## ⚠️ Important toggle before full-scale handoff
+## Discovery scale
 
-`backend/agent/scraper_google.py` has a **temporary discovery cap**:
-
-```python
-DISCOVERY_RESULT_CAP = 10   # at most 10 businesses PER METRO (test throttle)
-```
-
-This keeps test runs cheap (~60 businesses total) and does **not** meet the spec's
-"≥ 2,000 businesses". To go full-scale set `DISCOVERY_RESULT_CAP = None`, ensure
-`APIFY_API_TOKEN` is funded, and redeploy.
+Discovery runs at **full scale** — no per-metro cap (`DISCOVERY_RESULT_CAP = None`
+in `agent/scraper_google.py`), so a full 6-metro run targets the spec's
+≥ 2,000 businesses. This uses real Apify budget (~$50–75 per full run), so keep
+`APIFY_API_TOKEN` funded.
 
 ---
 
@@ -178,13 +172,12 @@ scrapper/
 │   │   ├── classifier.py / keywords.py        # tier classifier
 │   │   ├── dedupe.py / matcher.py
 │   │   ├── checkpoint.py      # stop/resume checkpoints (stage_outputs tab)
-│   │   ├── dynamic_sheets.py  # per-run result spreadsheets
 │   │   ├── db.py / sheets_client.py / sheets_schema.py   # Google Sheets storage layer
 │   │   └── run_job.py         # Cloud Run Job entrypoint (python -m agent.run_job)
 │   ├── api/
 │   │   ├── main.py            # FastAPI app + lifespan (auto-ensures the Job)
 │   │   ├── job_manager.py / cloud_run_trigger.py   # thread vs Cloud Run Job
-│   │   └── routes/            # jobs, contractors, result_sheets, keywords, cities, classification, auth, health
+│   │   └── routes/            # jobs, contractors, keywords, cities, classification, auth, health
 │   ├── config/cities.yaml     # 6 metros + ZIPs
 │   ├── requirements.txt · Dockerfile · start.sh · .env.example
 └── frontend/

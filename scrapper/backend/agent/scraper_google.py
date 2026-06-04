@@ -23,11 +23,10 @@ APIFY_TIMEOUT = 280
 # insert → web UI) without spending Apify credits.
 USE_SAMPLE_DATA = os.getenv("USE_SAMPLE_DATA", "").lower() in ("1", "true", "yes")
 
-# ⚠️ TEMPORARY SAFETY CAP — REMOVE BEFORE CLIENT HANDOFF ⚠️
-# Limits businesses discovered PER METRO so early/test runs can't rack up Apify
-# cost or scrape thousands of rows.
-# To go full-scale: set to None (no cap) — see DEPLOYMENT.md §13.
-DISCOVERY_RESULT_CAP = 10
+# Production: NO per-metro cap — full-scale discovery (all queries run with
+# maxCrawledPlacesPerSearch), meeting the spec's ≥2,000 businesses. Apify cost
+# applies (~$50–75 per full 6-metro run), so keep APIFY_API_TOKEN funded.
+DISCOVERY_RESULT_CAP = None
 
 
 # ──────────────────────────────────────────────────────────────
