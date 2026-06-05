@@ -16,7 +16,11 @@ APIFY_API_TOKEN = os.getenv("APIFY_API_TOKEN")
 
 # Apify Google Maps actor — primary (only) discovery source.
 APIFY_MAPS_ACTOR = "compass~crawler-google-places"
-APIFY_TIMEOUT = 280
+# Per-HTTP-call timeout (start/poll/fetch are all short calls now — NOT the whole
+# scrape). The scrape itself runs async on Apify and can take many minutes.
+APIFY_TIMEOUT = 60
+APIFY_POLL_INTERVAL = 10                                  # seconds between status checks
+APIFY_MAX_WAIT = int(os.getenv("APIFY_MAX_WAIT", "3600"))  # max wait per metro run (1h)
 
 # Test/dev flag — when true, scrape_metro returns hardcoded SAMPLE_SEEDS instead
 # of calling Apify. Lets you run the full pipeline (classify → enrich → dedupe →
@@ -26,7 +30,10 @@ USE_SAMPLE_DATA = os.getenv("USE_SAMPLE_DATA", "").lower() in ("1", "true", "yes
 # Production: NO per-metro cap — full-scale discovery (all queries run with
 # maxCrawledPlacesPerSearch), meeting the spec's ≥2,000 businesses. Apify cost
 # applies (~$50–75 per full 6-metro run), so keep APIFY_API_TOKEN funded.
-DISCOVERY_RESULT_CAP = None
+# Set DISCOVERY_RESULT_CAP=<n> in the env for a cheap/fast test run (1 query,
+# n places per metro); leave unset/blank for full scale.
+_cap_env = os.getenv("DISCOVERY_RESULT_CAP", "").strip()
+DISCOVERY_RESULT_CAP = int(_cap_env) if _cap_env.isdigit() else None
 
 
 # ──────────────────────────────────────────────────────────────
@@ -164,9 +171,12 @@ def scrape_metro(city: str, zips: List[str], queries: List[str] = None) -> List[
 
 
 def _scrape_apify_maps(city: str, queries: List[str], cap) -> List[GoogleSeed]:
-    """Discovery via the Apify Google Maps actor (run-sync pattern, same as
-    DBPR/BBB). Capped mode keeps cost low; full mode runs all queries."""
+    """Discovery via the Apify Google Maps actor, ASYNC pattern: start the run,
+    poll until it finishes, then read its dataset. The old run-sync endpoint has
+    a ~300s server cap, which a full metro scrape (all queries × scrapeContacts)
+    always blows past → 502 Bad Gateway / read-timeout. Async has no time limit."""
     import requests
+    import time
 
     search_strings = queries if cap is None else queries[:1]
     per_search = cap if cap is not None else 120
@@ -177,19 +187,64 @@ def _scrape_apify_maps(city: str, queries: List[str], cap) -> List[GoogleSeed]:
         "scrapeContacts": True,
         "language": "en",
     }
+    base = "https://api.apify.com/v2"
+
+    # 1. Start the run asynchronously — returns immediately with run + dataset ids.
     try:
         resp = requests.post(
-            f"https://api.apify.com/v2/acts/{APIFY_MAPS_ACTOR}/run-sync-get-dataset-items",
+            f"{base}/acts/{APIFY_MAPS_ACTOR}/runs",
             params={"token": APIFY_API_TOKEN}, json=payload, timeout=APIFY_TIMEOUT,
         )
         resp.raise_for_status()
-        items = resp.json()
+        run = resp.json()["data"]
+        run_id, dataset_id = run["id"], run["defaultDatasetId"]
     except Exception as e:
-        print(f"⚠️ Apify Maps fallback error: {e}")
+        print(f"⚠️ [Google/Apify] {city}: run start failed: {e}")
         return []
 
-    if not isinstance(items, list):
-        return []
+    # 2. Poll the run until it reaches a terminal state (or we hit the wait cap).
+    status, waited = None, 0
+    while waited < APIFY_MAX_WAIT:
+        time.sleep(APIFY_POLL_INTERVAL)
+        waited += APIFY_POLL_INTERVAL
+        try:
+            s = requests.get(
+                f"{base}/actor-runs/{run_id}",
+                params={"token": APIFY_API_TOKEN}, timeout=APIFY_TIMEOUT,
+            )
+            s.raise_for_status()
+            status = s.json()["data"]["status"]
+        except Exception as e:
+            print(f"⚠️ [Google/Apify] {city}: poll error (continuing): {e}")
+            continue
+        if status in ("SUCCEEDED", "FAILED", "ABORTED", "TIMED-OUT", "TIMING-OUT"):
+            break
+    if status != "SUCCEEDED":
+        print(f"⚠️ [Google/Apify] {city}: run status={status} after {waited}s "
+              f"— reading whatever was collected")
+
+    # 3. Read the dataset (paginated — a full metro can be >1k items).
+    items: list = []
+    offset, page = 0, 1000
+    while True:
+        try:
+            r = requests.get(
+                f"{base}/datasets/{dataset_id}/items",
+                params={"token": APIFY_API_TOKEN, "offset": offset,
+                        "limit": page, "clean": "true"},
+                timeout=120,
+            )
+            r.raise_for_status()
+            batch = r.json()
+        except Exception as e:
+            print(f"⚠️ [Google/Apify] {city}: dataset fetch error: {e}")
+            break
+        if not isinstance(batch, list) or not batch:
+            break
+        items.extend(batch)
+        if len(batch) < page:
+            break
+        offset += page
 
     seeds: List[GoogleSeed] = []
     seen: set = set()
