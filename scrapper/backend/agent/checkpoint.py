@@ -53,6 +53,20 @@ def save_checkpoint(job_id: str, next_stage: str, items: list) -> None:
             "data": dicts[start:start + CHUNK],
             "created_at": now,
         }))
+    # Even with NO items (e.g. resume@dedupe_final carries nothing), write ONE
+    # stage-marker row. Otherwise the tab is left empty, load_checkpoint() reads it
+    # as None, and resume can't tell which stage we paused at — it falls back to
+    # re-running discovery (re-paying for the whole scrape). The marker lets
+    # resume_pipeline trust the checkpoint's stage over a stale job.resume_from.
+    if not rows:
+        rows.append(encode_row(TAB, {
+            "id": 1,
+            "job_id": job_id,
+            "stage_name": next_stage,
+            "row_index": 0,
+            "data": [],
+            "created_at": now,
+        }))
     db.ephemeral_write(TAB, rows)
     print(f"💾 [checkpoint] saved {len(dicts)} items → resume@{next_stage} "
           f"({len(rows)} chunk rows)")
