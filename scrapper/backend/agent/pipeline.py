@@ -9,11 +9,17 @@
 #   Phase 6  Dedupe sweep — post-insert belt-and-suspenders.
 #
 # Stop/Resume:
-#   After every phase the working row-set is checkpointed (agent/checkpoint.py)
-#   to the non-mirrored stage_outputs tab, and jobs.resume_from records the NEXT
-#   phase. A stop is honoured at phase BOUNDARIES (we can't cleanly interrupt a
-#   running Apify scrape mid-flight) — so the expensive discovery never re-runs.
-#   Resume reloads the checkpoint and continues from resume_from.
+#   At the START of each phase, jobs.resume_from is set to THAT phase and the
+#   phase's INPUT is checkpointed (agent/checkpoint.py) to the non-mirrored
+#   stage_outputs tab — the input is just the previous (completed) phase's saved
+#   output, so no extra work. A stop is then honoured MID-PHASE (polled inside the
+#   discovery and enrichment loops): the pipeline bails immediately, DISCARDING the
+#   in-progress phase's partial work. Resume reloads the last completed phase's
+#   checkpoint and re-runs the interrupted phase from scratch.
+#
+#   We still can't tear a single in-flight Apify call out mid-request, so worst-case
+#   stop latency ≈ one metro discovery / one enrichment wave — but the rest of the
+#   phase never runs, and the phase is redone cleanly on resume.
 
 import os
 import traceback
@@ -24,7 +30,9 @@ from agent.db import (
     update_job, get_job, get_active_keywords, list_cities, get_max_final_records,
     is_stop_requested, clear_job_stop,
 )
-from agent.processor import discover_metro, classify_seeds, enrich_and_insert_rows
+from agent.processor import (
+    discover_metro, classify_seeds, enrich_and_insert_rows, PipelineStopRequested,
+)
 from agent.scraper_dbpr import fetch_licenses_for_seeds
 from agent.dedupe import dedupe_seeds, dedupe_all_for_job
 from agent.checkpoint import save_checkpoint, load_checkpoint, clear_checkpoint
@@ -59,22 +67,21 @@ def _apply_cap(rows, limit):
     return ranked[:limit]
 
 
-def _stop_requested(job_id: str, progress: dict) -> bool:
-    """Check the stop flag (set by POST /jobs/{id}/stop, stored in job_control).
-    If set, mark the job paused and return True so the caller bails out cleanly.
-    resume_from + the stage checkpoint are already saved by the time we get here,
-    so the pause is instant — no extra work to do."""
+def _check_stop(job_id: str) -> None:
+    """Raise PipelineStopRequested if a stop has been requested (set by
+    POST /jobs/{id}/stop, stored in job_control). resume_from already points at the
+    in-progress phase, so the caught exception pauses the job and resume re-runs
+    this phase from scratch on the last completed phase's checkpoint."""
     if is_stop_requested(job_id):
-        clear_job_stop(job_id)
-        update_job(job_id, status="paused", current_stage="paused", stages_progress=progress)
-        job = get_job(job_id)
-        print(f"⏸️  Pipeline PAUSED — job_id={job_id} (resume_from={(job or {}).get('resume_from')})")
-        return True
-    return False
+        raise PipelineStopRequested()
 
 
 def _discover_all(job_id: str, cities, progress: dict):
-    """Phase 1 across all metros (parallel)."""
+    """Phase 1 across all metros (parallel). Polls the stop flag after each metro
+    finishes; on stop it stops launching the remaining metros, discards what was
+    gathered, and raises PipelineStopRequested. A single metro's Apify call already
+    in flight can't be cancelled, but it just finishes in the background — the
+    pipeline returns and the whole phase is redone on resume."""
     update_job(job_id, current_stage=f"discovery ({len(cities)} metros, parallel)")
     all_seeds = []
 
@@ -87,13 +94,24 @@ def _discover_all(job_id: str, cities, progress: dict):
             traceback.print_exc()
             return name, []
 
-    with ThreadPoolExecutor(max_workers=METRO_WORKERS) as ex:
-        for fut in as_completed([ex.submit(_discover, c) for c in cities]):
+    ex = ThreadPoolExecutor(max_workers=METRO_WORKERS)
+    futures = [ex.submit(_discover, c) for c in cities]
+    stopped = False
+    try:
+        for fut in as_completed(futures):
             name, seeds = fut.result()
             all_seeds.extend(seeds)
             progress[f"discovery:{name}"] = {"status": "done", "seeds": len(seeds)}
             update_job(job_id, stages_progress=progress)
+            if is_stop_requested(job_id):
+                stopped = True
+                break
+    finally:
+        # Don't wait on in-flight metros; cancel any not yet started.
+        ex.shutdown(wait=False, cancel_futures=True)
 
+    if stopped:
+        raise PipelineStopRequested()
     return all_seeds
 
 
@@ -129,18 +147,24 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
         rows = carried if start_at == "enrich" else None
         enrich_summary = {"saved": 0}
 
+        # Each phase: point resume_from at ITSELF first (so a mid-phase stop re-runs
+        # THIS phase from scratch), then do the work, then checkpoint the NEXT phase's
+        # input. The on-disk checkpoint already holds this phase's input — it was
+        # written as the previous phase's "next-stage" save.
+
         # ─── Phase 1: Discovery ───
         if si <= PHASE_ORDER.index("discovery"):
-            seeds = _discover_all(job_id, cities, progress)
+            update_job(job_id, resume_from="discovery")
+            clear_checkpoint()  # discovery has no carried input; re-runs fresh on resume
+            seeds = _discover_all(job_id, cities, progress)  # raises on stop
             save_checkpoint(job_id, "dedupe_seeds", seeds)
-            update_job(job_id, resume_from="dedupe_seeds", stages_progress=progress)
-            if _stop_requested(job_id, progress):
-                return
+            update_job(job_id, stages_progress=progress)
 
         # ─── Phase 2: Dedupe seeds (pre-enrichment cost saver) ───
         if si <= PHASE_ORDER.index("dedupe_seeds"):
+            update_job(job_id, resume_from="dedupe_seeds", current_stage="dedupe_seeds")
+            _check_stop(job_id)  # fast/uninterruptible phase — honour stop at its start
             print("\n🧹 Phase 2: Dedupe seeds (pre-enrichment)")
-            update_job(job_id, current_stage="dedupe_seeds")
             seeds = seeds or []
             unique_seeds = dedupe_seeds(seeds)
             progress["dedupe_seeds"] = {
@@ -149,14 +173,13 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
                 "removed": len(seeds) - len(unique_seeds),
             }
             save_checkpoint(job_id, "classify", unique_seeds)
-            update_job(job_id, resume_from="classify", stages_progress=progress)
-            if _stop_requested(job_id, progress):
-                return
+            update_job(job_id, stages_progress=progress)
 
         # ─── Phase 3: Classify (free) ───
         if si <= PHASE_ORDER.index("classify"):
+            update_job(job_id, resume_from="classify", current_stage="classify")
+            _check_stop(job_id)
             print("\n🏷️  Phase 3: Classify + Audit Log")
-            update_job(job_id, current_stage="classify")
             unique_seeds = unique_seeds or []
             included = classify_seeds(unique_seeds, keywords, job_id)
             progress["classify"] = {
@@ -165,43 +188,42 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
                 "excluded": len(unique_seeds) - len(included),
             }
             save_checkpoint(job_id, "cap", included)
-            update_job(job_id, resume_from="cap", stages_progress=progress)
-            if _stop_requested(job_id, progress):
-                return
+            update_job(job_id, stages_progress=progress)
 
         # ─── Phase 4: Cap to max_final_records ───
         if si <= PHASE_ORDER.index("cap"):
+            update_job(job_id, resume_from="cap", current_stage="cap")
+            _check_stop(job_id)
             included = included or []
             rows = _apply_cap(included, max_final)
             print(f"\n🎚️  Phase 4: Cap — limit={max_final}, kept {len(rows)}/{len(included)} included")
-            update_job(job_id, current_stage="cap")
             progress["cap"] = {
                 "limit": max_final,
                 "kept": len(rows),
                 "dropped": len(included) - len(rows),
             }
             save_checkpoint(job_id, "enrich", rows)
-            update_job(job_id, resume_from="enrich", stages_progress=progress)
-            if _stop_requested(job_id, progress):
-                return
+            update_job(job_id, stages_progress=progress)
 
         # ─── Phase 5: DBPR match + enrich + insert (paid per row) ───
         if si <= PHASE_ORDER.index("enrich"):
+            update_job(job_id, resume_from="enrich", current_stage="enrich")
+            _check_stop(job_id)
             rows = rows or []
             print(f"\n🏛️💎 Phase 5: DBPR + Enrich + Insert — {len(rows)} rows")
-            update_job(job_id, current_stage="enrich")
             dbpr_index = fetch_licenses_for_seeds(rows)  # rows expose .business_name
-            enrich_summary = enrich_and_insert_rows(rows, dbpr_index, job_id)
+            enrich_summary = enrich_and_insert_rows(
+                rows, dbpr_index, job_id, should_stop=lambda: is_stop_requested(job_id)
+            )  # raises on stop (nothing persisted until it finishes the row set)
             progress["enrich"] = {"status": "done", "saved": enrich_summary["saved"]}
             # Data is now persisted to the contractors tab — dedupe_final carries nothing.
             save_checkpoint(job_id, "dedupe_final", [])
-            update_job(job_id, resume_from="dedupe_final", stages_progress=progress)
-            if _stop_requested(job_id, progress):
-                return
+            update_job(job_id, stages_progress=progress)
 
         # ─── Phase 6: Global dedupe sweep (belt-and-suspenders) ───
+        update_job(job_id, resume_from="dedupe_final", current_stage="dedupe")
+        _check_stop(job_id)
         print("\n🔁 Phase 6: Global Dedupe (post-insert sweep)")
-        update_job(job_id, current_stage="dedupe")
         dedupe_all_for_job(job_id)
         progress["dedupe_final"] = {"status": "done"}
         clear_checkpoint()
@@ -215,6 +237,16 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
             resume_from="",
         )
         print(f"\n🎯 Pipeline COMPLETED — job_id={job_id} — {enrich_summary.get('saved', 0)} records saved")
+
+    except PipelineStopRequested:
+        # Mid-phase stop: the in-progress phase's partial work is discarded.
+        # resume_from already points at that phase and its input checkpoint is on
+        # disk, so Resume re-runs it from scratch. Pause is instant — no save needed.
+        clear_job_stop(job_id)
+        job = get_job(job_id) or {}
+        update_job(job_id, status="paused", current_stage="paused", stages_progress=progress)
+        print(f"⏸️  Pipeline PAUSED — job_id={job_id} "
+              f"(resume_from={job.get('resume_from')}) — in-progress stage discarded")
 
     except Exception as e:
         traceback.print_exc()

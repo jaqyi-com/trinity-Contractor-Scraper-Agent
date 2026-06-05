@@ -30,6 +30,15 @@ from agent.schema import ContractorRow, GoogleSeed
 ENRICH_WORKERS = int(os.getenv("ENRICH_WORKERS", "18"))
 
 
+class PipelineStopRequested(Exception):
+    """Raised mid-stage when a stop has been requested, so the pipeline bails out
+    immediately and DISCARDS the in-progress stage's partial work. Defined here
+    (not in pipeline.py) so both the orchestrator and stage workers can raise it
+    without a circular import. The orchestrator sets resume_from to the in-progress
+    stage BEFORE the work starts, so resume re-runs this stage from scratch on the
+    last completed stage's checkpoint."""
+
+
 # ──────────────────────────────────────────────────────────────
 # Phase 1 — Discovery (one metro). Returns raw seeds; NO enrichment yet.
 # ──────────────────────────────────────────────────────────────
@@ -146,8 +155,15 @@ def _enrich_one(row: ContractorRow) -> None:
         print(f"⚠️  Apollo enrichment error for {row.business_name}: {e}")
 
 
-def enrich_and_insert_rows(rows: List[ContractorRow], dbpr_index: list, job_id: str) -> dict:
-    """License-match → parallel BBB/Apollo enrich → UPSERT each row to the DB."""
+def enrich_and_insert_rows(rows: List[ContractorRow], dbpr_index: list, job_id: str,
+                           should_stop=None) -> dict:
+    """License-match → parallel BBB/Apollo enrich → UPSERT each row to the DB.
+
+    `should_stop` (optional callable) is polled between enrichment waves so a stop
+    request bails promptly. Nothing is persisted until the insert loop at the end,
+    so bailing mid-enrich discards the whole stage cleanly — resume re-runs it from
+    scratch. A single in-flight wave (≈ENRICH_WORKERS rows) can't be torn out, so
+    worst-case latency after a stop ≈ one BBB call (~45s)."""
     summary = {"saved": 0, "errors": []}
     if not rows:
         return summary
@@ -168,10 +184,18 @@ def enrich_and_insert_rows(rows: List[ContractorRow], dbpr_index: list, job_id: 
         except Exception as e:
             print(f"⚠️  License match error: {e}")
 
-    # ─── Enrichment (BBB + Apollo) — parallelized ───
+    if should_stop and should_stop():
+        raise PipelineStopRequested()
+
+    # ─── Enrichment (BBB + Apollo) — parallelized in waves so stop is honoured ───
     print(f"💎📧 Enrichment — {len(rows)} rows × {ENRICH_WORKERS} workers")
     with ThreadPoolExecutor(max_workers=ENRICH_WORKERS) as ex:
-        list(ex.map(_enrich_one, rows))
+        for start in range(0, len(rows), ENRICH_WORKERS):
+            # Between waves only — the current wave has already finished here, so the
+            # pool exits cleanly with no hanging threads, and no row was persisted yet.
+            if should_stop and should_stop():
+                raise PipelineStopRequested()
+            list(ex.map(_enrich_one, rows[start:start + ENRICH_WORKERS]))
 
     # ─── Persist — versioned save (new / changed-version / skip handled in db) ───
     for row in rows:
