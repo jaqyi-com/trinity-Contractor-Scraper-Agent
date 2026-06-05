@@ -184,7 +184,7 @@ export default function Dashboard() {
             className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-5 py-3 text-base font-semibold hover:bg-amber-100 disabled:opacity-60 transition"
           >
             <Square className="h-5 w-5" />
-            {stopPending ? "Stopping after current stage..." : "Stop"}
+            {stopPending ? "Stopping now..." : "Stop"}
           </button>
         )}
 
@@ -229,7 +229,7 @@ export default function Dashboard() {
             </h3>
             {stopPending && (
               <span className="text-xs text-amber-700 shrink-0">
-                Stopping — will pause at next stage
+                Stopping now — current stage is discarded and will re-run from start on resume
               </span>
             )}
           </div>
