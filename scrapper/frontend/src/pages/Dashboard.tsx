@@ -158,34 +158,18 @@ export default function Dashboard() {
           Bounds enrichment cost. Applies to the next run. Default{" "}
           {settings.data?.default_max_final_records ?? 5000}.
         </p>
-        <div className="flex items-center gap-2">
-          <input
-            id="max-records"
-            type="number"
-            min={1}
-            max={100000}
-            value={maxRecords}
-            onChange={(e) => setMaxRecords(e.target.value)}
-            disabled={settings.isLoading}
-            className="w-40 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
-          />
-          <button
-            onClick={() => saveSettings.mutate()}
-            disabled={maxInvalid || budgetInvalid || settingsUnchanged || saveSettings.isPending || settings.isLoading}
-            className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition"
-          >
-            {saveSettings.isSuccess && settingsUnchanged ? (
-              <><Check className="h-4 w-4" /> Saved</>
-            ) : (
-              <><Save className="h-4 w-4" /> Save</>
-            )}
-          </button>
-        </div>
+        <input
+          id="max-records"
+          type="number"
+          min={1}
+          max={100000}
+          value={maxRecords}
+          onChange={(e) => setMaxRecords(e.target.value)}
+          disabled={settings.isLoading}
+          className="w-40 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+        />
         {maxInvalid && (
           <p className="text-xs text-destructive mt-2">Enter a whole number between 1 and 100,000.</p>
-        )}
-        {saveSettings.isError && (
-          <p className="text-xs text-destructive mt-2">{(saveSettings.error as Error).message}</p>
         )}
 
         {/* ─── Per-service cost budgets (USD). Blank = unlimited. ─── */}
@@ -244,6 +228,27 @@ export default function Dashboard() {
             );
           })}
         </div>
+
+        {/* ─── One Save for the whole card: max records + all budgets ─── */}
+        <div className="mt-6 pt-5 border-t flex items-center gap-3">
+          <button
+            onClick={() => saveSettings.mutate()}
+            disabled={maxInvalid || budgetInvalid || settingsUnchanged || saveSettings.isPending || settings.isLoading}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          >
+            {saveSettings.isSuccess && settingsUnchanged ? (
+              <><Check className="h-4 w-4" /> Saved</>
+            ) : (
+              <><Save className="h-4 w-4" /> {saveSettings.isPending ? "Saving…" : "Save all settings"}</>
+            )}
+          </button>
+          <span className="text-xs text-muted-foreground">
+            Saves max records + all cost limits together.
+          </span>
+        </div>
+        {saveSettings.isError && (
+          <p className="text-xs text-destructive mt-2">{(saveSettings.error as Error).message}</p>
+        )}
       </div>
 
       {/* Conflict banner (refresh recovery) */}
