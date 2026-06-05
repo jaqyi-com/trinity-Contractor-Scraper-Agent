@@ -49,6 +49,19 @@ def _job_name() -> str:
     return os.getenv("CLOUD_RUN_JOB", "contractor-pipeline-job")
 
 
+def _cpu_at_least_one(cpu) -> str:
+    """Cloud Run Jobs require a minimum of 1 full vCPU and reject fractional CPU
+    (Services allow as low as 0.08). Bump anything below 1 — or an unset value —
+    up to '1'; leave valid CPUs (1/2/4/6/8) untouched."""
+    if not cpu:
+        return "1"
+    try:
+        val = float(cpu[:-1]) / 1000 if str(cpu).endswith("m") else float(cpu)
+    except ValueError:
+        return cpu  # unrecognised format — trust the Service value
+    return "1" if val < 1 else cpu
+
+
 def ensure_pipeline_job() -> None:
     """Create or update the Cloud Run Job to mirror THIS service's container
     (same image/env/secrets/resources/SA), with the pipeline worker command.
@@ -72,11 +85,17 @@ def ensure_pipeline_job() -> None:
         tmpl = svc.template
         src = tmpl.containers[0]
 
-        # Copy the service's resources, but FORCE cpu_idle off: request-based CPU
-        # throttling (cpu_idle=True, the Service default) is rejected for Jobs with
-        # 400 "CPU idle must be set to false." Jobs always run CPU-allocated.
-        resources = copy.deepcopy(src.resources)
-        resources.cpu_idle = False
+        # Build a clean ResourceRequirements for the Job (don't copy the Service's
+        # verbatim — several knobs differ):
+        #   • carry cpu/memory limits, but floor CPU at 1 vCPU — Jobs require a full
+        #     vCPU and reject fractional CPU → 400 "must set a minimum of 1 CPU".
+        #   • cpu_idle=False — Jobs always run CPU-allocated; cpu_idle=True (the
+        #     Service default) → 400 "CPU idle must be set to false".
+        #   • startup_cpu_boost is a Service-only knob — rebuilding drops it (the
+        #     Job API doesn't accept it), so we never carry it over.
+        limits = dict(src.resources.limits)
+        limits["cpu"] = _cpu_at_least_one(limits.get("cpu"))
+        resources = run_v2.ResourceRequirements(limits=limits, cpu_idle=False)
 
         container = run_v2.Container(
             image=src.image,
@@ -85,13 +104,20 @@ def ensure_pipeline_job() -> None:
             env=copy.deepcopy(list(src.env)),      # carries plain + Secret-Manager envs
             resources=resources,
         )
-        task = run_v2.TaskTemplate(
+        task_kwargs = dict(
             containers=[container],
             max_retries=0,                          # we resume manually; no silent retry
             timeout=timedelta(seconds=JOB_TASK_TIMEOUT_SECONDS),
             service_account=tmpl.service_account,
-            vpc_access=copy.deepcopy(tmpl.vpc_access),
         )
+        # Only carry VPC config if the service actually has one. The Job API rejects
+        # an EMPTY vpc_access with 400 "one and only one of connector and
+        # network_interfaces must be set", so an unconfigured (or copied-but-empty)
+        # vpc_access must be omitted entirely rather than passed through.
+        va = tmpl.vpc_access
+        if va and (va.connector or list(va.network_interfaces)):
+            task_kwargs["vpc_access"] = copy.deepcopy(va)
+        task = run_v2.TaskTemplate(**task_kwargs)
         job = run_v2.Job(template=run_v2.ExecutionTemplate(template=task))
 
         jobs = run_v2.JobsClient()
