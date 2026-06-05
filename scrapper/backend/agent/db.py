@@ -242,14 +242,15 @@ def _seed_cities_from_yaml_if_empty() -> None:
 def create_job() -> str:
     job_id = str(uuid.uuid4())
     db = get_db()
-    # Each run gets a unique human-friendly batch name ("Batch 1", "Batch 2", …)
-    # so the UI can filter/download contractors by batch.
+    # Each run gets a unique human-friendly batch name with its creation timestamp
+    # ("Batch 1 · 2026-06-05 14:30 UTC") so the UI can tell runs apart at a glance.
     n = db.count("jobs") + 1
+    now = datetime.utcnow()
     db.insert("jobs", {
         "job_id": job_id,
         "status": "pending",
-        "started_at": datetime.utcnow(),
-        "name": f"Batch {n}",
+        "started_at": now,
+        "name": f"Batch {n} · {now:%Y-%m-%d %H:%M} UTC",
     })
     # Flush so the row exists in Sheets before a Cloud Run Job worker (separate
     # process) boots and looks for it. Harmless in thread mode.
