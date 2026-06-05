@@ -72,12 +72,18 @@ def ensure_pipeline_job() -> None:
         tmpl = svc.template
         src = tmpl.containers[0]
 
+        # Copy the service's resources, but FORCE cpu_idle off: request-based CPU
+        # throttling (cpu_idle=True, the Service default) is rejected for Jobs with
+        # 400 "CPU idle must be set to false." Jobs always run CPU-allocated.
+        resources = copy.deepcopy(src.resources)
+        resources.cpu_idle = False
+
         container = run_v2.Container(
             image=src.image,
             command=["python"],
             args=["-m", "agent.run_job"],
             env=copy.deepcopy(list(src.env)),      # carries plain + Secret-Manager envs
-            resources=copy.deepcopy(src.resources),
+            resources=resources,
         )
         task = run_v2.TaskTemplate(
             containers=[container],
