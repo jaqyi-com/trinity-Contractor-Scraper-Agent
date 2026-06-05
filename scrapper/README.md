@@ -26,7 +26,7 @@ Spec: `Contractor_Scraper_Agent_Spec_v2 (1).pdf`
 2. **Dedupe seeds** — collapse duplicates *before* paid enrichment.
 3. **Classify** — keyword classifier tags each business Tier 1/2/3 or excludes it (free).
 4. **Cap** — keep the strongest N leads (`max_final_records`, default 5000).
-5. **DBPR + Enrich + Save** — license match + BBB/Apollo enrichment, then **UPSERT** into the `contractors` master tab.
+5. **DBPR + Enrich + Save** — license match + BBB/Apollo enrichment, then **versioned-save** into the `contractors` tab (see *Versioned save + batches*).
 6. **Final dedupe** — post-insert sweep.
 
 ### DBPR licenses (streamed, low-memory)
@@ -166,7 +166,7 @@ scrapper/
 │   ├── agent/                 # pipeline + scrapers (flat)
 │   │   ├── pipeline.py        # phased orchestrator + stop/resume
 │   │   ├── processor.py       # per-phase workers (discover/classify/enrich)
-│   │   ├── scraper_google.py  # Apify Google Maps discovery  (⚠ DISCOVERY_RESULT_CAP)
+│   │   ├── scraper_google.py  # Apify Google Maps discovery (full-scale, no cap)
 │   │   ├── scraper_dbpr.py / dbpr_loader.py   # DBPR license match (streamed CSV)
 │   │   ├── scraper_bbb.py / enrichment.py     # BBB + Apollo
 │   │   ├── classifier.py / keywords.py        # tier classifier

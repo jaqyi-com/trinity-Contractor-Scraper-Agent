@@ -28,6 +28,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from agent.db import (
     update_job, get_job, get_active_keywords, list_cities, get_max_final_records,
+    get_discovery_budget_usd, get_bbb_budget_usd, get_apollo_budget_usd,
     is_stop_requested, clear_job_stop,
 )
 from agent.processor import (
@@ -41,6 +42,11 @@ from agent.checkpoint import save_checkpoint, load_checkpoint, clear_checkpoint
 # (processor.ENRICH_WORKERS), peak Apify concurrency ≈ METRO_WORKERS × ENRICH_WORKERS,
 # so keep the product within the Apify plan's concurrency limit.
 METRO_WORKERS = int(os.getenv("METRO_WORKERS", "6"))
+
+# Apify rejects a per-run maxTotalChargeUsd below this floor
+# ("max-total-charge-usd-below-minimum"). We clamp each metro's budget slice up
+# to it, so the smallest enforceable discovery ceiling is this × number of metros.
+APIFY_MIN_CHARGE_USD = 0.50
 
 # Ordered phases. Resume starts at one of these (resume_from); a fresh run starts
 # at "discovery". "dedupe_final" needs no carried payload (data is already in the
@@ -76,42 +82,62 @@ def _check_stop(job_id: str) -> None:
         raise PipelineStopRequested()
 
 
-def _discover_all(job_id: str, cities, progress: dict):
+def _discover_all(job_id: str, cities, progress: dict, discovery_budget_usd=None):
     """Phase 1 across all metros (parallel). Polls the stop flag after each metro
     finishes; on stop it stops launching the remaining metros, discards what was
     gathered, and raises PipelineStopRequested. A single metro's Apify call already
     in flight can't be cancelled, but it just finishes in the background — the
-    pipeline returns and the whole phase is redone on resume."""
+    pipeline returns and the whole phase is redone on resume.
+
+    `discovery_budget_usd` (None = unlimited) is split evenly across metros and
+    passed to each as Apify's maxTotalChargeUsd hard cap."""
     update_job(job_id, current_stage=f"discovery ({len(cities)} metros, parallel)")
     all_seeds = []
+    per_metro_charge = None
+    if discovery_budget_usd and cities:
+        per_metro_charge = discovery_budget_usd / len(cities)
+        # Apify enforces a $0.50 floor on maxTotalChargeUsd per run. If the budget
+        # split lands below that, clamp up — the effective discovery ceiling becomes
+        # $0.50 × metros, which can exceed the requested budget. (maxTotalChargeUsd
+        # is a CEILING, not a target — actual spend is usually well under it.)
+        if per_metro_charge < APIFY_MIN_CHARGE_USD:
+            print(f"⚠️ Discovery budget ${discovery_budget_usd} ÷ {len(cities)} metros "
+                  f"= ${per_metro_charge:.4f}/metro is below Apify's "
+                  f"${APIFY_MIN_CHARGE_USD}/run minimum — clamping to "
+                  f"${APIFY_MIN_CHARGE_USD}/metro (effective ceiling ≈ "
+                  f"${APIFY_MIN_CHARGE_USD * len(cities):.2f}).")
+            per_metro_charge = APIFY_MIN_CHARGE_USD
+        print(f"💰 Discovery budget ${discovery_budget_usd} → "
+              f"${per_metro_charge:.4f}/metro (Apify maxTotalChargeUsd, hard ceiling)")
 
     def _discover(city):
         name = city["name"]
         try:
-            return name, discover_metro(city, job_id)
+            return name, discover_metro(city, job_id, max_charge_usd=per_metro_charge)
         except Exception as e:
             print(f"❌ Discovery {name} failed: {e}")
             traceback.print_exc()
             return name, []
 
+    # Discovery is the expensive PAID stage — once started we let it FINISH all
+    # metros even if a stop was requested mid-way, so the paid seeds are never
+    # thrown away. The stop is honoured at the next phase boundary (Phase 2's
+    # _check_stop), by which point the seeds are already checkpointed → Resume
+    # picks up from dedupe_seeds and never re-pays for discovery.
     ex = ThreadPoolExecutor(max_workers=METRO_WORKERS)
     futures = [ex.submit(_discover, c) for c in cities]
-    stopped = False
     try:
         for fut in as_completed(futures):
             name, seeds = fut.result()
             all_seeds.extend(seeds)
             progress[f"discovery:{name}"] = {"status": "done", "seeds": len(seeds)}
             update_job(job_id, stages_progress=progress)
-            if is_stop_requested(job_id):
-                stopped = True
-                break
     finally:
-        # Don't wait on in-flight metros; cancel any not yet started.
-        ex.shutdown(wait=False, cancel_futures=True)
+        ex.shutdown(wait=True)
 
-    if stopped:
-        raise PipelineStopRequested()
+    if is_stop_requested(job_id):
+        print(f"🛑 stop requested — discovery finished ({len(all_seeds)} seeds "
+              f"collected & will be saved); pausing at next phase boundary")
     return all_seeds
 
 
@@ -138,6 +164,10 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
             update_job(job_id, keywords_snapshot=keywords)
 
         max_final = get_max_final_records()  # DB setting, default 5000
+        # Per-service USD cost budgets (None = unlimited). Read once per run.
+        discovery_budget = get_discovery_budget_usd()
+        bbb_budget = get_bbb_budget_usd()
+        apollo_budget = get_apollo_budget_usd()
         cities = list_cities()
 
         # Carried payload maps to the variable the resumed phase consumes.
@@ -156,7 +186,7 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
         if si <= PHASE_ORDER.index("discovery"):
             update_job(job_id, resume_from="discovery")
             clear_checkpoint()  # discovery has no carried input; re-runs fresh on resume
-            seeds = _discover_all(job_id, cities, progress)  # raises on stop
+            seeds = _discover_all(job_id, cities, progress, discovery_budget)  # raises on stop
             save_checkpoint(job_id, "dedupe_seeds", seeds)
             update_job(job_id, stages_progress=progress)
 
@@ -213,7 +243,8 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
             print(f"\n🏛️💎 Phase 5: DBPR + Enrich + Insert — {len(rows)} rows")
             dbpr_index = fetch_licenses_for_seeds(rows)  # rows expose .business_name
             enrich_summary = enrich_and_insert_rows(
-                rows, dbpr_index, job_id, should_stop=lambda: is_stop_requested(job_id)
+                rows, dbpr_index, job_id, should_stop=lambda: is_stop_requested(job_id),
+                bbb_budget_usd=bbb_budget, apollo_budget_usd=apollo_budget,
             )  # raises on stop (nothing persisted until it finishes the row set)
             progress["enrich"] = {"status": "done", "saved": enrich_summary["saved"]}
             # Data is now persisted to the contractors tab — dedupe_final carries nothing.
@@ -239,14 +270,16 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
         print(f"\n🎯 Pipeline COMPLETED — job_id={job_id} — {enrich_summary.get('saved', 0)} records saved")
 
     except PipelineStopRequested:
-        # Mid-phase stop: the in-progress phase's partial work is discarded.
-        # resume_from already points at that phase and its input checkpoint is on
-        # disk, so Resume re-runs it from scratch. Pause is instant — no save needed.
+        # Boundary stop: stops are now honoured only BETWEEN phases, after the
+        # running phase has finished and checkpointed its output. So nothing is
+        # discarded — resume_from points at the NEXT phase and its input is already
+        # on disk. Resume continues from there with the saved (raw) data; the
+        # expensive discovery + enrichment work is never re-paid.
         clear_job_stop(job_id)
         job = get_job(job_id) or {}
         update_job(job_id, status="paused", current_stage="paused", stages_progress=progress)
         print(f"⏸️  Pipeline PAUSED — job_id={job_id} "
-              f"(resume_from={job.get('resume_from')}) — in-progress stage discarded")
+              f"(resume_from={job.get('resume_from')}) — prior stage saved, resume continues from there")
 
     except Exception as e:
         traceback.print_exc()

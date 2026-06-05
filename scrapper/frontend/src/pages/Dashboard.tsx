@@ -12,21 +12,57 @@ export default function Dashboard() {
   // ─── Run config: max final records per run (default 5000) ───
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => api.getSettings() });
   const [maxRecords, setMaxRecords] = useState<string>("");
+  // Per-service USD cost budgets. "" = unlimited (no cap).
+  const [discoveryBudget, setDiscoveryBudget] = useState<string>("");
+  const [bbbBudget, setBbbBudget] = useState<string>("");
+  const [apolloBudget, setApolloBudget] = useState<string>("");
   useEffect(() => {
-    if (settings.data) setMaxRecords(String(settings.data.max_final_records));
+    if (!settings.data) return;
+    setMaxRecords(String(settings.data.max_final_records));
+    const s = (v: number | null) => (v == null ? "" : String(v));
+    setDiscoveryBudget(s(settings.data.discovery_budget_usd));
+    setBbbBudget(s(settings.data.bbb_budget_usd));
+    setApolloBudget(s(settings.data.apollo_budget_usd));
   }, [settings.data]);
 
+  // "" → null (unlimited); a positive number → that budget; anything else → null.
+  const parseBudget = (v: string): number | null => {
+    const t = v.trim();
+    if (t === "") return null;
+    const n = Number(t);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+
   const saveSettings = useMutation({
-    mutationFn: () => api.updateSettings({ max_final_records: Number(maxRecords) }),
+    mutationFn: () =>
+      api.updateSettings({
+        max_final_records: Number(maxRecords),
+        discovery_budget_usd: parseBudget(discoveryBudget),
+        bbb_budget_usd: parseBudget(bbbBudget),
+        apollo_budget_usd: parseBudget(apolloBudget),
+      }),
     onSuccess: (data) => {
       setMaxRecords(String(data.max_final_records));
+      const s = (v: number | null) => (v == null ? "" : String(v));
+      setDiscoveryBudget(s(data.discovery_budget_usd));
+      setBbbBudget(s(data.bbb_budget_usd));
+      setApolloBudget(s(data.apollo_budget_usd));
       queryClient.invalidateQueries({ queryKey: ["settings"] });
     },
   });
 
   const parsedMax = Number(maxRecords);
   const maxInvalid = !Number.isInteger(parsedMax) || parsedMax < 1 || parsedMax > 100000;
-  const maxUnchanged = settings.data && parsedMax === settings.data.max_final_records;
+  // A non-empty budget that isn't a positive number is invalid.
+  const budgetInvalid = [discoveryBudget, bbbBudget, apolloBudget].some(
+    (v) => v.trim() !== "" && !(Number(v) > 0),
+  );
+  const settingsUnchanged =
+    settings.data &&
+    parsedMax === settings.data.max_final_records &&
+    parseBudget(discoveryBudget) === (settings.data.discovery_budget_usd ?? null) &&
+    parseBudget(bbbBudget) === (settings.data.bbb_budget_usd ?? null) &&
+    parseBudget(apolloBudget) === (settings.data.apollo_budget_usd ?? null);
 
   // ─── Mount recovery: attach to an already-active job (running OR paused) ───
   const currentJob = useQuery({
@@ -135,10 +171,10 @@ export default function Dashboard() {
           />
           <button
             onClick={() => saveSettings.mutate()}
-            disabled={maxInvalid || maxUnchanged || saveSettings.isPending || settings.isLoading}
+            disabled={maxInvalid || budgetInvalid || settingsUnchanged || saveSettings.isPending || settings.isLoading}
             className="inline-flex items-center gap-1.5 rounded-md border px-3 py-2 text-sm font-medium hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
-            {saveSettings.isSuccess && maxUnchanged ? (
+            {saveSettings.isSuccess && settingsUnchanged ? (
               <><Check className="h-4 w-4" /> Saved</>
             ) : (
               <><Save className="h-4 w-4" /> Save</>
@@ -151,6 +187,63 @@ export default function Dashboard() {
         {saveSettings.isError && (
           <p className="text-xs text-destructive mt-2">{(saveSettings.error as Error).message}</p>
         )}
+
+        {/* ─── Per-service cost budgets (USD). Blank = unlimited. ─── */}
+        <div className="mt-6 pt-5 border-t">
+          <p className="font-semibold mb-1">Cost limits per run (USD)</p>
+          <p className="text-xs text-muted-foreground mb-4">
+            Cap each paid service's spend for the next run. Leave a field{" "}
+            <span className="font-medium">blank for unlimited</span>. Applies to the next run.
+          </p>
+
+          {([
+            {
+              label: "Apify — Google Maps (Discovery)",
+              hint: "Hard cap enforced by Apify (min $0.50 per metro, so the effective floor is ~$0.50 × number of metros).",
+              value: discoveryBudget,
+              set: setDiscoveryBudget,
+            },
+            {
+              label: "Apify — BBB (Enrichment)",
+              hint: "~$0.12 per business. Budget ÷ $0.12 = how many top leads get a BBB lookup; the rest are skipped.",
+              value: bbbBudget,
+              set: setBbbBudget,
+            },
+            {
+              label: "Apollo (Enrichment)",
+              hint: "Estimated per-row cost. Budget ÷ per-row cost = how many top leads get Apollo email/owner enrichment.",
+              value: apolloBudget,
+              set: setApolloBudget,
+            },
+          ] as const).map((f) => {
+            const inv = f.value.trim() !== "" && !(Number(f.value) > 0);
+            return (
+              <div key={f.label} className="mb-4">
+                <label className="block text-sm font-medium mb-1">{f.label}</label>
+                <p className="text-xs text-muted-foreground mb-2">{f.hint}</p>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    placeholder="Unlimited"
+                    value={f.value}
+                    onChange={(e) => f.set(e.target.value)}
+                    disabled={settings.isLoading}
+                    className="w-40 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    {f.value.trim() === "" ? "→ unlimited" : ""}
+                  </span>
+                </div>
+                {inv && (
+                  <p className="text-xs text-destructive mt-1">Enter a positive amount, or leave blank for unlimited.</p>
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Conflict banner (refresh recovery) */}
@@ -184,7 +277,7 @@ export default function Dashboard() {
             className="inline-flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-5 py-3 text-base font-semibold hover:bg-amber-100 disabled:opacity-60 transition"
           >
             <Square className="h-5 w-5" />
-            {stopPending ? "Stopping now..." : "Stop"}
+            {stopPending || stopJob.isPending ? "Finishing current stage…" : "Stop"}
           </button>
         )}
 
@@ -227,9 +320,11 @@ export default function Dashboard() {
             <h3 className="font-semibold truncate">
               Job <span className="font-mono text-sm text-muted-foreground">{s.job_id}</span>
             </h3>
-            {stopPending && (
-              <span className="text-xs text-amber-700 shrink-0">
-                Stopping now — current stage is discarded and will re-run from start on resume
+            {(stopPending || stopJob.isPending) && (
+              <span className="text-xs text-amber-700 shrink-0 text-right max-w-xs">
+                Stop will apply after the current stage finishes — its progress is
+                saved, so Resume continues from there and you’re not charged again
+                for this stage’s credits.
               </span>
             )}
           </div>

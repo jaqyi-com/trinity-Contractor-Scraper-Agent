@@ -148,7 +148,8 @@ DEFAULT_QUERIES = [
 ]
 
 
-def scrape_metro(city: str, zips: List[str], queries: List[str] = None) -> List[GoogleSeed]:
+def scrape_metro(city: str, zips: List[str], queries: List[str] = None,
+                 max_charge_usd: float = None) -> List[GoogleSeed]:
     """
     Discover businesses for one metro via the Apify Google Maps actor (the sole
     discovery source — no Outscraper key). Subtype include/exclude is enforced
@@ -167,14 +168,19 @@ def scrape_metro(city: str, zips: List[str], queries: List[str] = None) -> List[
 
     queries = queries or DEFAULT_QUERIES
     cap = DISCOVERY_RESULT_CAP  # None = no cap (full scale)
-    return _scrape_apify_maps(city, queries, cap)
+    return _scrape_apify_maps(city, queries, cap, max_charge_usd)
 
 
-def _scrape_apify_maps(city: str, queries: List[str], cap) -> List[GoogleSeed]:
+def _scrape_apify_maps(city: str, queries: List[str], cap,
+                       max_charge_usd: float = None) -> List[GoogleSeed]:
     """Discovery via the Apify Google Maps actor, ASYNC pattern: start the run,
     poll until it finishes, then read its dataset. The old run-sync endpoint has
     a ~300s server cap, which a full metro scrape (all queries × scrapeContacts)
-    always blows past → 502 Bad Gateway / read-timeout. Async has no time limit."""
+    always blows past → 502 Bad Gateway / read-timeout. Async has no time limit.
+
+    `max_charge_usd` (when set) is passed to Apify as maxTotalChargeUsd — a HARD
+    dollar cap on this run that Apify enforces itself (the actor stops once it has
+    charged that much). None = unlimited."""
     import requests
     import time
 
@@ -188,12 +194,16 @@ def _scrape_apify_maps(city: str, queries: List[str], cap) -> List[GoogleSeed]:
         "language": "en",
     }
     base = "https://api.apify.com/v2"
+    run_params = {"token": APIFY_API_TOKEN}
+    if max_charge_usd and max_charge_usd > 0:
+        run_params["maxTotalChargeUsd"] = max_charge_usd
+        print(f"💰 [Google/Apify] {city}: maxTotalChargeUsd=${max_charge_usd:.4f} (hard cap)")
 
     # 1. Start the run asynchronously — returns immediately with run + dataset ids.
     try:
         resp = requests.post(
             f"{base}/acts/{APIFY_MAPS_ACTOR}/runs",
-            params={"token": APIFY_API_TOKEN}, json=payload, timeout=APIFY_TIMEOUT,
+            params=run_params, json=payload, timeout=APIFY_TIMEOUT,
         )
         resp.raise_for_status()
         run = resp.json()["data"]

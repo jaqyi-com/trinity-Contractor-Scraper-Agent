@@ -125,6 +125,7 @@ def init_schema() -> None:
     # Seed defaults (also idempotent: each checks for existing rows first).
     _seed_test_user_if_missing()
     _seed_cities_from_yaml_if_empty()
+    _seed_budget_settings_if_missing()
 
 
 # Back-compat shim — a few callers still import `_get_conn`. After the rewrite
@@ -685,6 +686,57 @@ def get_max_final_records() -> int:
         return n if n > 0 else DEFAULT_MAX_FINAL_RECORDS
     except (TypeError, ValueError):
         return DEFAULT_MAX_FINAL_RECORDS
+
+
+# ──────────────────────────────────────────────────────────────
+# Per-run cost budgets (USD). None = unlimited (no cap).
+# Discovery (Apify Maps) is enforced by Apify's native maxTotalChargeUsd;
+# BBB/Apollo are enforced by us as a row-count cap (budget ÷ per-unit cost).
+# ──────────────────────────────────────────────────────────────
+def _get_budget_usd(key: str) -> Optional[float]:
+    raw = get_setting(key)
+    if raw is None or str(raw).strip().lower() in ("", "none", "unlimited"):
+        return None
+    try:
+        v = float(raw)
+        return v if v > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def get_discovery_budget_usd() -> Optional[float]:
+    return _get_budget_usd("discovery_budget_usd")
+
+
+def get_bbb_budget_usd() -> Optional[float]:
+    return _get_budget_usd("bbb_budget_usd")
+
+
+def get_apollo_budget_usd() -> Optional[float]:
+    return _get_budget_usd("apollo_budget_usd")
+
+
+# Default for the budget settings on first boot: "none" = unlimited (no cap).
+_BUDGET_SETTING_KEYS = ("discovery_budget_usd", "bbb_budget_usd", "apollo_budget_usd")
+
+
+def _seed_budget_settings_if_missing() -> None:
+    """Ensure the per-service cost-budget keys exist in app_settings. Idempotent —
+    a key already present (any value) is left untouched; only missing keys are
+    created with "none" (unlimited). Runs on every startup as a lightweight
+    migration so the Settings UI always has these rows to read/write."""
+    db = get_db()
+    added = []
+    for key in _BUDGET_SETTING_KEYS:
+        if db.get_by_id("app_settings", key) is None:
+            db.insert("app_settings", {"key": key, "value": "none",
+                                       "updated_at": datetime.utcnow()})
+            added.append(key)
+    if added:
+        db.flush_all()
+        print(f"✅ [migrate] seeded budget settings (unlimited): {', '.join(added)}")
+    else:
+        print("🔎 [migrate] budget settings already present, skipping")
 
 
 # ──────────────────────────────────────────────────────────────

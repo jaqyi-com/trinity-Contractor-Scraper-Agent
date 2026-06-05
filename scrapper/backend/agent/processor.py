@@ -29,6 +29,21 @@ from agent.schema import ContractorRow, GoogleSeed
 # limit — too low and a 5k-row run crawls (BBB ≈ 45s/row, so 5000/W × 45s).
 ENRICH_WORKERS = int(os.getenv("ENRICH_WORKERS", "18"))
 
+# Per-unit Apify/Apollo costs used to convert a USD budget → a row-count cap.
+# BBB is a per-business Apify run: $0.10 actor-start + $0.02 business profile
+# (from the actor's published PAY_PER_EVENT pricing) ≈ $0.12/business.
+# Apollo has no Apify-style per-call price (credit/subscription based), so we use
+# a configurable estimate per enriched row; override via APOLLO_COST_PER_ROW.
+BBB_COST_PER_BUSINESS = float(os.getenv("BBB_COST_PER_BUSINESS", "0.12"))
+APOLLO_COST_PER_ROW = float(os.getenv("APOLLO_COST_PER_ROW", "0.05"))
+
+
+def _budget_to_count(budget_usd, per_unit_cost: float):
+    """USD budget → how many rows we can afford. None budget = unlimited (None)."""
+    if budget_usd is None or per_unit_cost <= 0:
+        return None
+    return int(budget_usd // per_unit_cost)
+
 
 class PipelineStopRequested(Exception):
     """Raised mid-stage when a stop has been requested, so the pipeline bails out
@@ -42,13 +57,14 @@ class PipelineStopRequested(Exception):
 # ──────────────────────────────────────────────────────────────
 # Phase 1 — Discovery (one metro). Returns raw seeds; NO enrichment yet.
 # ──────────────────────────────────────────────────────────────
-def discover_metro(city, job_id: str) -> List[GoogleSeed]:
-    """Google Maps discovery for ONE city. Writes the stage-1 audit JSONL."""
+def discover_metro(city, job_id: str, max_charge_usd: float = None) -> List[GoogleSeed]:
+    """Google Maps discovery for ONE city. Writes the stage-1 audit JSONL.
+    `max_charge_usd` is this metro's slice of the run-wide discovery budget."""
     city_name = city["name"] if isinstance(city, dict) else city.name
     zips = city["zips"] if isinstance(city, dict) else city.zips
 
     print(f"🔍 [{city_name}] Stage 1: Google Discovery")
-    seeds = scrape_metro(city_name, zips)  # queries default to DEFAULT_QUERIES
+    seeds = scrape_metro(city_name, zips, max_charge_usd=max_charge_usd)  # queries default to DEFAULT_QUERIES
     write_stage_jsonl(job_id, "stage1_google", city_name, seeds)
     print(f"🔍 [{city_name}] discovered {len(seeds)} seeds")
     return seeds
@@ -110,22 +126,28 @@ def classify_seeds(seeds: List[GoogleSeed], keywords: list, job_id: str) -> List
 # Phase 5 — License match + enrichment + persist (the only paid-per-row stage).
 # Runs on the already-deduped, already-capped row set.
 # ──────────────────────────────────────────────────────────────
-def _enrich_one(row: ContractorRow) -> None:
-    """All external enrichment for a single contractor row (BBB + Apollo)."""
+def _enrich_one(task) -> None:
+    """All external enrichment for a single contractor row (BBB + Apollo).
+    `task` = (row, do_bbb, do_apollo) — the do_* flags let a per-service USD budget
+    skip the paid call on rows beyond the budget's row-count cap."""
+    row, do_bbb, do_apollo = task
     # BBB rating / accreditation / years
-    try:
-        bbb = enrich_bbb(row)
-        if bbb.rating:
-            row.bbb_rating = bbb.rating
-            if "bbb" not in row.sources:
-                row.sources.append("bbb")
-        row.bbb_accredited = bbb.accredited
-        if bbb.years_in_business:
-            row.years_in_business = bbb.years_in_business
-    except Exception as e:
-        print(f"⚠️  BBB error for {row.business_name}: {e}")
+    if do_bbb:
+        try:
+            bbb = enrich_bbb(row)
+            if bbb.rating:
+                row.bbb_rating = bbb.rating
+                if "bbb" not in row.sources:
+                    row.sources.append("bbb")
+            row.bbb_accredited = bbb.accredited
+            if bbb.years_in_business:
+                row.years_in_business = bbb.years_in_business
+        except Exception as e:
+            print(f"⚠️  BBB error for {row.business_name}: {e}")
 
     # Apollo: email/owner/linkedin + company facts
+    if not do_apollo:
+        return
     try:
         if not row.email:
             result = enrich_email(row)
@@ -156,7 +178,8 @@ def _enrich_one(row: ContractorRow) -> None:
 
 
 def enrich_and_insert_rows(rows: List[ContractorRow], dbpr_index: list, job_id: str,
-                           should_stop=None) -> dict:
+                           should_stop=None, bbb_budget_usd=None,
+                           apollo_budget_usd=None) -> dict:
     """License-match → parallel BBB/Apollo enrich → UPSERT each row to the DB.
 
     `should_stop` (optional callable) is polled between enrichment waves so a stop
@@ -184,18 +207,40 @@ def enrich_and_insert_rows(rows: List[ContractorRow], dbpr_index: list, job_id: 
         except Exception as e:
             print(f"⚠️  License match error: {e}")
 
-    if should_stop and should_stop():
-        raise PipelineStopRequested()
+    # NOTE: enrichment is NOT interrupted mid-stage on stop. Once Phase 5 starts we
+    # let it FINISH (license-match → enrich → persist) so partially-enriched rows
+    # are never thrown away and the paid BBB/Apollo calls aren't wasted on a re-run.
+    # A stop requested during enrich is honoured at the NEXT phase boundary
+    # (dedupe_final), by which point every row is already persisted. `should_stop`
+    # is kept for signature compatibility but intentionally not polled here.
 
-    # ─── Enrichment (BBB + Apollo) — parallelized in waves so stop is honoured ───
+    # ─── Per-service USD budgets → row-count caps (None = unlimited). Rows are
+    # already ranked strongest-first by the cap stage, so the budget spends on the
+    # best leads and skips the paid call on the tail. ───
+    max_bbb = _budget_to_count(bbb_budget_usd, BBB_COST_PER_BUSINESS)
+    max_apollo = _budget_to_count(apollo_budget_usd, APOLLO_COST_PER_ROW)
+    if max_bbb is not None:
+        print(f"💰 BBB budget ${bbb_budget_usd} ÷ ${BBB_COST_PER_BUSINESS}/biz "
+              f"→ BBB on {min(max_bbb, len(rows))}/{len(rows)} rows "
+              f"(skipping {max(0, len(rows) - max_bbb)})")
+    if max_apollo is not None:
+        print(f"💰 Apollo budget ${apollo_budget_usd} ÷ ${APOLLO_COST_PER_ROW}/row "
+              f"→ Apollo on {min(max_apollo, len(rows))}/{len(rows)} rows "
+              f"(skipping {max(0, len(rows) - max_apollo)})")
+
+    tasks = [
+        (row,
+         max_bbb is None or i < max_bbb,
+         max_apollo is None or i < max_apollo)
+        for i, row in enumerate(rows)
+    ]
+
+    # ─── Enrichment (BBB + Apollo) — parallelized. Runs to completion (no
+    # mid-stage stop): the stage finishes, then persists, then the pipeline pauses
+    # at the next boundary if a stop is pending. ───
     print(f"💎📧 Enrichment — {len(rows)} rows × {ENRICH_WORKERS} workers")
     with ThreadPoolExecutor(max_workers=ENRICH_WORKERS) as ex:
-        for start in range(0, len(rows), ENRICH_WORKERS):
-            # Between waves only — the current wave has already finished here, so the
-            # pool exits cleanly with no hanging threads, and no row was persisted yet.
-            if should_stop and should_stop():
-                raise PipelineStopRequested()
-            list(ex.map(_enrich_one, rows[start:start + ENRICH_WORKERS]))
+        list(ex.map(_enrich_one, tasks))
 
     # ─── Persist — versioned save (new / changed-version / skip handled in db) ───
     for row in rows:

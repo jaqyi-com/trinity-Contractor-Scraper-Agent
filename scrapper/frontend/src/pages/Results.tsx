@@ -156,13 +156,13 @@ export default function Results() {
     setPageIndex(0);
   }
 
-  async function handleExport() {
+  async function handleExport(format: "csv" | "xlsx" = "csv") {
     if (isExporting) return;
     setIsExporting(true);
     try {
       const { limit: _l, offset: _o, ...exportParams } = apiParams;
       void _l; void _o;
-      await api.exportContractors(exportParams);
+      await api.exportContractors({ ...exportParams, format });
     } catch (err) {
       console.error("Export failed", err);
       alert("Export failed — see console for details.");
@@ -419,14 +419,31 @@ export default function Results() {
             </button>
           )}
 
-          <button
-            onClick={handleExport}
-            disabled={!canExport}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-md border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            {isExporting ? "Exporting…" : `Download CSV · ${batchLabel}${exportCount > 0 ? ` (${exportCount.toLocaleString()})` : ""}`}
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <span className="text-xs text-muted-foreground hidden sm:inline">
+              {batchLabel}{exportCount > 0 ? ` · ${exportCount.toLocaleString()}` : ""}
+            </span>
+            <div className="inline-flex rounded-md border bg-background overflow-hidden">
+              <button
+                onClick={() => handleExport("csv")}
+                disabled={!canExport}
+                title="Download as CSV (.csv)"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                CSV
+              </button>
+              <button
+                onClick={() => handleExport("xlsx")}
+                disabled={!canExport}
+                title="Download as Excel (.xlsx)"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium border-l hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {isExporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+                Excel
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 

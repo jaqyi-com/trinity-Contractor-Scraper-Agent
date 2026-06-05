@@ -168,6 +168,17 @@ export type City = {
 export type Settings = {
   max_final_records: number;
   default_max_final_records: number;
+  // Per-service USD cost budgets for the next run. null = unlimited.
+  discovery_budget_usd: number | null;
+  bbb_budget_usd: number | null;
+  apollo_budget_usd: number | null;
+};
+
+export type UpdateSettingsBody = {
+  max_final_records: number;
+  discovery_budget_usd?: number | null;
+  bbb_budget_usd?: number | null;
+  apollo_budget_usd?: number | null;
 };
 
 // ── API surface ──
@@ -182,7 +193,7 @@ export const api = {
 
   // Settings
   getSettings: () => request<Settings>("/api/settings"),
-  updateSettings: (body: { max_final_records: number }) =>
+  updateSettings: (body: UpdateSettingsBody) =>
     request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(body) }),
 
   // Jobs
@@ -238,7 +249,9 @@ export const api = {
   contractorClassification: (id: number) =>
     request<ClassificationLog[]>(`/api/contractors/${id}/classification`),
 
-  exportContractors: async (params: Omit<ContractorQuery, "limit" | "offset"> = {}) => {
+  exportContractors: async (
+    params: Omit<ContractorQuery, "limit" | "offset"> & { format?: "csv" | "xlsx" } = {},
+  ) => {
     const token = tokenStore.get();
     const headers: Record<string, string> = {};
     if (token) headers["Authorization"] = `Bearer ${token}`;
@@ -256,9 +269,10 @@ export const api = {
     }
 
     const blob = await res.blob();
+    const ext = params.format === "xlsx" ? "xlsx" : "csv";
     const filename =
       res.headers.get("Content-Disposition")?.match(/filename="?([^"]+)"?/)?.[1] ||
-      `contractors_${new Date().toISOString().slice(0, 10)}.csv`;
+      `contractors_${new Date().toISOString().slice(0, 10)}.${ext}`;
 
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

@@ -134,26 +134,39 @@ def _csv_cell(value):
     return str(value)
 
 
+EXPORT_FORMATS = {"csv", "xlsx"}
+
+
 @router.get("/export")
 async def export_contractors(
     filters: ContractorFilters = Depends(),
     sort_by: str = "id",
     sort_dir: str = "desc",
+    format: str = Query("csv", description="csv | xlsx"),
 ):
-    """Stream the full filtered contractor set as CSV (no pagination)."""
+    """Download the full filtered contractor set (no pagination) as CSV or Excel.
+    `format=csv` streams row-by-row; `format=xlsx` builds an .xlsx workbook."""
+    fmt = (format or "csv").lower()
+    if fmt not in EXPORT_FORMATS:
+        raise HTTPException(status_code=422, detail=f"format must be one of {sorted(EXPORT_FORMATS)}")
     sort_col = sort_by if sort_by in SORTABLE else "id"
+    rows_iter = lambda: db.iter_contractors_filtered(
+        filters=filters.to_dict(), sort_by=sort_col, sort_dir=sort_dir,
+    )
 
+    if fmt == "xlsx":
+        return _export_xlsx(rows_iter)
+    return _export_csv(rows_iter)
+
+
+def _export_csv(rows_iter):
     def row_iter():
         buf = io.StringIO()
         writer = csv.writer(buf)
         writer.writerow(EXPORT_COLUMNS)
         yield buf.getvalue()
         buf.seek(0); buf.truncate(0)
-        for row in db.iter_contractors_filtered(
-            filters=filters.to_dict(),
-            sort_by=sort_col,
-            sort_dir=sort_dir,
-        ):
+        for row in rows_iter():
             writer.writerow([_csv_cell(row.get(col)) for col in EXPORT_COLUMNS])
             if buf.tell() > 64 * 1024:
                 yield buf.getvalue()
@@ -169,6 +182,32 @@ async def export_contractors(
             "Content-Disposition": f'attachment; filename="{filename}"',
             "Cache-Control": "no-store",
             "X-Accel-Buffering": "no",
+        },
+    )
+
+
+def _export_xlsx(rows_iter):
+    """Build an .xlsx in memory. openpyxl write_only mode keeps peak RAM low by
+    streaming rows to the sheet instead of holding a full cell grid."""
+    from openpyxl import Workbook
+
+    wb = Workbook(write_only=True)
+    ws = wb.create_sheet(title="Contractors")
+    ws.append(EXPORT_COLUMNS)
+    for row in rows_iter():
+        # Reuse the CSV cell formatter so lists/dicts/dates render identically.
+        ws.append([_csv_cell(row.get(col)) for col in EXPORT_COLUMNS])
+
+    out = io.BytesIO()
+    wb.save(out)
+    out.seek(0)
+    filename = f"contractors_{date.today().isoformat()}.xlsx"
+    return StreamingResponse(
+        out,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
         },
     )
 
