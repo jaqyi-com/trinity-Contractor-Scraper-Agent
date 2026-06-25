@@ -308,6 +308,20 @@ SCHEMA: Dict[str, Dict[str, Any]] = {
     },
 }
 
+# Vendors live in their OWN tab (same shape as contractors) — kept separate from
+# the contractor deliverable per the client's request. Cloned from contractors so
+# the two never drift.
+SCHEMA["vendors"] = {
+    "headers": list(SCHEMA["contractors"]["headers"]),
+    "id_field": "id",
+    "id_kind": "int",
+    "json_fields": set(SCHEMA["contractors"]["json_fields"]),
+    "datetime_fields": set(SCHEMA["contractors"]["datetime_fields"]),
+    "bool_fields": set(SCHEMA["contractors"]["bool_fields"]),
+    "int_fields": set(SCHEMA["contractors"]["int_fields"]),
+    "float_fields": set(SCHEMA["contractors"]["float_fields"]),
+}
+
 TAB_NAMES: List[str] = list(SCHEMA.keys())
 
 # Ephemeral tabs are created at bootstrap but NOT loaded into the in-RAM mirror

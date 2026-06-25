@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from agent.db import init_schema
-from api.routes import jobs, keywords, contractors, classification, health, auth, cities, settings, exclusions, stages, dealers, vendor_aliases
+from api.routes import jobs, keywords, contractors, classification, health, auth, cities, settings, exclusions, stages, dealers, vendor_aliases, vendors
 
 load_dotenv()
 
@@ -58,6 +58,7 @@ app.include_router(jobs.router, prefix="/api/jobs", tags=["jobs"])
 app.include_router(keywords.router, prefix="/api/keywords", tags=["keywords"])
 app.include_router(cities.router, prefix="/api/cities", tags=["cities"])
 app.include_router(contractors.router, prefix="/api/contractors", tags=["contractors"])
+app.include_router(vendors.router, prefix="/api/vendors", tags=["vendors"])
 app.include_router(classification.router, prefix="/api/classification-log", tags=["classification"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
 app.include_router(exclusions.router, prefix="/api/exclusions", tags=["exclusions"])

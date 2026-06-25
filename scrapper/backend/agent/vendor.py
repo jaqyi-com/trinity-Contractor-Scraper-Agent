@@ -1,12 +1,43 @@
 # vendor.py
-# Phase 4 — vendor-specific logic. Starts with alias resolution: map a discovered
-# distributor's business name to its canonical NETWORK (GMS, L&W, FBM, …) so
-# branches/brands roll up to one entity instead of being split or undercounted.
+# Phase 4 — vendor-specific logic: alias resolution (brand → canonical network) and
+# distributor relevance (spec: "capture by drywall/gypsum CATEGORY, not a fixed
+# name list"). The relevance check keeps actual material distributors/suppliers and
+# drops contractors that the broad vendor search queries pull in.
 
+import os
 from typing import Dict, List, Optional
 
 from agent.db import get_vendor_aliases
 from utils.name_normalizer import normalize_name
+
+# POSITIVE signals — drywall/gypsum/building-material DISTRIBUTOR (spec: "capture by
+# drywall/gypsum category"). Deliberately NOT bare "supply" (plumbing/roofing/tool
+# supply are not drywall distributors). Editable via env VENDOR_DISTRIBUTOR_SIGNALS.
+_DEFAULT_DISTRIBUTOR_SIGNALS = (
+    "drywall supply", "drywall distributor", "drywall and acoustical", "acoustical supply",
+    "gypsum", "wallboard", "building material", "building materials", "building supply",
+    "construction material", "construction supply", "material wholesaler", "materials supplier",
+)
+# NEGATIVE signals — a CONTRACTOR/installer (override: drop even if a minor supply
+# category is present, e.g. a carpenter that also lists a "roofing supply store").
+_CONTRACTOR_SIGNALS = (
+    "contractor", "carpenter", "carpentry", "remodel", "installer", "installation",
+    "framing", "plasterer",
+)
+_DISTRIBUTOR_SIGNALS = tuple(
+    s.strip().lower() for s in os.getenv("VENDOR_DISTRIBUTOR_SIGNALS", "").split(",") if s.strip()
+) or _DEFAULT_DISTRIBUTOR_SIGNALS
+
+
+def is_distributor(business_name: str, categories: Optional[List[str]] = None) -> bool:
+    """True if a business is a drywall/building-material DISTRIBUTOR (a sell-to
+    target), not a contractor. Requires a building-material distributor signal AND
+    no contractor signal — so a carpenter with a side 'roofing supply' category is
+    NOT counted. Per the spec's 'capture by drywall/gypsum category' rule."""
+    text = (str(business_name or "") + " " + " ".join(str(c) for c in (categories or []))).lower()
+    if any(neg in text for neg in _CONTRACTOR_SIGNALS):
+        return False
+    return any(sig in text for sig in _DISTRIBUTOR_SIGNALS)
 
 
 def _contains_phrase(name_norm: str, alias_norm: str) -> bool:

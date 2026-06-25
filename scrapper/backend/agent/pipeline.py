@@ -117,15 +117,27 @@ def _vendor_rows_from_seeds(seeds, state: str, client_id: str, job_id: str):
     """Vendor-mode replacement for the tier classifier: build a vendor ContractorRow
     per seed (alias roll-up + big-box flag + lumber flag handled in build_vendor_row)."""
     from agent.scraper_vendor import build_vendor_row
+    from agent.vendor import resolve_vendor_network, is_distributor
     fields = set(ContractorRow.model_fields)
     rows = []
+    dropped = 0
     for s in seeds:
-        # Seed-list distributors (place_id 'seed:*') are tagged source 'vendor_seed';
-        # everything else came from live Google discovery.
-        src = "vendor_seed" if str(getattr(s, "place_id", "")).startswith("seed:") else "google_business"
+        name = getattr(s, "business_name", "") or ""
+        cats = getattr(s, "google_categories", None) or []
+        is_seed = str(getattr(s, "place_id", "")).startswith("seed:")
+        # Vendor relevance (spec: capture by category): keep only material
+        # distributors/suppliers — alias-matched networks, seed-list entries, or a
+        # name/category supply signal. Contractors pulled in by the broad search
+        # (e.g. "S & L Carpentry") are dropped here.
+        if not (is_seed or resolve_vendor_network(name) or is_distributor(name, cats)):
+            dropped += 1
+            continue
+        src = "vendor_seed" if is_seed else "google_business"
         d = build_vendor_row(s, state=state, client_id=client_id, source=src)
         d["job_id"] = job_id
         rows.append(ContractorRow(**{k: v for k, v in d.items() if k in fields}))
+    if dropped:
+        print(f"🧹 Vendor relevance: dropped {dropped} non-distributor result(s) (contractors)")
     return rows
 
 
@@ -279,7 +291,7 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
                 if sd:
                     seeds.extend(sd)
                     print(f"📥 Vendor seed set: folded in {len(sd)} seed distributors")
-            record_stage(job_id, "discovery", seeds)  # Workstream E — Phase 1 snapshot (raw seeds)
+            record_stage(job_id, "discovery", seeds, record_type=plan["record_type"])  # Phase 1 snapshot
             save_checkpoint(job_id, "dedupe_seeds", seeds)
             update_job(job_id, stages_progress=progress)
 
@@ -290,7 +302,7 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
             print("\n🧹 Phase 2: Dedupe seeds (pre-enrichment)")
             seeds = seeds or []
             unique_seeds = dedupe_seeds(seeds)
-            record_stage(job_id, "dedupe_seeds", unique_seeds)  # Workstream E — Phase 2 snapshot (unique seeds)
+            record_stage(job_id, "dedupe_seeds", unique_seeds, record_type=plan["record_type"])  # Phase 2 snapshot
             progress["dedupe_seeds"] = {
                 "raw": len(seeds),
                 "unique": len(unique_seeds),
@@ -312,7 +324,7 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
             else:
                 included = classify_seeds(unique_seeds, keywords, job_id)
             included = _tag_geo(included, plan["state"], mode, client_id)
-            record_stage(job_id, "classify", included)  # Workstream E — Phase 3 snapshot (tiered + flagged)
+            record_stage(job_id, "classify", included, record_type=plan["record_type"])  # Phase 3 snapshot
             progress["classify"] = {
                 "scanned": len(unique_seeds),
                 "included": len(included),
@@ -327,7 +339,7 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
             _check_stop(job_id)
             included = included or []
             rows = _apply_cap(included, max_final)
-            record_stage(job_id, "cap", rows)  # Workstream E — Phase 4 snapshot (capped set)
+            record_stage(job_id, "cap", rows, record_type=plan["record_type"])  # Phase 4 snapshot
             print(f"\n🎚️  Phase 4: Cap — limit={max_final}, kept {len(rows)}/{len(included)} included")
             progress["cap"] = {
                 "limit": max_final,
@@ -344,12 +356,15 @@ def run_pipeline(job_id: str, start_at: str = "discovery", carried=None) -> None
             rows = rows or []
             print(f"\n🏛️💎 Phase 5: DBPR + Enrich + Insert — {len(rows)} rows")
             dbpr_index = fetch_licenses_for_seeds_by_state(rows)  # FL→DBPR, TN→Nashville
+            # Vendors save to the separate 'vendors' tab; contractors to 'contractors'.
+            target_tab = "vendors" if mode == "vendor" else "contractors"
             enrich_summary = enrich_and_insert_rows(
                 rows, dbpr_index, job_id, should_stop=lambda: is_stop_requested(job_id),
                 bbb_budget_usd=bbb_budget, apollo_budget_usd=apollo_budget,
+                target_tab=target_tab,
             )  # raises on stop (nothing persisted until it finishes the row set)
             # Workstream E — Phase 5 snapshot: the enriched + saved set (the deliverable layer).
-            record_stage(job_id, "enrich", rows)
+            record_stage(job_id, "enrich", rows, record_type=plan["record_type"])
             progress["enrich"] = {"status": "done", "saved": enrich_summary["saved"]}
             # Data is now persisted to the contractors tab — dedupe_final carries nothing.
             save_checkpoint(job_id, "dedupe_final", [])

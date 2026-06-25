@@ -216,6 +216,32 @@ def test_tdci_roster_fallback():
     print("✅ TDCI roster fallback: loads, name-matches, skips matched, graceful when absent")
 
 
+def test_vendor_relevance_filter():
+    """Vendor scrape keeps material distributors/suppliers and drops contractors:
+    alias-matched networks + name/category supply signals stay; carpenters/installers
+    with no signal are dropped (spec: capture by drywall/gypsum category)."""
+    from agent.vendor import is_distributor
+    from agent import pipeline as P
+    from agent.schema import GoogleSeed
+    # Captured by drywall/building-material category (spec), contractor categories override.
+    assert is_distributor("Foundation Building Materials") is True            # name signal
+    assert is_distributor("Dealers Supply", ["Building materials supplier"]) is True  # category signal
+    assert is_distributor("S & L Carpentry", ["Carpenter", "Roofing supply store"]) is False  # contractor override
+    assert is_distributor("Holden Hardware", ["Plumbing supply store"]) is False  # not a drywall distributor
+    seeds = [
+        GoogleSeed(place_id="p1", business_name="ABC Supply Co", city="Nashville"),       # alias → keep
+        GoogleSeed(place_id="p2", business_name="Rocky Top Materials", city="Knoxville"),  # alias(GMS) → keep
+        GoogleSeed(place_id="p3", business_name="Dealers Supply", city="Jackson",
+                   google_categories=["Building materials supplier"]),                      # category → keep
+        GoogleSeed(place_id="p4", business_name="S & L Carpentry", city="Columbia",
+                   google_categories=["Carpenter", "Contractor"]),                          # contractor → drop
+    ]
+    rows = P._vendor_rows_from_seeds(seeds, "TN", "westpac", "jobV")
+    names = {r.business_name for r in rows}
+    assert "S & L Carpentry" not in names and "ABC Supply Co" in names and len(rows) == 3
+    print("✅ vendor relevance: distributors kept, contractors dropped")
+
+
 if __name__ == "__main__":
     test_fl_contractor_no_spurious_reversion()
     test_fl_run_plan_unchanged()
@@ -231,4 +257,5 @@ if __name__ == "__main__":
     test_bbb_category_lumber()
     test_vendor_seed_loader()
     test_tdci_roster_fallback()
+    test_vendor_relevance_filter()
     print("\n🎉 all upgrade regression + feature tests passed")
