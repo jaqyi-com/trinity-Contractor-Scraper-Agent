@@ -1,0 +1,34 @@
+# ──────────────────────────────────────────────────────────────
+# Lumber-exclusion terms (Workstream D / Phase 5).
+#
+# Keyword-only exclusion already proved insufficient, so the filter has 3 layers.
+# Each term names the layer it applies to. Seeded into the `negative_keywords`
+# table on first boot (editable in UI).
+#
+#   layer = category      → matched against Google Maps / BBB categories
+#   layer = keyword       → matched against business name + description (word-boundary)
+#   layer = name_pattern  → regex matched against the business name (is_regex: true)
+#
+# Matches FLAG the record (excluded_reason) — they are never hard-deleted.
+# ──────────────────────────────────────────────────────────────
+terms:
+  # ── Layer 1: category exclusion ──
+  - {term: lumber, layer: category}
+  - {term: lumberyard, layer: category}
+  - {term: lumber yard, layer: category}
+  - {term: lumber store, layer: category}
+  - {term: sawmill, layer: category}
+  - {term: saw mill, layer: category}
+  - {term: timber, layer: category}
+
+  # ── Layer 2: negative-keyword list (name + description) ──
+  - {term: lumber, layer: keyword}
+  - {term: lumberyard, layer: keyword}
+  - {term: sawmill, layer: keyword}
+  - {term: timber, layer: keyword}
+  - {term: log home, layer: keyword}
+
+  # ── Layer 3: name-pattern matching (regex on the name) ──
+  - {term: "\\blumber\\b", layer: name_pattern, is_regex: true}
+  - {term: "\\bsaw\\s?mill\\b", layer: name_pattern, is_regex: true}
+  - {term: "\\btimber\\b", layer: name_pattern, is_regex: true}

@@ -8,7 +8,7 @@ from agent.pipeline import run_pipeline
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Contractor Scraper Agent")
+    parser = argparse.ArgumentParser(description="Westpac Sales Scraper Agent")
     parser.add_argument("--seed", action="store_true", help="Seed keywords from PDF defaults")
     parser.add_argument("--full", action="store_true", help="Run full pipeline (all 6 metros)")
     parser.add_argument("--job-id", type=str, default=None, help="Override job_id (else new UUID)")

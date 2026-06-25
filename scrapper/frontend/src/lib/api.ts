@@ -64,6 +64,19 @@ export type FacetItem = { value: string; n: number };
 export type Contractor = {
   id: number;
   business_name: string;
+  // record type + territory tags (vendors live in the same table as contractors)
+  record_type: string | null;          // "contractor" | "vendor" (null = legacy contractor)
+  state: string | null;
+  county: string | null;
+  city_tier: string | number | null;   // geographic tier (1/2), distinct from the classification `tier`
+  source: string | null;
+  // vendor-only fields (empty on contractor rows)
+  is_big_box: boolean | null;
+  vendor_type: string | null;          // specialty_distributor | big_box_retailer | independent
+  canonical_network: string | null;    // GMS, L&W Supply, … (rolled-up entity)
+  // status flags
+  excluded_reason: string | null;      // e.g. lumber:category:lumberyard
+  out_of_territory: boolean | null;
   city: string | null;
   zip_code: string | null;
   address: string | null;
@@ -163,6 +176,40 @@ export type City = {
   zips: string[];
   created_at: string;
   updated_at: string;
+  tier?: number | null;
+  county?: string | null;
+};
+
+export type Exclusion = {
+  id: number;
+  state: string;
+  region_name: string;
+  match_values: string[];
+  zip_codes: string[];
+  locked: boolean;
+};
+
+export type StageBatch = {
+  batch: string;
+  batch_name: string;
+  stages: Record<string, number>;
+};
+
+export type StageRecord = {
+  id: number;
+  batch: string;
+  stage: string;
+  record_type: string;
+  state: string | null;
+  city: string | null;
+  city_tier: string | null;
+  zip_code: string | null;
+  source: string | null;
+  business_name: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  excluded_reason: string | null;
 };
 
 export type Settings = {
@@ -172,6 +219,11 @@ export type Settings = {
   discovery_budget_usd: number | null;
   bbb_budget_usd: number | null;
   apollo_budget_usd: number | null;
+  // TN search radii (miles).
+  vendor_radius_miles: number;
+  contractor_radius_miles: number;
+  // Optional statewide TN verify-a-name license enrichment (slow; default off).
+  enable_tn_verify: boolean;
 };
 
 export type UpdateSettingsBody = {
@@ -179,6 +231,58 @@ export type UpdateSettingsBody = {
   discovery_budget_usd?: number | null;
   bbb_budget_usd?: number | null;
   apollo_budget_usd?: number | null;
+  vendor_radius_miles?: number | null;
+  contractor_radius_miles?: number | null;
+  enable_tn_verify?: boolean | null;
+};
+
+// Dealer/vendor account locations — anchor the TN contractor 50-mi radius.
+export type Dealer = {
+  id: number;
+  client_id: string | null;
+  name: string;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  zip_code: string | null;
+  lat: number | null;
+  lng: number | null;
+  radius_miles: number | null;
+  is_big_box: boolean | null;
+  active: boolean | null;
+  notes: string | null;
+};
+export type DealerBody = {
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  lat?: number | null;
+  lng?: number | null;
+  radius_miles?: number | null;
+  is_big_box?: boolean;
+  notes?: string;
+  active?: boolean;
+};
+
+// Vendor alias / subsidiary map — rolls brand/branch names up to one network.
+export type VendorAlias = {
+  id: number;
+  alias: string;
+  canonical_network: string;
+  entity: string | null;
+  vendor_type: string | null;
+  active: boolean | null;
+  notes: string | null;
+};
+export type VendorAliasBody = {
+  alias: string;
+  canonical_network: string;
+  entity?: string;
+  vendor_type?: string;
+  notes?: string;
+  active?: boolean;
 };
 
 // ── API surface ──
@@ -197,7 +301,11 @@ export const api = {
     request<Settings>("/api/settings", { method: "PUT", body: JSON.stringify(body) }),
 
   // Jobs
-  startJob: () => request<{ job_id: string; status: string }>("/api/jobs/start", { method: "POST" }),
+  startJob: (body?: { mode?: string; territory?: string }) =>
+    request<{ job_id: string; status: string; mode?: string; territory?: string }>(
+      "/api/jobs/start",
+      { method: "POST", body: JSON.stringify(body ?? { mode: "contractor", territory: "FL" }) },
+    ),
   stopJob: (jobId: string) =>
     request<{ job_id: string; status: string; stop_requested: boolean }>(
       `/api/jobs/${jobId}/stop`, { method: "POST" },
@@ -237,6 +345,40 @@ export const api = {
     request<City>(`/api/cities/${cityId}/zips`, { method: "POST", body: JSON.stringify({ zip_code: zip }) }),
   removeZip: (cityId: number, zip: string) =>
     request<City>(`/api/cities/${cityId}/zips/${encodeURIComponent(zip)}`, { method: "DELETE" }),
+
+  // Pipeline stages (Workstream E)
+  stageOrder: () => request<{ stages: string[] }>("/api/stages/order"),
+  stageBatches: () => request<StageBatch[]>("/api/stages/batches"),
+  stageRecords: (batch: string, stage: string, limit = 1000) =>
+    request<{ batch: string; stage: string; total: number; rows: StageRecord[] }>(
+      `/api/stages/records${qs({ batch, stage, limit })}`,
+    ),
+
+  // Dealer/vendor accounts (contractor radius anchors)
+  listDealers: () => request<Dealer[]>("/api/dealers"),
+  createDealer: (body: DealerBody) =>
+    request<Dealer>("/api/dealers", { method: "POST", body: JSON.stringify(body) }),
+  updateDealer: (id: number, body: DealerBody) =>
+    request<Dealer>(`/api/dealers/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteDealer: (id: number) =>
+    request<{ deleted: boolean; id: number }>(`/api/dealers/${id}`, { method: "DELETE" }),
+
+  // Vendor alias / subsidiary map
+  listVendorAliases: () => request<VendorAlias[]>("/api/vendor-aliases"),
+  createVendorAlias: (body: VendorAliasBody) =>
+    request<VendorAlias>("/api/vendor-aliases", { method: "POST", body: JSON.stringify(body) }),
+  updateVendorAlias: (id: number, body: VendorAliasBody) =>
+    request<VendorAlias>(`/api/vendor-aliases/${id}`, { method: "PUT", body: JSON.stringify(body) }),
+  deleteVendorAlias: (id: number) =>
+    request<{ deleted: boolean; id: number }>(`/api/vendor-aliases/${id}`, { method: "DELETE" }),
+
+  // Excluded regions (territory exclusions)
+  listExclusions: (state?: string) =>
+    request<Exclusion[]>(`/api/exclusions${qs({ state })}`),
+  addExclusion: (city: string, state = "TN") =>
+    request<Exclusion>("/api/exclusions", { method: "POST", body: JSON.stringify({ city, state }) }),
+  deleteExclusion: (id: number) =>
+    request<{ deleted: boolean; id: number }>(`/api/exclusions/${id}`, { method: "DELETE" }),
 
   // Contractors
   listContractors: (params: ContractorQuery = {}) =>

@@ -38,6 +38,8 @@ SCHEMA: Dict[str, Dict[str, Any]] = {
             "result_sheet_id", "result_sheet_url", "result_sheet_name",
             # Batch name for this run ("Batch 1", …) — the UI filters contractors by it.
             "name",
+            # Phase 6b — run scope: mode (contractor|vendor) + territory (FL|TN).
+            "mode", "territory",
         ],
         "id_field": "job_id",
         "id_kind": "uuid",
@@ -70,6 +72,13 @@ SCHEMA: Dict[str, Dict[str, Any]] = {
             "bbb_rating", "bbb_accredited", "years_in_business",
             "social_profiles", "sources", "place_ids", "dedupe_key",
             "scraped_at", "job_id",
+            # ── Phase 1a upgrade tags (APPENDED at end — existing 27 cols stay a
+            # prefix so bootstrap's safe "headers extended" path applies; old rows
+            # read these as None/false). ──
+            "client_id", "record_type", "state", "county", "city_tier",
+            "canonical_entity_id", "out_of_territory", "excluded_reason",
+            "enrichment_status", "is_big_box", "vendor_type", "stage",
+            "canonical_network",
         ],
         "id_field": "id",
         "id_kind": "int",
@@ -79,7 +88,7 @@ SCHEMA: Dict[str, Dict[str, Any]] = {
             "social_profiles", "sources", "place_ids",
         },
         "datetime_fields": {"scraped_at"},
-        "bool_fields": {"bbb_accredited"},
+        "bool_fields": {"bbb_accredited", "out_of_territory", "is_big_box"},
         "int_fields": {"id", "google_review_count", "years_in_business"},
         "float_fields": {"google_rating"},
     },
@@ -144,14 +153,19 @@ SCHEMA: Dict[str, Dict[str, Any]] = {
         "float_fields": set(),
     },
     "cities": {
-        "headers": ["id", "name", "state", "created_at", "updated_at"],
+        "headers": [
+            "id", "name", "state", "created_at", "updated_at",
+            # Phase 6+ — TN cities live here too (editable like FL). These extra
+            # columns carry the geography/priority metadata (blank for FL rows).
+            "tier", "county", "center_lat", "center_lng", "radius_miles",
+        ],
         "id_field": "id",
         "id_kind": "int",
         "json_fields": set(),
         "datetime_fields": {"created_at", "updated_at"},
         "bool_fields": set(),
-        "int_fields": {"id"},
-        "float_fields": set(),
+        "int_fields": {"id", "tier"},
+        "float_fields": {"center_lat", "center_lng", "radius_miles"},
     },
     "city_zips": {
         "headers": ["id", "city_id", "zip_code", "created_at"],
@@ -161,6 +175,125 @@ SCHEMA: Dict[str, Dict[str, Any]] = {
         "datetime_fields": {"created_at"},
         "bool_fields": set(),
         "int_fields": {"id", "city_id"},
+        "float_fields": set(),
+    },
+    # ──────────────────────────────────────────────────────────────
+    # Phase 1b — Reference tables (editable config, NOT scraped data).
+    # These drive geography, vendor roll-up and the lumber filter at runtime.
+    # ──────────────────────────────────────────────────────────────
+    # Region include/exclude rules (e.g. the Memphis-metro hard exclusion).
+    "territories": {
+        "headers": [
+            "id", "state", "region_name", "kind", "match_type",
+            "match_values", "active", "notes", "created_at", "updated_at",
+            # APPENDED at end (clean header extension) so bootstrap auto-migrates
+            # existing sheets; mid-insert would misalign old rows.
+            "zip_codes", "locked",
+        ],
+        "id_field": "id",
+        "id_kind": "int",
+        # match_values = excluded city names; zip_codes = their resolved ZIPs (for
+        # direct zip-level exclusion + UI display). locked = seeded base rule the
+        # user cannot edit/delete (e.g. the Memphis metro).
+        "json_fields": {"match_values", "zip_codes"},
+        "datetime_fields": {"created_at", "updated_at"},
+        "bool_fields": {"active", "locked"},
+        "int_fields": {"id"},
+        "float_fields": set(),
+    },
+    # City prioritization: tier + center coords + search radius per city.
+    "city_tiers": {
+        "headers": [
+            "id", "state", "city", "tier", "center_lat", "center_lng",
+            "radius_miles", "population", "active", "notes",
+            "created_at", "updated_at",
+        ],
+        "id_field": "id",
+        "id_kind": "int",
+        "json_fields": set(),
+        "datetime_fields": {"created_at", "updated_at"},
+        "bool_fields": {"active"},
+        "int_fields": {"id", "tier", "population"},
+        "float_fields": {"center_lat", "center_lng", "radius_miles"},
+    },
+    # Vendor alias / subsidiary map → roll branches up to one canonical network.
+    "vendor_aliases": {
+        "headers": [
+            "id", "alias", "canonical_network", "entity", "vendor_type",
+            "active", "notes", "created_at", "updated_at",
+        ],
+        "id_field": "id",
+        "id_kind": "int",
+        "json_fields": set(),
+        "datetime_fields": {"created_at", "updated_at"},
+        "bool_fields": {"active"},
+        "int_fields": {"id"},
+        "float_fields": set(),
+    },
+    # Lumber-exclusion terms — feeds all 3 filter layers via the `layer` field.
+    "negative_keywords": {
+        "headers": [
+            "id", "term", "layer", "is_regex", "active", "notes",
+            "created_at", "updated_at",
+        ],
+        "id_field": "id",
+        "id_kind": "int",
+        "json_fields": set(),
+        "datetime_fields": {"created_at", "updated_at"},
+        "bool_fields": {"is_regex", "active"},
+        "int_fields": {"id"},
+        "float_fields": set(),
+    },
+    # Client dealer/vendor account locations — anchor the contractor 50-mi radius.
+    "dealer_accounts": {
+        "headers": [
+            "id", "client_id", "name", "address", "city", "state", "zip_code",
+            "lat", "lng", "radius_miles", "is_big_box", "active", "notes",
+            "created_at", "updated_at",
+        ],
+        "id_field": "id",
+        "id_kind": "int",
+        "json_fields": set(),
+        "datetime_fields": {"created_at", "updated_at"},
+        "bool_fields": {"is_big_box", "active"},
+        "int_fields": {"id"},
+        "float_fields": {"lat", "lng", "radius_miles"},
+    },
+    # Workstream E — staged pipeline layers. One row per record per STAGE per BATCH
+    # (raw → normalized → enriched → filtered → deliverable). "Separate by tags, not
+    # copies": stage + batch are tags on one table, not five physical tables; the UI
+    # presents them as per-stage tabs. `data` keeps the full record snapshot.
+    "stage_records": {
+        "headers": [
+            "id", "batch", "batch_name", "stage", "record_type",
+            "canonical_entity_id", "state", "city", "city_tier", "zip_code",
+            "source", "business_name", "phone", "email", "website",
+            "excluded_reason", "data", "created_at",
+        ],
+        "id_field": "id",
+        "id_kind": "int",
+        "json_fields": {"data"},
+        "datetime_fields": {"created_at"},
+        "bool_fields": set(),
+        "int_fields": {"id"},
+        "float_fields": set(),
+    },
+    # Phase 1e — RAW per-source layer (append-only, immutable). One row per
+    # (business, source) snapshot, linked to its merged contractors row by
+    # canonical_entity_id (foreign key). `data` keeps the full source payload so
+    # nothing is lost. Mirrored (not ephemeral) so a business's sources are queryable.
+    "source_records": {
+        "headers": [
+            "id", "canonical_entity_id", "record_type", "source", "scrape_run_id",
+            "business_name", "phone", "city", "zip_code", "website",
+            "data", "stage", "created_at",
+        ],
+        "id_field": "id",
+        "id_kind": "int",
+        "json_fields": {"data"},
+        "datetime_fields": {"created_at"},
+        "bool_fields": set(),
+        "int_fields": {"id"},
         "float_fields": set(),
     },
     "app_settings": {

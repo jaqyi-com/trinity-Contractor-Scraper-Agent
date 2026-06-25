@@ -14,6 +14,7 @@ import os
 import time
 import threading
 import uuid
+import hashlib
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
@@ -125,6 +126,10 @@ def init_schema() -> None:
     # Seed defaults (also idempotent: each checks for existing rows first).
     _seed_test_user_if_missing()
     _seed_cities_from_yaml_if_empty()
+    _seed_tennessee_cities_if_empty()
+    _seed_tennessee_exclusions_if_empty()
+    _seed_vendor_aliases_if_empty()
+    _seed_negative_keywords_if_empty()
     _seed_budget_settings_if_missing()
 
 
@@ -153,8 +158,15 @@ def compute_dedupe_key(record: Dict[str, Any]) -> str:
 
 
 # Fields that change every run regardless of real data changes — ignored when
-# deciding new/updated/unchanged for the per-run result sheet.
-_CHANGE_IGNORE_FIELDS = {"id", "dedupe_key", "scraped_at", "job_id"}
+# deciding new/updated/unchanged for the per-run result sheet. The Phase 1+ tag
+# fields are metadata (not contractor data), so they're ignored too: this keeps
+# existing Florida rows from spuriously re-versioning when the new columns appear.
+_CHANGE_IGNORE_FIELDS = {
+    "id", "dedupe_key", "scraped_at", "job_id",
+    "client_id", "record_type", "state", "county", "city_tier",
+    "canonical_entity_id", "out_of_territory", "excluded_reason",
+    "enrichment_status", "is_big_box", "vendor_type", "canonical_network", "stage",
+}
 
 
 def _norm_for_diff(v: Any) -> Any:
@@ -175,6 +187,208 @@ def _contractor_changed(new: Dict[str, Any], existing: Dict[str, Any]) -> bool:
         if _norm_for_diff(v) != _norm_for_diff(existing.get(k)):
             return True
     return False
+
+
+# ──────────────────────────────────────────────────────────────
+# Phase 1c — Entity resolution + idempotent upsert (staged-model load path)
+#
+# Stages (logical, raw-immutable): raw seeds → normalized → enriched →
+# filtered/validated → deliverable. Raw is the discovery checkpoint (stage_outputs)
+# and is never mutated; the contractors tab holds the canonical (resolved) layer.
+#
+# `compute_canonical_entity_id` resolves many SOURCE records (google, bbb, license,
+# vendor branches) to ONE real business. `upsert_contractor` is the idempotent load:
+# re-running a territory/source updates the canonical row instead of duplicating it.
+# The legacy `insert_contractor` (versioned-by-batch) is untouched — the current
+# Florida flow keeps using it; the pipeline switches over in a later phase.
+# ──────────────────────────────────────────────────────────────
+# List fields that accumulate provenance/detail across sources (union on merge).
+_MERGE_LIST_FIELDS = (
+    "sources", "place_ids", "specialty_keywords", "google_categories",
+    "services_listed", "license_numbers", "license_categories",
+)
+
+
+def compute_canonical_entity_id(record: Dict[str, Any]) -> str:
+    """Stable id for the real business behind one or more source records.
+    Anchored on normalized NAME + LOCATION (or the canonical vendor network, when
+    present, so GMS/L&W branches collapse). Phone is deliberately NOT in the hash:
+    sources for the same business often differ on phone presence, and including it
+    would split one business into several entities. Name is the stable anchor;
+    phone-only matches (different name) are still caught by dedupe_key downstream."""
+    name = normalize_name(record.get("canonical_network") or record.get("business_name") or "")
+    loc = (record.get("zip_code") or record.get("city") or "").strip().lower()
+    basis = f"{name}|{loc}" if name else f"phone:{normalize_phone(record.get('phone') or '')}"
+    digest = hashlib.sha1(basis.encode("utf-8")).hexdigest()[:16]
+    return f"ce_{digest}"
+
+
+def _merge_record(existing: Dict[str, Any], new: Dict[str, Any]) -> Dict[str, Any]:
+    """Merge a new source record into an existing canonical row: union the list
+    fields, fill empty scalars (existing non-empty value wins so loads are stable/
+    idempotent). Returns only the fields that actually changed."""
+    changed: Dict[str, Any] = {}
+    for k, v in new.items():
+        if k in ("id", "canonical_entity_id", "dedupe_key"):
+            continue
+        if k in _MERGE_LIST_FIELDS:
+            merged = list(dict.fromkeys([*(existing.get(k) or []), *(v or [])]))
+            if merged != (existing.get(k) or []):
+                changed[k] = merged
+        elif _norm_for_diff(existing.get(k)) is None and _norm_for_diff(v) is not None:
+            changed[k] = v
+    return changed
+
+
+def record_source(
+    record: Dict[str, Any],
+    source: str,
+    run_id: Optional[str] = None,
+    canonical_entity_id: Optional[str] = None,
+    stage: str = "raw",
+) -> Dict[str, Any]:
+    """Append an immutable RAW snapshot of ONE source's view of a business to the
+    `source_records` tab (append-only — never overwritten). Linked to its merged
+    `contractors` row by canonical_entity_id (foreign key); the full payload is kept
+    in `data` so nothing is lost. This is the raw layer + provenance log."""
+    db = get_db()
+    ceid = canonical_entity_id or record.get("canonical_entity_id") or compute_canonical_entity_id(record)
+    return db.insert("source_records", {
+        "canonical_entity_id": ceid,
+        "record_type": record.get("record_type") or "contractor",
+        "source": source,
+        "scrape_run_id": run_id or record.get("job_id"),
+        "business_name": record.get("business_name"),
+        "phone": record.get("phone"),
+        "city": record.get("city"),
+        "zip_code": record.get("zip_code"),
+        "website": record.get("website"),
+        "data": record,
+        "stage": stage,
+        "created_at": datetime.utcnow(),
+    })
+
+
+def list_source_records(canonical_entity_id: str) -> List[Dict[str, Any]]:
+    """All immutable per-source raw rows for one business (its full provenance),
+    oldest first — drives the 'view this contractor's sources separately' feature."""
+    rows = get_db().find("source_records", lambda r: r.get("canonical_entity_id") == canonical_entity_id)
+    rows.sort(key=lambda r: r.get("id") or 0)
+    return rows
+
+
+# ── Workstream E — staged pipeline layers, named after the SCRAPER's ACTUAL
+# pipeline phases (agent/pipeline.py PHASE_ORDER), not the doc's generic layer
+# names. Each is a snapshot of the working set at that phase boundary:
+#   discovery     → raw Google seeds
+#   dedupe_seeds  → unique seeds (pre-enrichment dedupe)
+#   classify      → tiered + lumber/territory-flagged
+#   cap           → capped to max_final_records
+#   enrich        → DBPR/BBB/Apollo-enriched + saved (the deliverable layer)
+# (dedupe_final is a post-insert sweep — no new record set, so not snapshotted.) ──
+STAGE_ORDER = ("discovery", "dedupe_seeds", "classify", "cap", "enrich")
+
+
+def record_stage(job_id: str, stage: str, records, batch_name: Optional[str] = None) -> int:
+    """Persist a snapshot of the record set at one pipeline stage for this batch.
+    Append-only — each stage is a layer (Workstream E). Records may be pydantic
+    models or dicts. Every row carries the slicing tags + the full record `data`."""
+    db = get_db()
+    if batch_name is None:
+        job = get_job(job_id) or {}
+        batch_name = job.get("name") or job_id
+    now = datetime.utcnow()
+    n = 0
+    for r in records or []:
+        rec = r.model_dump(mode="json") if hasattr(r, "model_dump") else dict(r)
+        src = rec.get("source")
+        if not src:
+            srcs = rec.get("sources") or []
+            src = srcs[0] if srcs else None
+        db.insert("stage_records", {
+            "batch": job_id,
+            "batch_name": batch_name,
+            "stage": stage,
+            "record_type": rec.get("record_type") or "contractor",
+            "canonical_entity_id": rec.get("canonical_entity_id") or compute_canonical_entity_id(rec),
+            "state": rec.get("state"),
+            "city": rec.get("city"),
+            "city_tier": rec.get("city_tier"),
+            "zip_code": rec.get("zip_code"),
+            "source": src,
+            "business_name": rec.get("business_name"),
+            "phone": rec.get("phone"),
+            "email": rec.get("email"),
+            "website": rec.get("website"),
+            "excluded_reason": rec.get("excluded_reason"),
+            "data": rec,
+            "created_at": now,
+        })
+        n += 1
+    print(f"📚 [stage] {stage}: stored {n} records for batch {batch_name!r}")
+    return n
+
+
+def list_stage_batches() -> List[Dict[str, Any]]:
+    """Distinct batches that have stage snapshots, each with per-stage row counts —
+    drives the Pipeline Stages page's batch picker."""
+    rows = get_db().all_rows("stage_records")
+    out: Dict[str, Dict[str, Any]] = {}
+    for r in rows:
+        b = r.get("batch")
+        if not b:
+            continue
+        e = out.setdefault(b, {"batch": b, "batch_name": r.get("batch_name"), "stages": {}, "max_id": 0})
+        st = r.get("stage")
+        e["stages"][st] = e["stages"].get(st, 0) + 1
+        e["max_id"] = max(e["max_id"], r.get("id") or 0)
+    return sorted(out.values(), key=lambda e: e["max_id"], reverse=True)
+
+
+def list_stage_records(batch: str, stage: str, limit: int = 1000) -> List[Dict[str, Any]]:
+    """Records stored at one (batch, stage), oldest first."""
+    rows = get_db().find("stage_records", lambda r: r.get("batch") == batch and r.get("stage") == stage)
+    rows.sort(key=lambda r: r.get("id") or 0)
+    return rows[:limit]
+
+
+def upsert_contractor(
+    record: Dict[str, Any],
+    source: Optional[str] = None,
+    run_id: Optional[str] = None,
+    stage: Optional[str] = None,
+) -> int:
+    """Idempotent load keyed on canonical_entity_id:
+      • new entity      → insert ONE canonical row (canonical_entity_id + source set)
+      • existing entity → merge into it (union lists, fill blanks, add source); no dup
+    Re-running the same business/source is a no-op-or-update, never a duplicate.
+
+    When `source` is given, this ALSO appends an immutable raw row to source_records
+    (the per-source layer), so each scraper does two writes: raw snapshot + merged
+    upsert. `stage` advances the canonical row's staged-model lifecycle."""
+    db = get_db()
+    rec = dict(record)
+    ceid = rec.get("canonical_entity_id") or compute_canonical_entity_id(rec)
+    rec["canonical_entity_id"] = ceid
+    if source:
+        rec["sources"] = list(dict.fromkeys([*(rec.get("sources") or []), source]))
+        record_source(rec, source, run_id=run_id, canonical_entity_id=ceid, stage="raw")
+    if stage:
+        rec["stage"] = stage
+
+    existing = db.find_one("contractors", lambda r: r.get("canonical_entity_id") == ceid)
+    if existing:
+        changed = _merge_record(existing, rec)
+        if stage and existing.get("stage") != stage:
+            changed["stage"] = stage          # let the lifecycle advance forward
+        if changed:
+            db.update("contractors", existing["id"], changed)
+        return int(existing["id"])
+
+    rec.setdefault("dedupe_key", compute_dedupe_key(rec))
+    rec.setdefault("scraped_at", datetime.utcnow())
+    saved = db.insert("contractors", rec)
+    return int(saved["id"])
 
 
 # ──────────────────────────────────────────────────────────────
@@ -236,10 +450,221 @@ def _seed_cities_from_yaml_if_empty() -> None:
     print(f"✅ Seeded {len(cities)} cities + {total_zips} ZIPs from cities.yaml")
 
 
+def _seed_tennessee_cities_if_empty() -> None:
+    """Seed Tennessee cities into the SAME cities/city_zips tabs as Florida (first
+    boot, idempotent — skips if any TN city already exists), so they're editable in
+    the Cities UI exactly like FL and tagged state='TN'. Each TN city also carries
+    tier + center coords + radius; its ZIPs are computed once (zips within the
+    radius) so the list is real and user-editable. Florida rows are untouched."""
+    import yaml
+    from pathlib import Path
+    from agent.geography import zips_within_radius
+
+    db = get_db()
+    if db.find_one("cities", lambda r: (r.get("state") or "").upper() == "TN"):
+        return  # already seeded
+
+    yaml_path = Path(__file__).resolve().parent.parent / "config" / "tennessee.yaml"
+    if not yaml_path.exists():
+        print(f"⏩ No tennessee.yaml at {yaml_path} — skipping TN city seed")
+        return
+
+    data = yaml.safe_load(yaml_path.read_text()) or {}
+    state = data.get("state", "TN")
+    cities = data.get("cities", []) if isinstance(data, dict) else []
+    now = datetime.utcnow()
+    total_zips = 0
+    for c in cities:
+        lat, lng = c.get("center_lat"), c.get("center_lng")
+        radius = c.get("radius_miles") or 20
+        city = db.insert("cities", {
+            "name": c.get("city"),
+            "state": state,
+            "tier": c.get("tier"),
+            "county": c.get("county"),
+            "center_lat": lat,
+            "center_lng": lng,
+            "radius_miles": radius,
+            "created_at": now,
+            "updated_at": now,
+        })
+        zips = zips_within_radius(float(lat), float(lng), float(radius), state=state) if lat and lng else []
+        for z in zips:
+            db.insert("city_zips", {"city_id": city["id"], "zip_code": str(z), "created_at": now})
+            total_zips += 1
+    t1 = sum(1 for c in cities if c.get("tier") == 1)
+    t2 = sum(1 for c in cities if c.get("tier") == 2)
+    print(f"✅ Seeded {len(cities)} TN cities (Tier1={t1}, Tier2={t2}) + {total_zips} ZIPs into cities/city_zips")
+
+
+def _seed_tennessee_exclusions_if_empty() -> None:
+    """Seed the LOCKED Memphis-metro exclusion from tennessee.yaml on first boot
+    (idempotent). Each rule stores the excluded city names AND their resolved ZIP
+    codes (so the scraper drops them directly). `locked=True` → the user cannot edit
+    or delete these base rules; they can only ADD more cities to exclude."""
+    import yaml
+    from pathlib import Path
+    from agent.geography import zips_for_city
+
+    db = get_db()
+    if db.find_one("territories", lambda r: (r.get("state") or "").upper() == "TN"):
+        return  # already seeded
+
+    yaml_path = Path(__file__).resolve().parent.parent / "config" / "tennessee.yaml"
+    if not yaml_path.exists():
+        return
+
+    data = yaml.safe_load(yaml_path.read_text()) or {}
+    state = data.get("state", "TN")
+    rules = data.get("exclusions", []) if isinstance(data, dict) else []
+    now = datetime.utcnow()
+    for r in rules:
+        cities = r.get("match_values") or []
+        zips = sorted({z for c in cities for z in zips_for_city(c, state)})
+        db.insert("territories", {
+            "state": state,
+            "region_name": r.get("region_name"),
+            "kind": r.get("kind", "exclude"),
+            "match_type": "city",
+            "match_values": cities,
+            "zip_codes": zips,
+            "locked": True,            # base rule — user can't remove
+            "active": True,
+            "notes": r.get("notes", ""),
+            "created_at": now,
+            "updated_at": now,
+        })
+    if rules:
+        print(f"✅ Seeded {len(rules)} LOCKED TN exclusion rule(s) (Memphis metro) with resolved ZIPs")
+
+
+def _seed_vendor_aliases_if_empty() -> None:
+    """Load config/vendor_aliases.yaml into the vendor_aliases table on first boot
+    (idempotent). Maps branch/brand names → one canonical network (GMS, L&W, …)."""
+    import yaml
+    from pathlib import Path
+
+    db = get_db()
+    if db.count("vendor_aliases") > 0:
+        return
+
+    yaml_path = Path(__file__).resolve().parent.parent / "config" / "vendor_aliases.yaml"
+    if not yaml_path.exists():
+        return
+
+    data = yaml.safe_load(yaml_path.read_text()) or {}
+    aliases = data.get("aliases", []) if isinstance(data, dict) else []
+    now = datetime.utcnow()
+    for a in aliases:
+        db.insert("vendor_aliases", {
+            "alias": a.get("alias"),
+            "canonical_network": a.get("canonical_network"),
+            "entity": a.get("entity"),
+            "vendor_type": a.get("vendor_type", "specialty_distributor"),
+            "active": True,
+            "notes": "",
+            "created_at": now,
+            "updated_at": now,
+        })
+    if aliases:
+        nets = len({a.get("canonical_network") for a in aliases})
+        print(f"✅ Seeded {len(aliases)} vendor aliases ({nets} networks) from vendor_aliases.yaml")
+
+
+def _seed_negative_keywords_if_empty() -> None:
+    """Load config/negative_keywords.yaml into the negative_keywords table on first
+    boot (idempotent). Feeds all 3 lumber-exclusion layers via the `layer` field."""
+    import yaml
+    from pathlib import Path
+
+    db = get_db()
+    if db.count("negative_keywords") > 0:
+        return
+
+    yaml_path = Path(__file__).resolve().parent.parent / "config" / "negative_keywords.yaml"
+    if not yaml_path.exists():
+        return
+
+    data = yaml.safe_load(yaml_path.read_text()) or {}
+    terms = data.get("terms", []) if isinstance(data, dict) else []
+    now = datetime.utcnow()
+    for t in terms:
+        db.insert("negative_keywords", {
+            "term": t.get("term"),
+            "layer": t.get("layer", "keyword"),
+            "is_regex": bool(t.get("is_regex", False)),
+            "active": True,
+            "notes": "",
+            "created_at": now,
+            "updated_at": now,
+        })
+    if terms:
+        print(f"✅ Seeded {len(terms)} lumber negative-keyword terms from negative_keywords.yaml")
+
+
+def is_excluded(
+    city: Optional[str] = None,
+    county: Optional[str] = None,
+    zip_code: Optional[str] = None,
+    state: Optional[str] = None,
+) -> bool:
+    """True if a location falls under an active territory EXCLUSION rule. Matches a
+    ZIP directly against the rule's resolved zip_codes, OR a city name against its
+    match_values (case-insensitive). Call BEFORE scraping so excluded cities/zips
+    never cost a run."""
+    z = (zip_code or "").strip()[:5]
+    c = (city or "").strip().lower()
+    for rule in get_territory_rules(state=state, kind="exclude"):
+        if z and z in {str(x).strip() for x in (rule.get("zip_codes") or [])}:
+            return True
+        if c and c in {str(v).strip().lower() for v in (rule.get("match_values") or [])}:
+            return True
+    return False
+
+
+# ── Exclusion list management (locked base + user-added cities) ──
+def list_exclusions(state: Optional[str] = None) -> List[Dict[str, Any]]:
+    """All active exclusion rules (locked base + user-added), for the UI list."""
+    return get_territory_rules(state=state, kind="exclude")
+
+
+def add_city_exclusion(city_name: str, state: str = "TN") -> Dict[str, Any]:
+    """Add a user exclusion for a city (chosen from the cities dropdown). Resolves
+    the city → its ZIPs so the scraper drops them directly. Not locked → deletable."""
+    from agent.geography import zips_for_city
+    now = datetime.utcnow()
+    return get_db().insert("territories", {
+        "state": state.upper(),
+        "region_name": city_name,
+        "kind": "exclude",
+        "match_type": "city",
+        "match_values": [city_name],
+        "zip_codes": zips_for_city(city_name, state),
+        "locked": False,
+        "active": True,
+        "notes": "user-added",
+        "created_at": now,
+        "updated_at": now,
+    })
+
+
+def delete_exclusion(rule_id: int) -> bool:
+    """Delete a user exclusion. Refuses to remove a LOCKED base rule (Memphis)."""
+    db = get_db()
+    r = db.get_by_id("territories", rule_id)
+    if not r:
+        return False
+    if r.get("locked"):
+        raise ValueError("locked exclusion (base rule) cannot be deleted")
+    return db.delete("territories", rule_id)
+
+
 # ──────────────────────────────────────────────────────────────
 # Jobs
 # ──────────────────────────────────────────────────────────────
-def create_job() -> str:
+def create_job(mode: str = "contractor", territory: str = "FL") -> str:
+    """Create a pending job. `mode` = contractor|vendor, `territory` = FL|TN.
+    Defaults (contractor/FL) preserve the original Florida-contractor behaviour."""
     job_id = str(uuid.uuid4())
     db = get_db()
     # Each run gets a unique human-friendly batch name with its creation timestamp
@@ -251,6 +676,8 @@ def create_job() -> str:
         "status": "pending",
         "started_at": now,
         "name": f"Batch {n} · {now:%Y-%m-%d %H:%M} UTC",
+        "mode": (mode or "contractor").lower(),
+        "territory": (territory or "FL").upper(),
     })
     # Flush so the row exists in Sheets before a Cloud Run Job worker (separate
     # process) boots and looks for it. Harmless in thread mode.
@@ -335,6 +762,21 @@ def insert_contractor(record: Dict[str, Any]) -> int:
         "dedupe_key": compute_dedupe_key(record),
         "scraped_at": datetime.utcnow(),
         "job_id": record.get("job_id"),
+        # Phase 1+ tags — persisted so TN/vendor/territory/lumber metadata survives a
+        # save. All ignored by change-detection (above), so Florida never re-versions.
+        "client_id": record.get("client_id"),
+        "record_type": record.get("record_type") or "contractor",
+        "state": record.get("state"),
+        "county": record.get("county"),
+        "city_tier": record.get("city_tier"),
+        "canonical_entity_id": record.get("canonical_entity_id") or compute_canonical_entity_id(record),
+        "out_of_territory": bool(record.get("out_of_territory", False)),
+        "excluded_reason": record.get("excluded_reason"),
+        "enrichment_status": record.get("enrichment_status"),
+        "is_big_box": bool(record.get("is_big_box", False)),
+        "vendor_type": record.get("vendor_type"),
+        "canonical_network": record.get("canonical_network"),
+        "stage": record.get("stage"),
     }
     key = payload["dedupe_key"]
     existing = db.find("contractors", lambda r: r.get("dedupe_key") == key)
@@ -375,15 +817,64 @@ def list_contractors(
     return {"total": total, "limit": limit, "offset": offset, "rows": page}
 
 
+def _deliverable_scope(rows: List[Dict[str, Any]], f: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Phase 1d — narrow the WIDE contractors layer into a deliverable view at
+    request time (data is never filtered on disk):
+      • scope by client_id / record_type / state(territory) / city_tier
+      • by default DROP lumber-excluded (excluded_reason set) and out_of_territory
+        rows — pass include_excluded / include_out_of_territory to audit them.
+    record_type defaults to 'contractor' for legacy rows that predate the tag."""
+    out = rows
+    if f.get("client_id") is not None:
+        out = [r for r in out if r.get("client_id") == f["client_id"]]
+    if f.get("record_type") is not None:
+        out = [r for r in out if (r.get("record_type") or "contractor") == f["record_type"]]
+    if f.get("state"):
+        st = f["state"].upper()
+        out = [r for r in out if (r.get("state") or "").upper() == st]
+    if f.get("city_tier") is not None:
+        ct = str(f["city_tier"])
+        out = [r for r in out if str(r.get("city_tier") or "") == ct]
+    if not f.get("include_excluded"):
+        out = [r for r in out if not r.get("excluded_reason")]
+    if not f.get("include_out_of_territory"):
+        out = [r for r in out if not r.get("out_of_territory")]
+    return out
+
+
+def export_deliverable(
+    filters: Optional[Dict[str, Any]] = None,
+    sort_by: str = "id",
+    sort_dir: str = "desc",
+) -> Dict[str, Any]:
+    """Derived, client-/territory-scoped deliverable list (Phase 1d).
+    Applies the same field filters as list_contractors (`filters` shape) PLUS the
+    deliverable scope (client_id, record_type, state, city_tier, include_excluded,
+    include_out_of_territory). Returns every matching row (no pagination) — meant
+    for export/CRM sync. The underlying data stays wide; only this view narrows."""
+    f = filters or {}
+    rows = get_db().all_rows("contractors")
+    rows = _filter_contractors(rows, f)      # reuse existing field filters
+    rows = _deliverable_scope(rows, f)       # + derived deliverable narrowing
+    reverse = (sort_dir or "desc").lower() != "asc"
+    rows.sort(key=lambda r: _sort_key(r, sort_by), reverse=reverse)
+    return {"total": len(rows), "rows": rows}
+
+
 def iter_contractors_filtered(
     filters: Optional[Dict[str, Any]] = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
 ):
-    """Streaming iterator for CSV export (no pagination)."""
+    """Streaming iterator for CSV export (no pagination). This is the DELIVERABLE
+    view: on top of the field filters it applies _deliverable_scope, which drops
+    lumber-excluded (excluded_reason) and out_of_territory rows by default — so the
+    exported list never contains flagged businesses (Workstream D/E). Pass
+    include_excluded / include_out_of_territory in `filters` to audit them."""
     f = filters or {}
     rows = get_db().all_rows("contractors")
-    rows = _filter_contractors(rows, f)
+    rows = _filter_contractors(rows, f)      # field filters
+    rows = _deliverable_scope(rows, f)       # + derived deliverable narrowing (drop flagged)
     reverse = (sort_dir or "desc").lower() != "asc"
     rows.sort(key=lambda r: _sort_key(r, sort_by), reverse=reverse)
     for r in rows:
@@ -717,6 +1208,50 @@ def get_apollo_budget_usd() -> Optional[float]:
     return _get_budget_usd("apollo_budget_usd")
 
 
+# ──────────────────────────────────────────────────────────────
+# Search radii (miles) — user-editable (spec: vendor 20, contractor 50).
+# Vendor radius anchors the vendor scrape on each city center; contractor radius
+# anchors the TN contractor scrape on dealer accounts.
+# ──────────────────────────────────────────────────────────────
+DEFAULT_VENDOR_RADIUS_MI = 20.0
+DEFAULT_CONTRACTOR_RADIUS_MI = 50.0
+
+
+def _get_radius(key: str, default: float) -> float:
+    raw = get_setting(key)
+    try:
+        v = float(raw)
+        return v if v > 0 else default
+    except (TypeError, ValueError):
+        return default
+
+
+def get_vendor_radius_miles() -> float:
+    return _get_radius("vendor_radius_miles", DEFAULT_VENDOR_RADIUS_MI)
+
+
+def get_contractor_radius_miles() -> float:
+    return _get_radius("contractor_radius_miles", DEFAULT_CONTRACTOR_RADIUS_MI)
+
+
+# ──────────────────────────────────────────────────────────────
+# Boolean settings (stored as "true"/"false" strings in app_settings).
+# ──────────────────────────────────────────────────────────────
+def get_bool_setting(key: str, default: bool = False) -> bool:
+    raw = get_setting(key)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in ("1", "true", "yes", "on")
+
+
+def get_enable_tn_verify() -> bool:
+    """OPTIONAL statewide TN verify-a-name license enrichment
+    (verify.tn.gov / search.cloud.commerce.tn.gov). OFF by default — it's a slow
+    per-name lookup (no bulk/public API), so it can add minutes to a TN run.
+    License is enrichment-only; this never gates discovery. See agent/verify_tn.py."""
+    return get_bool_setting("enable_tn_verify", default=False)
+
+
 # Default for the budget settings on first boot: "none" = unlimited (no cap).
 _BUDGET_SETTING_KEYS = ("discovery_budget_usd", "bbb_budget_usd", "apollo_budget_usd")
 
@@ -836,6 +1371,101 @@ def remove_zip(city_id: int, zip_code: str) -> bool:
     if not target:
         return False
     return db.delete("city_zips", target["id"])
+
+
+# ──────────────────────────────────────────────────────────────
+# Phase 1b — Reference tables (editable config, NOT scraped data)
+# Generic CRUD over the new ref tabs + a few runtime convenience getters.
+# ──────────────────────────────────────────────────────────────
+_REF_TABS = {"territories", "city_tiers", "vendor_aliases", "negative_keywords", "dealer_accounts"}
+
+
+def list_ref(tab: str, only_active: bool = False) -> List[Dict[str, Any]]:
+    """Return all rows of a reference tab (optionally active-only)."""
+    if tab not in _REF_TABS:
+        raise ValueError(f"{tab} is not a reference table")
+    rows = get_db().all_rows(tab)
+    if only_active:
+        rows = [r for r in rows if r.get("active") is True]
+    return rows
+
+
+def create_ref(tab: str, fields: Dict[str, Any]) -> Dict[str, Any]:
+    """Insert a reference row, stamping created_at/updated_at and defaulting active=True."""
+    if tab not in _REF_TABS:
+        raise ValueError(f"{tab} is not a reference table")
+    now = datetime.utcnow()
+    payload = {"active": True, **fields, "created_at": now, "updated_at": now}
+    return get_db().insert(tab, payload)
+
+
+def update_ref(tab: str, row_id: int, fields: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    if tab not in _REF_TABS:
+        raise ValueError(f"{tab} is not a reference table")
+    return get_db().update(tab, row_id, {**fields, "updated_at": datetime.utcnow()})
+
+
+def delete_ref(tab: str, row_id: int) -> bool:
+    if tab not in _REF_TABS:
+        raise ValueError(f"{tab} is not a reference table")
+    return get_db().delete(tab, row_id)
+
+
+# ── Runtime convenience getters (used by the pipeline later) ──
+def get_territory_rules(state: Optional[str] = None, kind: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Active territory include/exclude rules, optionally filtered by state/kind."""
+    rows = list_ref("territories", only_active=True)
+    if state:
+        rows = [r for r in rows if (r.get("state") or "").upper() == state.upper()]
+    if kind:
+        rows = [r for r in rows if (r.get("kind") or "").lower() == kind.lower()]
+    return rows
+
+
+def list_city_tiers(state: Optional[str] = None) -> List[Dict[str, Any]]:
+    """City-priority rows for targeting, read from the editable `cities` tab (so the
+    UI and the scraper share ONE source of truth). Only cities that carry a tier +
+    center coords qualify; sorted Tier 1 first, then by city. Each row is normalized
+    to the {city, tier, center_lat, center_lng, radius_miles} shape targeting expects."""
+    rows = get_db().all_rows("cities")
+    if state:
+        rows = [r for r in rows if (r.get("state") or "").upper() == state.upper()]
+    out = [
+        {
+            "city": r.get("name"),
+            "tier": r.get("tier"),
+            "center_lat": r.get("center_lat"),
+            "center_lng": r.get("center_lng"),
+            "radius_miles": r.get("radius_miles"),
+            "county": r.get("county"),
+            "state": r.get("state"),
+        }
+        for r in rows
+        if r.get("tier") is not None and r.get("center_lat") is not None and r.get("center_lng") is not None
+    ]
+    out.sort(key=lambda r: (r.get("tier") or 99, (r.get("city") or "").lower()))
+    return out
+
+
+def get_vendor_aliases() -> List[Dict[str, Any]]:
+    """Active alias → canonical-network rows for vendor roll-up."""
+    return list_ref("vendor_aliases", only_active=True)
+
+
+def get_negative_keywords(layer: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Active lumber-exclusion terms, optionally for one filter layer."""
+    rows = list_ref("negative_keywords", only_active=True)
+    if layer:
+        rows = [r for r in rows if (r.get("layer") or "").lower() == layer.lower()]
+    return rows
+
+
+def list_dealer_accounts(client_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Active dealer/vendor account anchors, optionally scoped to a client."""
+    rows = list_ref("dealer_accounts", only_active=True)
+    if client_id:
+        rows = [r for r in rows if r.get("client_id") == client_id]
+    return rows
 
 
 # ──────────────────────────────────────────────────────────────

@@ -74,6 +74,7 @@ class BBBEnrichment(BaseModel):
     accredited: bool = False
     years_in_business: Optional[int] = None
     out_of_business: bool = False
+    categories: List[str] = []          # BBB business categories (for lumber Layer 1)
 
 
 # ──────────────────────────────────────────────────────────────
@@ -122,6 +123,24 @@ class ContractorRow(BaseModel):
 
     scraped_at: Optional[datetime] = None
     job_id: Optional[str] = None
+
+    # ── Upgrade tags (Phase 1a — data-separation layer) ──
+    # All optional with safe defaults so existing Florida records/code are unaffected
+    # (a contractor with none of these set behaves exactly as before).
+    client_id: Optional[str] = None          # which client this lead belongs to (single-client now)
+    record_type: str = "contractor"          # 'contractor' | 'vendor'
+    state: Optional[str] = None              # 'FL' | 'TN'
+    county: Optional[str] = None
+    city_tier: Optional[str] = None          # '1' | '2' (city prioritization)
+    canonical_entity_id: Optional[str] = None  # entity-resolution key (richer dedupe_key)
+    out_of_territory: bool = False           # e.g. Memphis metro — flagged, not deleted
+    excluded_reason: Optional[str] = None    # e.g. 'lumber' — flagged, not deleted
+    enrichment_status: Optional[str] = None  # 'pending' | 'enriched' | 'failed'
+    stage: Optional[str] = None              # staged-model lifecycle: raw|normalized|enriched|filtered
+    # Vendor-only flags (record_type == 'vendor')
+    is_big_box: bool = False                 # Home Depot / Lowe's etc.
+    vendor_type: Optional[str] = None        # 'specialty_distributor' | 'big_box_retailer' | 'independent'
+    canonical_network: Optional[str] = None  # rolled-up network (GMS, L&W, FBM…) for output grouping
 
 
 # ──────────────────────────────────────────────────────────────

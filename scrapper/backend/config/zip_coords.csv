@@ -1,0 +1,2259 @@
+zip,state,city,county,lat,lng
+32003,FL,Fleming Island,Clay,30.0933,-81.719
+32004,FL,Ponte Vedra Beach,Saint Johns,30.2397,-81.3856
+32006,FL,Fleming Island,Clay,30.107,-81.7167
+32007,FL,Bostwick,Putnam,29.7996,-81.6273
+32008,FL,Branford,Suwannee,29.9395,-82.8993
+32009,FL,Bryceville,Nassau,30.4193,-81.9724
+32011,FL,Callahan,Nassau,30.552,-81.8145
+32013,FL,Day,Lafayette,30.1941,-83.2913
+32024,FL,Lake City,Columbia,30.1055,-82.6878
+32025,FL,Lake City,Columbia,30.1601,-82.6396
+32026,FL,Raiford,Union,30.0699,-82.1927
+32030,FL,Doctors Inlet,Clay,30.1056,-81.769
+32033,FL,Elkton,Saint Johns,29.7882,-81.462
+32034,FL,Fernandina Beach,Nassau,30.6697,-81.4626
+32035,FL,Fernandina Beach,Nassau,30.6697,-81.4626
+32038,FL,Fort White,Columbia,29.9207,-82.6879
+32040,FL,Glen Saint Mary,Baker,30.2861,-82.2041
+32041,FL,Yulee,Nassau,30.6233,-81.5902
+32042,FL,Graham,Bradford,29.9689,-82.1226
+32043,FL,Green Cove Springs,Clay,29.9983,-81.7647
+32044,FL,Hampton,Bradford,29.8575,-82.1483
+32046,FL,Hilliard,Nassau,30.6884,-81.9345
+32050,FL,Middleburg,Clay,30.0689,-81.8604
+32052,FL,Jasper,Hamilton,30.5029,-82.9322
+32053,FL,Jennings,Hamilton,30.5482,-83.135
+32054,FL,Lake Butler,Union,30.0035,-82.3828
+32055,FL,Lake City,Columbia,30.2702,-82.6254
+32056,FL,Lake City,Columbia,30.1897,-82.6393
+32058,FL,Lawtey,Bradford,30.0472,-82.1055
+32059,FL,Lee,Madison,30.3979,-83.2844
+32060,FL,Live Oak,Suwannee,30.1759,-83.0304
+32061,FL,Lulu,Columbia,30.0754,-82.5385
+32062,FL,Mc Alpin,Suwannee,30.1509,-82.9662
+32063,FL,Macclenny,Baker,30.2737,-82.1325
+32064,FL,Live Oak,Suwannee,30.2956,-82.9844
+32065,FL,Orange Park,Clay,30.1382,-81.7742
+32066,FL,Mayo,Lafayette,30.04,-83.1462
+32067,FL,Orange Park,Clay,30.1661,-81.7065
+32068,FL,Middleburg,Clay,30.084,-81.8645
+32071,FL,O Brien,Suwannee,30.0381,-82.93
+32072,FL,Olustee,Baker,30.2041,-82.4287
+32073,FL,Orange Park,Clay,30.1637,-81.7291
+32079,FL,Penney Farms,Clay,29.9849,-81.8022
+32080,FL,Saint Augustine,Saint Johns,29.7964,-81.2649
+32081,FL,Ponte Vedra,Saint Johns,30.1204,-81.4128
+32082,FL,Ponte Vedra Beach,Saint Johns,30.1223,-81.3627
+32083,FL,Raiford,Union,30.0704,-82.2001
+32084,FL,Saint Augustine,Saint Johns,29.9175,-81.3668
+32085,FL,Saint Augustine,Saint Johns,29.9377,-81.4206
+32086,FL,Saint Augustine,Saint Johns,29.8285,-81.3237
+32087,FL,Sanderson,Baker,30.2522,-82.2729
+32091,FL,Starke,Bradford,29.9583,-82.1185
+32092,FL,Saint Augustine,Saint Johns,29.9475,-81.5264
+32094,FL,Wellborn,Suwannee,30.1796,-82.8505
+32095,FL,Saint Augustine,Saint Johns,30.011,-81.4108
+32096,FL,White Springs,Hamilton,30.3387,-82.7765
+32097,FL,Yulee,Nassau,30.6222,-81.5906
+32099,FL,Jacksonville,Duval,30.3375,-81.7686
+32102,FL,Astor,Lake,29.165,-81.5399
+32105,FL,Barberville,Volusia,29.2005,-81.4065
+32110,FL,Bunnell,Flagler,29.4562,-81.3244
+32111,FL,Candler,Marion,29.0607,-81.969
+32112,FL,Crescent City,Putnam,29.4272,-81.5579
+32113,FL,Citra,Marion,29.3918,-82.1062
+32114,FL,Daytona Beach,Volusia,29.2012,-81.0371
+32115,FL,Daytona Beach,Volusia,29.2108,-81.0228
+32116,FL,Daytona Beach,Volusia,29.1091,-80.9843
+32117,FL,Daytona Beach,Volusia,29.2353,-81.0658
+32118,FL,Daytona Beach,Volusia,29.2219,-81.0095
+32119,FL,Daytona Beach,Volusia,29.16,-81.0269
+32120,FL,Daytona Beach,Volusia,29.2108,-81.0228
+32121,FL,Daytona Beach,Volusia,29.2108,-81.0228
+32122,FL,Daytona Beach,Volusia,29.2108,-81.0228
+32123,FL,Port Orange,Volusia,29.1383,-80.9956
+32124,FL,Daytona Beach,Volusia,29.1419,-81.1402
+32125,FL,Daytona Beach,Volusia,29.2108,-81.0228
+32126,FL,Daytona Beach,Volusia,29.2108,-81.0228
+32127,FL,Port Orange,Volusia,29.1383,-80.9956
+32128,FL,Port Orange,Volusia,29.1383,-80.9956
+32129,FL,Port Orange,Volusia,29.1372,-81.0241
+32130,FL,De Leon Springs,Volusia,29.1166,-81.3488
+32131,FL,East Palatka,Putnam,29.6609,-81.5879
+32132,FL,Edgewater,Volusia,28.9818,-80.9103
+32133,FL,Eastlake Weir,Marion,29.0088,-81.9094
+32134,FL,Fort Mc Coy,Marion,29.391,-81.8551
+32135,FL,Palm Coast,Flagler,29.4661,-81.2828
+32136,FL,Flagler Beach,Flagler,29.475,-81.1303
+32137,FL,Palm Coast,Flagler,29.5565,-81.219
+32138,FL,Grandin,Putnam,29.7277,-81.9184
+32139,FL,Georgetown,Putnam,29.3842,-81.6183
+32140,FL,Florahome,Putnam,29.7581,-81.8622
+32141,FL,Edgewater,Volusia,28.9455,-80.8969
+32142,FL,Palm Coast,Flagler,29.4661,-81.2828
+32143,FL,Palm Coast,Flagler,29.585,-81.2078
+32145,FL,Hastings,Saint Johns,29.7051,-81.4909
+32147,FL,Hollister,Putnam,29.6227,-81.8137
+32148,FL,Interlachen,Putnam,29.627,-81.8894
+32149,FL,Interlachen,Putnam,29.6242,-81.8926
+32157,FL,Lake Como,Putnam,29.4839,-81.5729
+32158,FL,Lady Lake,Lake,28.9175,-81.9229
+32159,FL,Lady Lake,Lake,28.9299,-81.9256
+32160,FL,Lake Geneva,Clay,29.7683,-81.9907
+32162,FL,The Villages,Sumter,28.9341,-81.9599
+32163,FL,The Villages,Sumter,28.9338,-81.9914
+32164,FL,Palm Coast,Flagler,29.4861,-81.2045
+32168,FL,New Smyrna Beach,Volusia,29.0247,-80.9584
+32169,FL,New Smyrna Beach,Volusia,29.0172,-80.8885
+32170,FL,New Smyrna Beach,Volusia,29.0258,-80.927
+32173,FL,Ormond Beach,Volusia,29.2858,-81.0559
+32174,FL,Ormond Beach,Volusia,29.2833,-81.0882
+32175,FL,Ormond Beach,Volusia,29.2858,-81.0559
+32176,FL,Ormond Beach,Volusia,29.3222,-81.0584
+32177,FL,Palatka,Putnam,29.6577,-81.6595
+32178,FL,Palatka,Putnam,29.6486,-81.6376
+32179,FL,Ocklawaha,Marion,29.0643,-81.8857
+32180,FL,Pierson,Volusia,29.2226,-81.4353
+32181,FL,Pomona Park,Putnam,29.5002,-81.5915
+32182,FL,Orange Springs,Marion,29.4856,-81.9589
+32183,FL,Ocklawaha,Marion,29.0597,-81.9051
+32185,FL,Putnam Hall,Putnam,29.7368,-81.958
+32187,FL,San Mateo,Putnam,29.5888,-81.5921
+32189,FL,Satsuma,Putnam,29.5594,-81.6406
+32190,FL,Seville,Volusia,29.3201,-81.5279
+32192,FL,Sparr,Marion,29.3268,-82.1046
+32193,FL,Welaka,Putnam,29.4905,-81.653
+32195,FL,Weirsdale,Marion,28.9782,-81.8932
+32198,FL,Daytona Beach,Volusia,29.2108,-81.0228
+32201,FL,Jacksonville,Duval,30.3894,-81.6808
+32202,FL,Jacksonville,Duval,30.3299,-81.6517
+32203,FL,Jacksonville,Duval,30.3228,-81.547
+32204,FL,Jacksonville,Duval,30.3189,-81.6854
+32205,FL,Jacksonville,Duval,30.3172,-81.722
+32206,FL,Jacksonville,Duval,30.3511,-81.6488
+32207,FL,Jacksonville,Duval,30.2908,-81.6321
+32208,FL,Jacksonville,Duval,30.3937,-81.6889
+32209,FL,Jacksonville,Duval,30.3584,-81.692
+32210,FL,Jacksonville,Duval,30.2687,-81.7473
+32211,FL,Jacksonville,Duval,30.348,-81.5882
+32212,FL,Jacksonville,Duval,30.2132,-81.69
+32214,FL,Jacksonville,Duval,30.3449,-81.6831
+32216,FL,Jacksonville,Duval,30.2787,-81.5831
+32217,FL,Jacksonville,Duval,30.2407,-81.617
+32218,FL,Jacksonville,Duval,30.4507,-81.6626
+32219,FL,Jacksonville,Duval,30.4034,-81.7635
+32220,FL,Jacksonville,Duval,30.329,-81.8176
+32221,FL,Jacksonville,Duval,30.2837,-81.8202
+32222,FL,Jacksonville,Duval,30.2292,-81.8131
+32223,FL,Jacksonville,Duval,30.1548,-81.63
+32224,FL,Jacksonville,Duval,30.3031,-81.4404
+32225,FL,Jacksonville,Duval,30.351,-81.5061
+32226,FL,Jacksonville,Duval,30.4735,-81.5448
+32227,FL,Jacksonville,Duval,30.3802,-81.416
+32228,FL,Jacksonville,Duval,30.3824,-81.4369
+32229,FL,Jacksonville,Duval,30.3449,-81.6831
+32231,FL,Jacksonville,Duval,30.3449,-81.6831
+32232,FL,Jacksonville,Duval,30.3449,-81.6831
+32233,FL,Atlantic Beach,Duval,30.3483,-81.4159
+32234,FL,Jacksonville,Duval,30.2757,-81.9686
+32235,FL,Jacksonville,Duval,30.3449,-81.6831
+32236,FL,Jacksonville,Duval,30.3449,-81.6831
+32237,FL,Jacksonville,Duval,30.3449,-81.6831
+32238,FL,Jacksonville,Duval,30.3449,-81.6831
+32239,FL,Jacksonville,Duval,30.3449,-81.6831
+32240,FL,Jacksonville Beach,Duval,30.2947,-81.3931
+32241,FL,Jacksonville,Duval,30.3449,-81.6831
+32244,FL,Jacksonville,Duval,30.2231,-81.7556
+32245,FL,Jacksonville,Duval,30.3449,-81.6831
+32246,FL,Jacksonville,Duval,30.2933,-81.5092
+32247,FL,Jacksonville,Duval,30.3449,-81.6831
+32250,FL,Jacksonville Beach,Duval,30.2801,-81.4165
+32254,FL,Jacksonville,Duval,30.3415,-81.7358
+32255,FL,Jacksonville,Duval,30.3322,-81.6557
+32256,FL,Jacksonville,Duval,30.2214,-81.5571
+32257,FL,Jacksonville,Duval,30.1927,-81.605
+32258,FL,Jacksonville,Duval,30.1459,-81.5739
+32259,FL,Saint Johns,Saint Johns,30.0815,-81.5477
+32260,FL,Jacksonville,Saint Johns,29.9377,-81.4206
+32266,FL,Neptune Beach,Duval,30.3155,-81.4051
+32277,FL,Jacksonville,Duval,30.3704,-81.5864
+32301,FL,Tallahassee,Leon,30.4286,-84.2593
+32302,FL,Tallahassee,Leon,30.4383,-84.2807
+32303,FL,Tallahassee,Leon,30.4874,-84.3189
+32304,FL,Tallahassee,Leon,30.4478,-84.3211
+32305,FL,Tallahassee,Leon,30.334,-84.287
+32306,FL,Tallahassee,Leon,30.4425,-84.2986
+32307,FL,Tallahassee,Leon,30.4257,-84.2877
+32308,FL,Tallahassee,Leon,30.4771,-84.2246
+32309,FL,Tallahassee,Leon,30.5422,-84.1413
+32310,FL,Tallahassee,Leon,30.3991,-84.3298
+32311,FL,Tallahassee,Leon,30.4156,-84.187
+32312,FL,Tallahassee,Leon,30.5185,-84.2627
+32313,FL,Tallahassee,Leon,30.4793,-84.3462
+32314,FL,Tallahassee,Leon,30.4793,-84.3462
+32315,FL,Tallahassee,Leon,30.4793,-84.3462
+32316,FL,Tallahassee,Leon,30.4793,-84.3462
+32317,FL,Tallahassee,Leon,30.4651,-84.1128
+32318,FL,Tallahassee,Franklin,30.4383,-84.2807
+32320,FL,Apalachicola,Franklin,29.7255,-85.0063
+32321,FL,Bristol,Liberty,30.4223,-84.9466
+32322,FL,Carrabelle,Franklin,29.8692,-84.6358
+32323,FL,Lanark Village,Franklin,29.8826,-84.5964
+32324,FL,Chattahoochee,Gadsden,30.6834,-84.828
+32326,FL,Crawfordville,Wakulla,30.176,-84.3752
+32327,FL,Crawfordville,Wakulla,30.2108,-84.3205
+32328,FL,Eastpoint,Franklin,29.7495,-84.8162
+32329,FL,Apalachicola,Franklin,29.726,-84.9856
+32330,FL,Greensboro,Gadsden,30.5696,-84.7453
+32331,FL,Greenville,Madison,30.4512,-83.6474
+32332,FL,Gretna,Gadsden,30.6171,-84.6599
+32333,FL,Havana,Gadsden,30.6092,-84.4143
+32334,FL,Hosford,Liberty,30.3639,-84.8054
+32335,FL,Sumatra,Liberty,30.0206,-84.9806
+32336,FL,Lamont,Jefferson,30.3772,-83.8129
+32337,FL,Lloyd,Jefferson,30.4778,-84.0228
+32340,FL,Madison,Madison,30.4802,-83.4067
+32341,FL,Madison,Madison,30.4776,-83.3914
+32343,FL,Midway,Gadsden,30.485,-84.4768
+32344,FL,Monticello,Jefferson,30.5197,-83.8925
+32345,FL,Monticello,Jefferson,30.5451,-83.8713
+32346,FL,Panacea,Wakulla,30.0153,-84.3912
+32347,FL,Perry,Taylor,30.1668,-83.616
+32348,FL,Perry,Taylor,29.9665,-83.6594
+32350,FL,Pinetta,Madison,30.5997,-83.3405
+32351,FL,Quincy,Gadsden,30.5867,-84.6094
+32352,FL,Quincy,Gadsden,30.6512,-84.5866
+32353,FL,Quincy,Gadsden,30.5497,-84.6069
+32355,FL,Saint Marks,Wakulla,30.1631,-84.2083
+32356,FL,Salem,Taylor,29.8539,-83.4421
+32357,FL,Shady Grove,Taylor,30.288,-83.6318
+32358,FL,Sopchoppy,Wakulla,30.0714,-84.4549
+32359,FL,Steinhatchee,Taylor,29.6739,-83.3723
+32360,FL,Telogia,Liberty,30.3511,-84.8203
+32361,FL,Wacissa,Jefferson,30.3585,-83.9871
+32362,FL,Woodville,Leon,30.3193,-84.2674
+32395,FL,Tallahassee,Leon,30.4793,-84.3462
+32399,FL,Tallahassee,Leon,30.4383,-84.2807
+32401,FL,Panama City,Bay,30.1606,-85.6494
+32402,FL,Panama City,Bay,30.2345,-85.692
+32403,FL,Panama City,Bay,30.0583,-85.5762
+32404,FL,Panama City,Bay,30.1653,-85.5763
+32405,FL,Panama City,Bay,30.1949,-85.6727
+32406,FL,Panama City,Bay,30.2345,-85.692
+32407,FL,Panama City Beach,Bay,30.2007,-85.8136
+32408,FL,Panama City,Bay,30.1655,-85.7116
+32409,FL,Panama City,Bay,30.3117,-85.6923
+32410,FL,Mexico Beach,Bay,29.9395,-85.4096
+32411,FL,Panama City,Bay,30.2345,-85.692
+32412,FL,Panama City,Bay,30.2345,-85.692
+32413,FL,Panama City Beach,Bay,30.3105,-85.9106
+32417,FL,Panama City,Bay,30.1595,-85.6598
+32420,FL,Alford,Jackson,30.6412,-85.3756
+32421,FL,Altha,Calhoun,30.5319,-85.1704
+32422,FL,Argyle,Walton,30.7056,-86.0314
+32423,FL,Bascom,Jackson,30.9514,-85.0972
+32424,FL,Blountstown,Calhoun,30.4394,-85.062
+32425,FL,Bonifay,Holmes,30.8464,-85.69
+32426,FL,Campbellton,Jackson,30.9563,-85.3766
+32427,FL,Caryville,Washington,30.7123,-85.8014
+32428,FL,Chipley,Washington,30.7107,-85.5486
+32430,FL,Clarksville,Calhoun,30.3568,-85.1898
+32431,FL,Cottondale,Jackson,30.8004,-85.3847
+32432,FL,Cypress,Jackson,30.7158,-85.0784
+32433,FL,Defuniak Springs,Walton,30.8494,-86.2023
+32434,FL,Mossy Head,Walton,30.7432,-86.3149
+32435,FL,Defuniak Springs,Walton,30.721,-86.1152
+32437,FL,Ebro,Washington,30.4352,-85.8881
+32438,FL,Fountain,Bay,30.4753,-85.4293
+32439,FL,Freeport,Walton,30.4896,-86.1684
+32440,FL,Graceville,Jackson,30.9426,-85.5136
+32442,FL,Grand Ridge,Jackson,30.7148,-85.021
+32443,FL,Greenwood,Jackson,30.8667,-85.1153
+32444,FL,Lynn Haven,Bay,30.2362,-85.6467
+32445,FL,Malone,Jackson,30.9602,-85.1639
+32446,FL,Marianna,Jackson,30.7996,-85.2293
+32447,FL,Marianna,Jackson,30.7603,-85.2022
+32448,FL,Marianna,Jackson,30.6749,-85.2122
+32449,FL,Wewahitchka,Calhoun,30.4059,-85.1974
+32452,FL,Noma,Holmes,30.9821,-85.6185
+32455,FL,Ponce De Leon,Holmes,30.7041,-85.9546
+32456,FL,Port Saint Joe,Gulf,29.8119,-85.303
+32457,FL,Port Saint Joe,Gulf,29.8119,-85.303
+32459,FL,Santa Rosa Beach,Walton,30.3659,-86.2458
+32460,FL,Sneads,Jackson,30.7276,-84.9337
+32461,FL,Rosemary Beach,Walton,30.2835,-86.0305
+32462,FL,Vernon,Washington,30.6267,-85.7553
+32463,FL,Wausau,Washington,30.6321,-85.5888
+32464,FL,Westville,Holmes,30.8747,-85.913
+32465,FL,Wewahitchka,Gulf,30.0933,-85.2048
+32466,FL,Youngstown,Bay,30.3269,-85.5169
+32501,FL,Pensacola,Escambia,30.4223,-87.2248
+32502,FL,Pensacola,Escambia,30.4095,-87.2229
+32503,FL,Pensacola,Escambia,30.4564,-87.2104
+32504,FL,Pensacola,Escambia,30.4873,-87.1872
+32505,FL,Pensacola,Escambia,30.4481,-87.2589
+32506,FL,Pensacola,Escambia,30.4129,-87.3092
+32507,FL,Pensacola,Escambia,30.3737,-87.3126
+32508,FL,Pensacola,Escambia,30.3511,-87.2749
+32509,FL,Pensacola,Escambia,30.4643,-87.3403
+32511,FL,Pensacola,Escambia,30.4061,-87.2917
+32512,FL,Pensacola,Escambia,30.3943,-87.2991
+32513,FL,Pensacola,Escambia,30.5571,-87.2596
+32514,FL,Pensacola,Escambia,30.5241,-87.2167
+32516,FL,Pensacola,Escambia,30.4213,-87.2169
+32520,FL,Pensacola,Escambia,30.4124,-87.2035
+32521,FL,Pensacola,Escambia,30.4213,-87.2169
+32522,FL,Pensacola,Escambia,30.4213,-87.2169
+32523,FL,Pensacola,Escambia,30.4213,-87.2169
+32524,FL,Pensacola,Escambia,30.4213,-87.2169
+32526,FL,Pensacola,Escambia,30.4756,-87.3179
+32530,FL,Bagdad,Santa Rosa,30.5986,-87.0315
+32531,FL,Baker,Okaloosa,30.8316,-86.677
+32533,FL,Cantonment,Escambia,30.6143,-87.3251
+32534,FL,Pensacola,Escambia,30.5301,-87.2793
+32535,FL,Century,Escambia,30.9687,-87.3216
+32536,FL,Crestview,Okaloosa,30.7644,-86.5917
+32537,FL,Milligan,Okaloosa,30.742,-86.6552
+32538,FL,Paxton,Walton,30.9709,-86.3111
+32539,FL,Crestview,Okaloosa,30.7773,-86.4832
+32540,FL,Destin,Okaloosa,30.3935,-86.4958
+32541,FL,Destin,Okaloosa,30.3949,-86.4692
+32542,FL,Eglin Afb,Okaloosa,30.5393,-86.6087
+32544,FL,Hurlburt Field,Okaloosa,30.4229,-86.6985
+32547,FL,Fort Walton Beach,Okaloosa,30.4487,-86.6255
+32548,FL,Fort Walton Beach,Okaloosa,30.4206,-86.6286
+32549,FL,Fort Walton Beach,Okaloosa,30.4208,-86.6194
+32550,FL,Miramar Beach,Walton,30.385,-86.3473
+32559,FL,Pensacola,Escambia,30.3563,-87.2773
+32560,FL,Gonzalez,Escambia,30.5818,-87.2929
+32561,FL,Gulf Breeze,Santa Rosa,30.3571,-87.1639
+32562,FL,Gulf Breeze,Santa Rosa,30.3571,-87.1639
+32563,FL,Gulf Breeze,Santa Rosa,30.3962,-87.0274
+32564,FL,Holt,Okaloosa,30.7416,-86.7198
+32565,FL,Jay,Santa Rosa,30.8985,-87.1332
+32566,FL,Navarre,Santa Rosa,30.4212,-86.8926
+32567,FL,Laurel Hill,Okaloosa,30.9524,-86.4003
+32568,FL,Mc David,Escambia,30.8686,-87.4539
+32569,FL,Mary Esther,Okaloosa,30.4085,-86.7352
+32570,FL,Milton,Santa Rosa,30.6604,-87.0473
+32571,FL,Milton,Santa Rosa,30.6698,-87.1794
+32572,FL,Milton,Santa Rosa,30.6592,-87.0497
+32577,FL,Molino,Escambia,30.6902,-87.3852
+32578,FL,Niceville,Okaloosa,30.5169,-86.4822
+32579,FL,Shalimar,Okaloosa,30.4456,-86.5717
+32580,FL,Valparaiso,Okaloosa,30.5092,-86.5009
+32583,FL,Milton,Santa Rosa,30.5761,-87.0663
+32588,FL,Niceville,Okaloosa,30.6612,-86.5945
+32591,FL,Pensacola,Escambia,30.4213,-87.2169
+32601,FL,Gainesville,Alachua,29.6489,-82.325
+32602,FL,Gainesville,Alachua,29.6299,-82.3966
+32603,FL,Gainesville,Alachua,29.6515,-82.3493
+32604,FL,Gainesville,Alachua,29.5733,-82.3979
+32605,FL,Gainesville,Alachua,29.6785,-82.3679
+32606,FL,Gainesville,Alachua,29.6954,-82.4023
+32607,FL,Gainesville,Alachua,29.6456,-82.4033
+32608,FL,Gainesville,Alachua,29.6132,-82.3873
+32609,FL,Gainesville,Alachua,29.7005,-82.308
+32610,FL,Gainesville,Alachua,29.6813,-82.3539
+32611,FL,Gainesville,Alachua,29.6813,-82.3539
+32612,FL,Gainesville,Alachua,29.6813,-82.3539
+32614,FL,Gainesville,Alachua,29.6813,-82.3539
+32615,FL,Alachua,Alachua,29.8135,-82.472
+32616,FL,Alachua,Alachua,29.792,-82.496
+32617,FL,Anthony,Marion,29.3048,-82.1262
+32618,FL,Archer,Alachua,29.5597,-82.5108
+32619,FL,Bell,Gilchrist,29.7837,-82.8711
+32621,FL,Bronson,Levy,29.461,-82.6356
+32622,FL,Brooker,Bradford,29.919,-82.2956
+32625,FL,Cedar Key,Levy,29.171,-83.0168
+32626,FL,Chiefland,Levy,29.4832,-82.8809
+32627,FL,Gainesville,Alachua,29.6516,-82.3248
+32628,FL,Cross City,Dixie,29.6372,-83.2032
+32631,FL,Earleton,Alachua,29.7439,-82.1034
+32633,FL,Evinston,Alachua,29.4869,-82.2312
+32634,FL,Fairfield,Marion,29.3509,-82.2765
+32635,FL,Gainesville,Alachua,29.6813,-82.3539
+32639,FL,Gulf Hammock,Levy,29.2447,-82.7402
+32640,FL,Hawthorne,Alachua,29.574,-82.1056
+32641,FL,Gainesville,Alachua,29.6824,-82.2014
+32643,FL,High Springs,Alachua,29.841,-82.6156
+32644,FL,Chiefland,Levy,29.4602,-82.8553
+32648,FL,Horseshoe Beach,Dixie,29.4869,-83.2616
+32653,FL,Gainesville,Alachua,29.7728,-82.3782
+32654,FL,Island Grove,Alachua,29.4536,-82.1065
+32655,FL,High Springs,Alachua,29.8175,-82.6006
+32656,FL,Keystone Heights,Clay,29.7976,-81.9899
+32658,FL,La Crosse,Alachua,29.8433,-82.4048
+32662,FL,Lochloosa,Alachua,29.5116,-82.1004
+32663,FL,Lowell,Marion,29.3424,-82.2126
+32664,FL,Mc Intosh,Marion,29.438,-82.2295
+32666,FL,Melrose,Putnam,29.7325,-82.0279
+32667,FL,Micanopy,Alachua,29.5122,-82.3053
+32668,FL,Morriston,Levy,29.2813,-82.4917
+32669,FL,Newberry,Alachua,29.6609,-82.5852
+32680,FL,Old Town,Dixie,29.6699,-83.005
+32681,FL,Orange Lake,Marion,29.4236,-82.2168
+32683,FL,Otter Creek,Levy,29.3109,-82.7945
+32686,FL,Reddick,Marion,29.3754,-82.244
+32692,FL,Suwannee,Dixie,29.3295,-83.14
+32693,FL,Trenton,Gilchrist,29.6133,-82.8176
+32694,FL,Waldo,Alachua,29.7871,-82.1608
+32696,FL,Williston,Levy,29.3977,-82.4856
+32697,FL,Worthington Springs,Union,29.9315,-82.4255
+32701,FL,Altamonte Springs,Seminole,28.6666,-81.365
+32702,FL,Altoona,Lake,29.0219,-81.6323
+32703,FL,Apopka,Orange,28.6354,-81.4888
+32704,FL,Apopka,Orange,28.6762,-81.5119
+32706,FL,Cassadaga,Volusia,28.9664,-81.2371
+32707,FL,Casselberry,Seminole,28.6617,-81.3122
+32708,FL,Winter Springs,Seminole,28.6831,-81.2814
+32709,FL,Christmas,Orange,28.5462,-81.0116
+32710,FL,Clarcona,Orange,28.6128,-81.4987
+32712,FL,Apopka,Orange,28.712,-81.5136
+32713,FL,Debary,Volusia,28.8846,-81.3065
+32714,FL,Altamonte Springs,Seminole,28.6625,-81.4117
+32715,FL,Altamonte Springs,Seminole,28.6611,-81.3656
+32716,FL,Altamonte Springs,Seminole,28.7448,-81.2233
+32718,FL,Casselberry,Seminole,28.7448,-81.2233
+32719,FL,Winter Springs,Seminole,28.7448,-81.2233
+32720,FL,Deland,Volusia,29.0266,-81.3349
+32721,FL,Deland,Volusia,28.9973,-81.2995
+32722,FL,Glenwood,Volusia,29.0861,-81.3542
+32723,FL,Deland,Volusia,29.0275,-81.3068
+32724,FL,Deland,Volusia,29.0422,-81.2863
+32725,FL,Deltona,Volusia,28.8989,-81.2473
+32726,FL,Eustis,Lake,28.855,-81.6789
+32727,FL,Eustis,Lake,28.8555,-81.6741
+32728,FL,Deltona,Volusia,29.0227,-81.1722
+32730,FL,Casselberry,Seminole,28.6513,-81.3418
+32732,FL,Geneva,Seminole,28.7503,-81.1114
+32733,FL,Goldenrod,Seminole,28.6133,-81.2581
+32735,FL,Grand Island,Lake,28.8866,-81.7391
+32736,FL,Eustis,Lake,28.9102,-81.5235
+32738,FL,Deltona,Volusia,28.9093,-81.1922
+32739,FL,Deltona,Volusia,29.0227,-81.1722
+32744,FL,Lake Helen,Volusia,28.9806,-81.2334
+32745,FL,Mid Florida,Volusia,28.7676,-81.3522
+32746,FL,Lake Mary,Seminole,28.7577,-81.3508
+32747,FL,Lake Monroe,Seminole,28.8272,-81.3329
+32750,FL,Longwood,Seminole,28.712,-81.3552
+32751,FL,Maitland,Orange,28.6255,-81.3646
+32752,FL,Longwood,Seminole,28.7448,-81.2233
+32753,FL,Debary,Jefferson,28.883,-81.3087
+32754,FL,Mims,Brevard,28.6974,-80.8663
+32756,FL,Mount Dora,Lake,28.8111,-81.6536
+32757,FL,Mount Dora,Lake,28.774,-81.6439
+32759,FL,Oak Hill,Volusia,28.87,-80.8551
+32762,FL,Oviedo,Seminole,28.7448,-81.2233
+32763,FL,Orange City,Volusia,28.9453,-81.2995
+32764,FL,Osteen,Volusia,28.8426,-81.1562
+32765,FL,Oviedo,Seminole,28.6513,-81.2066
+32766,FL,Oviedo,Seminole,28.6607,-81.1134
+32767,FL,Paisley,Lake,28.9993,-81.503
+32768,FL,Plymouth,Orange,28.6985,-81.5698
+32771,FL,Sanford,Seminole,28.8013,-81.285
+32772,FL,Sanford,Seminole,28.8072,-81.2502
+32773,FL,Sanford,Seminole,28.7644,-81.282
+32774,FL,Orange City,Volusia,28.9489,-81.2987
+32775,FL,Scottsmoor,Brevard,28.7702,-80.872
+32776,FL,Sorrento,Lake,28.8035,-81.5323
+32777,FL,Tangerine,Orange,28.765,-81.6306
+32778,FL,Tavares,Lake,28.801,-81.734
+32779,FL,Longwood,Seminole,28.7168,-81.4126
+32780,FL,Titusville,Brevard,28.5697,-80.8191
+32781,FL,Titusville,Brevard,28.6122,-80.8076
+32783,FL,Titusville,Brevard,28.6122,-80.8076
+32784,FL,Umatilla,Lake,28.9254,-81.6801
+32789,FL,Winter Park,Orange,28.5978,-81.3534
+32790,FL,Winter Park,Orange,28.5663,-81.2608
+32791,FL,Longwood,Seminole,28.7448,-81.2233
+32792,FL,Winter Park,Orange,28.5974,-81.3036
+32793,FL,Winter Park,Orange,28.5663,-81.2608
+32794,FL,Maitland,Orange,28.6278,-81.3631
+32795,FL,Lake Mary,Seminole,28.7448,-81.2233
+32796,FL,Titusville,Brevard,28.6271,-80.8429
+32798,FL,Zellwood,Orange,28.7194,-81.5762
+32799,FL,Mid Florida,Seminole,28.7448,-81.2233
+32801,FL,Orlando,Orange,28.5399,-81.3727
+32802,FL,Orlando,Orange,28.5383,-81.3792
+32803,FL,Orlando,Orange,28.5559,-81.3535
+32804,FL,Orlando,Orange,28.5754,-81.3955
+32805,FL,Orlando,Orange,28.5302,-81.4045
+32806,FL,Orlando,Orange,28.514,-81.357
+32807,FL,Orlando,Orange,28.5515,-81.3051
+32808,FL,Orlando,Orange,28.5803,-81.4396
+32809,FL,Orlando,Orange,28.4637,-81.3948
+32810,FL,Orlando,Orange,28.6214,-81.4294
+32811,FL,Orlando,Orange,28.5163,-81.4516
+32812,FL,Orlando,Orange,28.4998,-81.3288
+32814,FL,Orlando,Orange,28.5702,-81.3265
+32815,FL,Orlando,Brevard,28.3067,-80.6862
+32816,FL,Orlando,Orange,28.5663,-81.2608
+32817,FL,Orlando,Orange,28.5891,-81.2277
+32818,FL,Orlando,Orange,28.5801,-81.4846
+32819,FL,Orlando,Orange,28.4522,-81.4678
+32820,FL,Orlando,Orange,28.5725,-81.1219
+32821,FL,Orlando,Orange,28.3957,-81.4666
+32822,FL,Orlando,Orange,28.4944,-81.2902
+32824,FL,Orlando,Orange,28.3932,-81.3622
+32825,FL,Orlando,Orange,28.5469,-81.2571
+32826,FL,Orlando,Orange,28.5826,-81.1907
+32827,FL,Orlando,Orange,28.4317,-81.343
+32828,FL,Orlando,Orange,28.5523,-81.1795
+32829,FL,Orlando,Orange,28.4671,-81.2417
+32830,FL,Orlando,Orange,28.3822,-81.569
+32831,FL,Orlando,Orange,28.4656,-81.151
+32832,FL,Orlando,Orange,28.3774,-81.1888
+32833,FL,Orlando,Orange,28.5088,-81.0703
+32834,FL,Orlando,Orange,28.5663,-81.2608
+32835,FL,Orlando,Orange,28.5289,-81.4787
+32836,FL,Orlando,Orange,28.4115,-81.525
+32837,FL,Orlando,Orange,28.3949,-81.4179
+32839,FL,Orlando,Orange,28.4871,-81.4082
+32853,FL,Orlando,Orange,28.5663,-81.2608
+32854,FL,Orlando,Orange,28.5663,-81.2608
+32855,FL,Orlando,Orange,28.5383,-81.3792
+32856,FL,Orlando,Orange,28.5484,-81.4201
+32857,FL,Orlando,Orange,28.5663,-81.2608
+32858,FL,Orlando,Orange,28.5663,-81.2608
+32859,FL,Orlando,Orange,28.4429,-81.4026
+32860,FL,Orlando,Orange,28.5663,-81.2608
+32861,FL,Orlando,Orange,28.5663,-81.2608
+32862,FL,Orlando,Orange,28.5383,-81.3792
+32867,FL,Orlando,Orange,28.5663,-81.2608
+32868,FL,Orlando,Orange,28.5663,-81.2608
+32869,FL,Orlando,Orange,28.5663,-81.2608
+32872,FL,Orlando,Orange,28.5383,-81.3792
+32877,FL,Orlando,Orange,28.5663,-81.2608
+32878,FL,Orlando,Orange,28.5663,-81.2608
+32885,FL,Orlando,Orange,28.5456,-81.3782
+32886,FL,Orlando,Orange,28.5383,-81.3792
+32887,FL,Orlando,Orange,28.5663,-81.2608
+32891,FL,Orlando,Orange,28.5663,-81.2608
+32896,FL,Orlando,Orange,28.5419,-81.3791
+32897,FL,Orlando,Orange,28.5383,-81.3792
+32899,FL,Orlando,Brevard,28.3067,-80.6862
+32901,FL,Melbourne,Brevard,28.0691,-80.62
+32902,FL,Melbourne,Brevard,28.0836,-80.6081
+32903,FL,Indialantic,Brevard,28.1091,-80.5787
+32904,FL,Melbourne,Brevard,28.0673,-80.678
+32905,FL,Palm Bay,Brevard,28.0313,-80.5995
+32906,FL,Palm Bay,Brevard,28.0671,-80.6503
+32907,FL,Palm Bay,Brevard,28.0168,-80.6739
+32908,FL,Palm Bay,Brevard,27.9816,-80.6894
+32909,FL,Palm Bay,Brevard,27.9694,-80.6473
+32910,FL,Palm Bay,Brevard,28.0345,-80.5887
+32911,FL,Palm Bay,Brevard,28.0345,-80.5887
+32912,FL,Melbourne,Brevard,28.0836,-80.6081
+32919,FL,Melbourne,Brevard,28.0836,-80.6081
+32920,FL,Cape Canaveral,Brevard,28.3903,-80.6043
+32922,FL,Cocoa,Brevard,28.3672,-80.7465
+32923,FL,Cocoa,Brevard,28.4275,-80.829
+32924,FL,Cocoa,Brevard,28.3067,-80.6862
+32925,FL,Patrick Afb,Brevard,28.1743,-80.584
+32926,FL,Cocoa,Brevard,28.391,-80.787
+32927,FL,Cocoa,Brevard,28.4566,-80.7978
+32931,FL,Cocoa Beach,Brevard,28.3325,-80.6121
+32932,FL,Cocoa Beach,Brevard,28.3206,-80.6092
+32934,FL,Melbourne,Brevard,28.1331,-80.7112
+32935,FL,Melbourne,Brevard,28.1384,-80.6524
+32936,FL,Melbourne,Brevard,28.0836,-80.6081
+32937,FL,Satellite Beach,Brevard,28.178,-80.602
+32940,FL,Melbourne,Brevard,28.2061,-80.685
+32941,FL,Melbourne,Brevard,27.9246,-80.5235
+32948,FL,Fellsmere,Indian River,27.7643,-80.6019
+32949,FL,Grant,Brevard,27.9289,-80.5264
+32950,FL,Malabar,Brevard,27.9761,-80.5788
+32951,FL,Melbourne Beach,Brevard,28.0219,-80.5389
+32952,FL,Merritt Island,Brevard,28.2764,-80.6568
+32953,FL,Merritt Island,Brevard,28.3888,-80.7301
+32954,FL,Merritt Island,Brevard,28.5392,-80.672
+32955,FL,Rockledge,Brevard,28.3134,-80.7319
+32956,FL,Rockledge,Brevard,28.3298,-80.7323
+32957,FL,Roseland,Indian River,27.8359,-80.4931
+32958,FL,Sebastian,Indian River,27.7901,-80.4784
+32959,FL,Sharpes,Brevard,28.3067,-80.6862
+32960,FL,Vero Beach,Indian River,27.633,-80.4031
+32961,FL,Vero Beach,Indian River,27.6175,-80.4231
+32962,FL,Vero Beach,Indian River,27.5885,-80.3923
+32963,FL,Vero Beach,Indian River,27.6898,-80.3757
+32964,FL,Vero Beach,Indian River,27.6386,-80.3973
+32965,FL,Vero Beach,Indian River,27.6386,-80.3973
+32966,FL,Vero Beach,Indian River,27.6372,-80.4794
+32967,FL,Vero Beach,Indian River,27.6972,-80.4416
+32968,FL,Vero Beach,Indian River,27.5999,-80.4382
+32969,FL,Vero Beach,Indian River,27.709,-80.5726
+32970,FL,Wabasso,Indian River,27.7484,-80.4362
+32971,FL,Winter Beach,Indian River,27.7192,-80.4206
+32976,FL,Sebastian,Brevard,27.8679,-80.5416
+32978,FL,Sebastian,Indian River,27.709,-80.5726
+33001,FL,Long Key,Monroe,24.8306,-80.8049
+33002,FL,Hialeah,Miami-Dade,25.8576,-80.2781
+33004,FL,Dania,Broward,26.0476,-80.1447
+33008,FL,Hallandale,Broward,25.9812,-80.1484
+33009,FL,Hallandale,Broward,25.985,-80.1407
+33010,FL,Hialeah,Miami-Dade,25.8325,-80.2808
+33011,FL,Hialeah,Miami-Dade,25.8576,-80.2781
+33012,FL,Hialeah,Miami-Dade,25.8654,-80.3059
+33013,FL,Hialeah,Miami-Dade,25.8594,-80.2725
+33014,FL,Hialeah,Miami-Dade,25.8963,-80.3063
+33015,FL,Hialeah,Miami-Dade,25.9388,-80.3165
+33016,FL,Hialeah,Miami-Dade,25.8803,-80.3368
+33017,FL,Hialeah,Miami-Dade,25.8576,-80.2781
+33018,FL,Hialeah,Miami-Dade,25.9098,-80.3889
+33019,FL,Hollywood,Broward,26.007,-80.1219
+33020,FL,Hollywood,Broward,26.0161,-80.1517
+33021,FL,Hollywood,Broward,26.0218,-80.1891
+33022,FL,Hollywood,Broward,26.0134,-80.1442
+33023,FL,Hollywood,Broward,25.9894,-80.2153
+33024,FL,Hollywood,Broward,26.0296,-80.2489
+33025,FL,Hollywood,Broward,25.9921,-80.2712
+33026,FL,Hollywood,Broward,26.0229,-80.2974
+33027,FL,Hollywood,Broward,25.9974,-80.3248
+33028,FL,Pembroke Pines,Broward,26.0185,-80.3449
+33029,FL,Hollywood,Broward,25.9924,-80.4089
+33030,FL,Homestead,Miami-Dade,25.4766,-80.4839
+33031,FL,Homestead,Miami-Dade,25.5323,-80.5075
+33032,FL,Homestead,Miami-Dade,25.5303,-80.3918
+33033,FL,Homestead,Miami-Dade,25.4906,-80.438
+33034,FL,Homestead,Miami-Dade,25.2846,-80.6246
+33035,FL,Homestead,Miami-Dade,25.4573,-80.4572
+33036,FL,Islamorada,Monroe,24.9233,-80.63
+33037,FL,Key Largo,Monroe,25.0865,-80.4473
+33039,FL,Homestead,Miami-Dade,25.5021,-80.3997
+33040,FL,Key West,Monroe,24.5552,-81.7816
+33041,FL,Key West,Monroe,24.5552,-81.7816
+33042,FL,Summerland Key,Monroe,24.667,-81.5099
+33043,FL,Big Pine Key,Monroe,24.68,-81.362
+33045,FL,Key West,Monroe,24.5552,-81.7816
+33050,FL,Marathon,Monroe,24.7279,-81.0386
+33051,FL,Key Colony Beach,Monroe,24.7234,-81.0203
+33052,FL,Marathon Shores,Monroe,24.7233,-81.0632
+33054,FL,Opa Locka,Miami-Dade,25.9097,-80.247
+33055,FL,Opa Locka,Miami-Dade,25.9476,-80.2778
+33056,FL,Miami Gardens,Miami-Dade,25.942,-80.2456
+33060,FL,Pompano Beach,Broward,26.2315,-80.1235
+33061,FL,Pompano Beach,Broward,26.2539,-80.1342
+33062,FL,Pompano Beach,Broward,26.2343,-80.0941
+33063,FL,Pompano Beach,Broward,26.2674,-80.2092
+33064,FL,Pompano Beach,Broward,26.2785,-80.1157
+33065,FL,Pompano Beach,Broward,26.2729,-80.2603
+33066,FL,Pompano Beach,Broward,26.2535,-80.1775
+33067,FL,Pompano Beach,Broward,26.3033,-80.2415
+33068,FL,Pompano Beach,Broward,26.216,-80.2205
+33069,FL,Pompano Beach,Broward,26.2288,-80.1635
+33070,FL,Tavernier,Monroe,25.0108,-80.5218
+33071,FL,Pompano Beach,Broward,26.2435,-80.2601
+33072,FL,Pompano Beach,Broward,26.2335,-80.0924
+33073,FL,Pompano Beach,Broward,26.2997,-80.181
+33074,FL,Pompano Beach,Broward,26.2379,-80.1248
+33075,FL,Coral Springs,Broward,26.2712,-80.2706
+33076,FL,Pompano Beach,Broward,26.3168,-80.2753
+33077,FL,Pompano Beach,Broward,26.2379,-80.1248
+33081,FL,Hollywood,Broward,26.0112,-80.1495
+33082,FL,Pembroke Pines,Broward,26.0031,-80.2239
+33083,FL,Hollywood,Broward,26.0112,-80.1495
+33084,FL,Hollywood,Broward,26.0112,-80.1495
+33090,FL,Homestead,Miami-Dade,25.5584,-80.4582
+33092,FL,Homestead,Miami-Dade,25.5584,-80.4582
+33093,FL,Margate,Broward,26.2445,-80.2064
+33097,FL,Coconut Creek,Broward,26.2517,-80.1789
+33101,FL,Miami,Miami-Dade,25.7791,-80.1978
+33102,FL,Miami,Miami-Dade,25.7743,-80.1937
+33106,FL,Miami,Miami-Dade,25.8527,-80.3012
+33109,FL,Miami Beach,Miami-Dade,25.7588,-80.1376
+33111,FL,Miami,Miami-Dade,25.7743,-80.1937
+33112,FL,Miami,Putnam,25.7964,-80.3849
+33114,FL,Coral Gables,Miami-Dade,25.7215,-80.2684
+33116,FL,Miami,Miami-Dade,25.7743,-80.1937
+33119,FL,Miami Beach,Miami-Dade,25.7845,-80.132
+33122,FL,Miami,Miami-Dade,25.8001,-80.281
+33124,FL,Miami,Miami-Dade,25.7743,-80.1937
+33125,FL,Miami,Miami-Dade,25.7825,-80.2341
+33126,FL,Miami,Miami-Dade,25.7763,-80.2919
+33127,FL,Miami,Miami-Dade,25.8143,-80.2051
+33128,FL,Miami,Miami-Dade,25.7756,-80.2089
+33129,FL,Miami,Miami-Dade,25.7559,-80.2013
+33130,FL,Miami,Miami-Dade,25.7672,-80.2059
+33131,FL,Miami,Miami-Dade,25.7629,-80.1895
+33132,FL,Miami,Miami-Dade,25.7867,-80.18
+33133,FL,Miami,Miami-Dade,25.7378,-80.2248
+33134,FL,Miami,Miami-Dade,25.768,-80.2714
+33135,FL,Miami,Miami-Dade,25.7664,-80.2317
+33136,FL,Miami,Miami-Dade,25.7864,-80.2042
+33137,FL,Miami,Miami-Dade,25.8156,-80.1897
+33138,FL,Miami,Miami-Dade,25.8521,-80.1821
+33139,FL,Miami Beach,Miami-Dade,25.7873,-80.1564
+33140,FL,Miami Beach,Miami-Dade,25.8198,-80.1337
+33141,FL,Miami Beach,Miami-Dade,25.8486,-80.1446
+33142,FL,Miami,Miami-Dade,25.813,-80.232
+33143,FL,Miami,Miami-Dade,25.7022,-80.2978
+33144,FL,Miami,Miami-Dade,25.7626,-80.3096
+33145,FL,Miami,Miami-Dade,25.7539,-80.2253
+33146,FL,Miami,Miami-Dade,25.7205,-80.2728
+33147,FL,Miami,Miami-Dade,25.8507,-80.2366
+33149,FL,Key Biscayne,Miami-Dade,25.6921,-80.1625
+33150,FL,Miami,Miami-Dade,25.8512,-80.207
+33151,FL,Miami,Miami-Dade,25.8321,-80.2094
+33152,FL,Miami,Miami-Dade,25.7955,-80.3129
+33153,FL,Miami,Miami-Dade,25.8655,-80.1936
+33154,FL,Miami Beach,Miami-Dade,25.7907,-80.13
+33155,FL,Miami,Miami-Dade,25.7392,-80.3103
+33156,FL,Miami,Miami-Dade,25.6682,-80.2973
+33157,FL,Miami,Miami-Dade,25.6062,-80.3426
+33158,FL,Miami,Miami-Dade,25.6364,-80.3187
+33160,FL,North Miami Beach,Miami-Dade,25.9449,-80.1391
+33161,FL,Miami,Miami-Dade,25.8934,-80.1758
+33162,FL,Miami,Miami-Dade,25.9286,-80.183
+33163,FL,Miami,Miami-Dade,25.945,-80.2145
+33164,FL,Miami,Miami-Dade,25.7743,-80.1937
+33165,FL,Miami,Miami-Dade,25.7343,-80.3588
+33166,FL,Miami,Miami-Dade,25.8301,-80.2926
+33167,FL,Miami,Miami-Dade,25.8856,-80.2292
+33168,FL,Miami,Miami-Dade,25.8902,-80.2101
+33169,FL,Miami,Miami-Dade,25.9441,-80.2144
+33170,FL,Miami,Miami-Dade,25.5584,-80.4582
+33172,FL,Miami,Miami-Dade,25.7735,-80.3572
+33173,FL,Miami,Miami-Dade,25.6992,-80.3618
+33174,FL,Miami,Miami-Dade,25.7628,-80.3611
+33175,FL,Miami,Miami-Dade,25.7341,-80.4068
+33176,FL,Miami,Miami-Dade,25.6574,-80.3627
+33177,FL,Miami,Miami-Dade,25.5968,-80.4046
+33178,FL,Miami,Miami-Dade,25.8141,-80.3549
+33179,FL,Miami,Miami-Dade,25.9571,-80.1814
+33180,FL,Miami,Miami-Dade,25.9597,-80.1403
+33181,FL,Miami,Miami-Dade,25.8965,-80.157
+33182,FL,Miami,Miami-Dade,25.7877,-80.4166
+33183,FL,Miami,Miami-Dade,25.7,-80.413
+33184,FL,Miami,Miami-Dade,25.7574,-80.403
+33185,FL,Miami,Miami-Dade,25.7274,-80.4497
+33186,FL,Miami,Miami-Dade,25.6694,-80.4085
+33187,FL,Miami,Miami-Dade,25.596,-80.507
+33188,FL,Miami,Miami-Dade,25.7743,-80.1937
+33189,FL,Miami,Miami-Dade,25.573,-80.3374
+33190,FL,Miami,Miami-Dade,25.5593,-80.3483
+33191,FL,Miami,Miami-Dade,25.7743,-80.1937
+33192,FL,Miami,Miami-Dade,25.7743,-80.1937
+33193,FL,Miami,Miami-Dade,25.6964,-80.4401
+33194,FL,Miami,Miami-Dade,25.5584,-80.4582
+33195,FL,Miami,Miami-Dade,25.7729,-80.187
+33196,FL,Miami,Miami-Dade,25.6615,-80.441
+33197,FL,Miami,Miami-Dade,25.7743,-80.1937
+33198,FL,Miami,Miami-Dade,25.7743,-80.1937
+33199,FL,Miami,Miami-Dade,25.7743,-80.1937
+33206,FL,Miami,Miami-Dade,25.7743,-80.1937
+33222,FL,Miami,Miami-Dade,25.7577,-80.3748
+33231,FL,Miami,Miami-Dade,25.7743,-80.1937
+33233,FL,Miami,Miami-Dade,25.7743,-80.1937
+33234,FL,Miami,Miami-Dade,25.7743,-80.1937
+33238,FL,Miami,Miami-Dade,25.7743,-80.1937
+33239,FL,Miami Beach,Miami-Dade,25.7907,-80.13
+33242,FL,Miami,Miami-Dade,25.7743,-80.1937
+33243,FL,Miami,Miami-Dade,25.7743,-80.1937
+33245,FL,Miami,Miami-Dade,25.7743,-80.1937
+33247,FL,Miami,Miami-Dade,25.7743,-80.1937
+33255,FL,Miami,Miami-Dade,25.7743,-80.1937
+33256,FL,Miami,Miami-Dade,25.7743,-80.1937
+33257,FL,Miami,Miami-Dade,25.7743,-80.1937
+33261,FL,Miami,Miami-Dade,25.7743,-80.1937
+33265,FL,Miami,Miami-Dade,25.7743,-80.1937
+33266,FL,Miami,Miami-Dade,25.7743,-80.1937
+33269,FL,Miami,Miami-Dade,25.7743,-80.1937
+33280,FL,Miami,Miami-Dade,25.7743,-80.1937
+33283,FL,Miami,Miami-Dade,25.7743,-80.1937
+33296,FL,Miami,Miami-Dade,25.7743,-80.1937
+33299,FL,Miami,Miami-Dade,25.7743,-80.1937
+33301,FL,Fort Lauderdale,Broward,26.1216,-80.1288
+33302,FL,Fort Lauderdale,Broward,26.1223,-80.1434
+33303,FL,Fort Lauderdale,Broward,26.1969,-80.0952
+33304,FL,Fort Lauderdale,Broward,26.1387,-80.1218
+33305,FL,Fort Lauderdale,Broward,26.1497,-80.1229
+33306,FL,Fort Lauderdale,Broward,26.1656,-80.1118
+33307,FL,Fort Lauderdale,Broward,26.1223,-80.1434
+33308,FL,Fort Lauderdale,Broward,26.0984,-80.1822
+33309,FL,Fort Lauderdale,Broward,26.1817,-80.1746
+33310,FL,Fort Lauderdale,Broward,26.1443,-80.2069
+33311,FL,Fort Lauderdale,Broward,26.1421,-80.1728
+33312,FL,Fort Lauderdale,Broward,26.0968,-80.181
+33313,FL,Fort Lauderdale,Broward,26.1487,-80.2075
+33314,FL,Fort Lauderdale,Broward,26.0697,-80.2246
+33315,FL,Fort Lauderdale,Broward,26.0989,-80.1541
+33316,FL,Fort Lauderdale,Broward,26.1042,-80.126
+33317,FL,Fort Lauderdale,Broward,26.1122,-80.2264
+33318,FL,Fort Lauderdale,Broward,26.1184,-80.252
+33319,FL,Fort Lauderdale,Broward,26.1848,-80.2406
+33320,FL,Fort Lauderdale,Broward,26.1625,-80.2582
+33321,FL,Fort Lauderdale,Broward,26.212,-80.2696
+33322,FL,Fort Lauderdale,Broward,26.1502,-80.2745
+33323,FL,Fort Lauderdale,Broward,26.152,-80.3165
+33324,FL,Fort Lauderdale,Broward,26.1255,-80.2644
+33325,FL,Fort Lauderdale,Broward,26.1097,-80.3215
+33326,FL,Fort Lauderdale,Broward,26.1158,-80.3681
+33327,FL,Fort Lauderdale,Broward,26.1168,-80.4156
+33328,FL,Fort Lauderdale,Broward,26.0671,-80.2723
+33329,FL,Fort Lauderdale,Broward,26.1223,-80.1434
+33330,FL,Fort Lauderdale,Broward,26.0663,-80.3339
+33331,FL,Fort Lauderdale,Broward,26.048,-80.3749
+33332,FL,Fort Lauderdale,Broward,26.0596,-80.4146
+33334,FL,Fort Lauderdale,Broward,26.1845,-80.1344
+33335,FL,Fort Lauderdale,Broward,26.0892,-80.336
+33336,FL,Fort Lauderdale,Broward,26.1219,-80.1436
+33337,FL,Fort Lauderdale,Broward,26.129,-80.2601
+33338,FL,Fort Lauderdale,Broward,26.1223,-80.1434
+33339,FL,Fort Lauderdale,Broward,26.1223,-80.1434
+33340,FL,Fort Lauderdale,Broward,26.1223,-80.1434
+33345,FL,Fort Lauderdale,Broward,26.1654,-80.2959
+33346,FL,Fort Lauderdale,Broward,26.1223,-80.1434
+33348,FL,Fort Lauderdale,Broward,26.1223,-80.1434
+33349,FL,Fort Lauderdale,Broward,26.1223,-80.1434
+33351,FL,Fort Lauderdale,Broward,26.1793,-80.2746
+33355,FL,Fort Lauderdale,Broward,26.1223,-80.1434
+33359,FL,Fort Lauderdale,Broward,26.1223,-80.1434
+33388,FL,Plantation,Broward,26.1342,-80.2318
+33394,FL,Fort Lauderdale,Broward,26.1221,-80.139
+33401,FL,West Palm Beach,Palm Beach,26.7165,-80.0679
+33402,FL,West Palm Beach,Palm Beach,26.7153,-80.0534
+33403,FL,West Palm Beach,Palm Beach,26.8035,-80.0756
+33404,FL,West Palm Beach,Palm Beach,26.7832,-80.0638
+33405,FL,West Palm Beach,Palm Beach,26.67,-80.0582
+33406,FL,West Palm Beach,Palm Beach,26.6396,-80.0827
+33407,FL,West Palm Beach,Palm Beach,26.7492,-80.0725
+33408,FL,North Palm Beach,Palm Beach,26.8289,-80.0603
+33409,FL,West Palm Beach,Palm Beach,26.7162,-80.0965
+33410,FL,Palm Beach Gardens,Palm Beach,26.8234,-80.1387
+33411,FL,West Palm Beach,Palm Beach,26.6644,-80.1741
+33412,FL,West Palm Beach,Palm Beach,26.8055,-80.2482
+33413,FL,West Palm Beach,Palm Beach,26.6555,-80.1596
+33414,FL,Wellington,Palm Beach,26.6587,-80.2414
+33415,FL,West Palm Beach,Palm Beach,26.656,-80.126
+33416,FL,West Palm Beach,Palm Beach,26.6654,-80.0929
+33417,FL,West Palm Beach,Palm Beach,26.7197,-80.1248
+33418,FL,Palm Beach Gardens,Palm Beach,26.8234,-80.1387
+33419,FL,West Palm Beach,Palm Beach,26.7153,-80.0534
+33420,FL,West Palm Beach,Palm Beach,26.7153,-80.0534
+33421,FL,Royal Palm Beach,Palm Beach,26.7084,-80.2306
+33422,FL,West Palm Beach,Palm Beach,26.7153,-80.0534
+33424,FL,Boynton Beach,Palm Beach,26.5253,-80.0664
+33425,FL,Boynton Beach,Palm Beach,26.5253,-80.0664
+33426,FL,Boynton Beach,Palm Beach,26.5175,-80.0834
+33427,FL,Boca Raton,Palm Beach,26.376,-80.1072
+33428,FL,Boca Raton,Palm Beach,26.3446,-80.2109
+33429,FL,Boca Raton,Palm Beach,26.3587,-80.0831
+33430,FL,Belle Glade,Palm Beach,26.6843,-80.6724
+33431,FL,Boca Raton,Palm Beach,26.3799,-80.0975
+33432,FL,Boca Raton,Palm Beach,26.3462,-80.0844
+33433,FL,Boca Raton,Palm Beach,26.3464,-80.1564
+33434,FL,Boca Raton,Palm Beach,26.3839,-80.1749
+33435,FL,Boynton Beach,Palm Beach,26.5254,-80.061
+33436,FL,Boynton Beach,Palm Beach,26.5354,-80.1124
+33437,FL,Boynton Beach,Palm Beach,26.5312,-80.1418
+33438,FL,Canal Point,Palm Beach,26.8592,-80.6337
+33440,FL,Clewiston,Hendry,26.7172,-80.9492
+33441,FL,Deerfield Beach,Broward,26.3096,-80.0992
+33442,FL,Deerfield Beach,Broward,26.3124,-80.1412
+33443,FL,Deerfield Beach,Broward,26.3184,-80.0998
+33444,FL,Delray Beach,Palm Beach,26.4564,-80.0793
+33445,FL,Delray Beach,Palm Beach,26.4564,-80.1054
+33446,FL,Delray Beach,Palm Beach,26.4517,-80.158
+33448,FL,Delray Beach,Palm Beach,26.4615,-80.0728
+33449,FL,Lake Worth,Palm Beach,26.6048,-80.2149
+33454,FL,Greenacres,Palm Beach,26.6237,-80.1253
+33455,FL,Hobe Sound,Martin,27.0813,-80.1509
+33458,FL,Jupiter,Palm Beach,26.9339,-80.1201
+33459,FL,Lake Harbor,Palm Beach,26.6931,-80.8145
+33460,FL,Lake Worth,Palm Beach,26.6182,-80.056
+33461,FL,Lake Worth,Palm Beach,26.6232,-80.0946
+33462,FL,Lake Worth,Palm Beach,26.5747,-80.0794
+33463,FL,Lake Worth,Palm Beach,26.5955,-80.1291
+33464,FL,Boca Raton,Palm Beach,26.3587,-80.0831
+33465,FL,Lake Worth,Palm Beach,26.6283,-80.1326
+33466,FL,Lake Worth,Palm Beach,26.6171,-80.0723
+33467,FL,Lake Worth,Palm Beach,26.6104,-80.1683
+33468,FL,Jupiter,Palm Beach,26.9342,-80.0942
+33469,FL,Jupiter,Palm Beach,26.9831,-80.108
+33470,FL,Loxahatchee,Palm Beach,26.7383,-80.276
+33471,FL,Moore Haven,Glades,26.8327,-81.2188
+33472,FL,Boynton Beach,Palm Beach,26.5384,-80.1856
+33473,FL,Boynton Beach,Palm Beach,26.5088,-80.1896
+33474,FL,Boynton Beach,Palm Beach,26.5253,-80.0664
+33475,FL,Hobe Sound,Martin,27.0595,-80.1364
+33476,FL,Pahokee,Palm Beach,26.8142,-80.6629
+33477,FL,Jupiter,Palm Beach,26.9217,-80.077
+33478,FL,Jupiter,Palm Beach,26.9212,-80.2144
+33480,FL,Palm Beach,Palm Beach,26.7206,-80.0388
+33481,FL,Boca Raton,Palm Beach,26.3587,-80.0831
+33482,FL,Delray Beach,Palm Beach,26.4615,-80.0728
+33483,FL,Delray Beach,Palm Beach,26.4546,-80.0656
+33484,FL,Delray Beach,Palm Beach,26.4543,-80.1346
+33486,FL,Boca Raton,Palm Beach,26.3481,-80.1104
+33487,FL,Boca Raton,Palm Beach,26.4116,-80.0928
+33488,FL,Boca Raton,Palm Beach,26.3587,-80.0831
+33493,FL,South Bay,Palm Beach,26.6701,-80.7312
+33496,FL,Boca Raton,Palm Beach,26.403,-80.1813
+33497,FL,Boca Raton,Palm Beach,26.3587,-80.0831
+33498,FL,Boca Raton,Palm Beach,26.3907,-80.2161
+33499,FL,Boca Raton,Palm Beach,26.3587,-80.0831
+33503,FL,Balm,Hillsborough,27.7648,-82.2734
+33508,FL,Brandon,Hillsborough,27.9318,-82.295
+33509,FL,Brandon,Hillsborough,27.9378,-82.2859
+33510,FL,Brandon,Hillsborough,27.9551,-82.2966
+33511,FL,Brandon,Hillsborough,27.9056,-82.2881
+33513,FL,Bushnell,Sumter,28.6611,-82.1553
+33514,FL,Center Hill,Sumter,28.6635,-81.9963
+33521,FL,Coleman,Sumter,28.7997,-82.0701
+33523,FL,Dade City,Pasco,28.4247,-82.2185
+33524,FL,Crystal Springs,Pasco,28.1822,-82.1523
+33525,FL,Dade City,Pasco,28.3318,-82.2446
+33526,FL,Dade City,Pasco,28.3101,-82.2478
+33527,FL,Dover,Hillsborough,27.992,-82.2138
+33530,FL,Durant,Hillsborough,27.9068,-82.1767
+33534,FL,Gibsonton,Hillsborough,27.8411,-82.3698
+33537,FL,Lacoochee,Pasco,28.4658,-82.172
+33538,FL,Lake Panasoffkee,Sumter,28.7953,-82.1363
+33539,FL,Zephyrhills,Pasco,28.213,-82.1657
+33540,FL,Zephyrhills,Pasco,28.2151,-82.1506
+33541,FL,Zephyrhills,Pasco,28.2311,-82.2057
+33542,FL,Zephyrhills,Pasco,28.2303,-82.1779
+33543,FL,Wesley Chapel,Pasco,28.2397,-82.3279
+33544,FL,Wesley Chapel,Pasco,28.2397,-82.3279
+33545,FL,Wesley Chapel,Pasco,28.2697,-82.2903
+33547,FL,Lithia,Hillsborough,27.8293,-82.1357
+33548,FL,Lutz,Hillsborough,28.1385,-82.4821
+33549,FL,Lutz,Hillsborough,28.1367,-82.461
+33550,FL,Mango,Hillsborough,27.9797,-82.3065
+33556,FL,Odessa,Hillsborough,28.1421,-82.5905
+33558,FL,Lutz,Hillsborough,28.1474,-82.5152
+33559,FL,Lutz,Pasco,28.1801,-82.4169
+33563,FL,Plant City,Hillsborough,28.013,-82.1339
+33564,FL,Plant City,Hillsborough,28.0296,-82.1347
+33565,FL,Plant City,Hillsborough,28.0699,-82.1576
+33566,FL,Plant City,Hillsborough,28.0094,-82.1138
+33567,FL,Plant City,Hillsborough,27.922,-82.1216
+33568,FL,Riverview,Hillsborough,27.872,-82.4388
+33569,FL,Riverview,Hillsborough,27.845,-82.3125
+33570,FL,Ruskin,Hillsborough,27.7015,-82.4355
+33571,FL,Sun City Center,Hillsborough,27.7201,-82.453
+33572,FL,Apollo Beach,Hillsborough,27.7716,-82.4102
+33573,FL,Sun City Center,Hillsborough,27.7147,-82.3538
+33574,FL,Saint Leo,Pasco,28.3348,-82.2693
+33575,FL,Ruskin,Hillsborough,27.7144,-82.4291
+33576,FL,San Antonio,Pasco,28.3371,-82.2882
+33578,FL,Riverview,Pasco,27.8633,-82.3499
+33579,FL,Riverview,Hillsborough,27.8024,-82.2755
+33583,FL,Seffner,Hillsborough,27.872,-82.4388
+33584,FL,Seffner,Hillsborough,27.9922,-82.2863
+33585,FL,Sumterville,Sumter,28.7356,-82.0616
+33586,FL,Sun City,Hillsborough,27.6784,-82.4787
+33587,FL,Sydney,Hillsborough,27.9634,-82.2073
+33592,FL,Thonotosassa,Hillsborough,28.0617,-82.3082
+33593,FL,Trilby,Pasco,28.4625,-82.1948
+33594,FL,Valrico,Hillsborough,27.9408,-82.242
+33595,FL,Valrico,Hillsborough,27.9379,-82.2364
+33596,FL,Valrico,Hillsborough,27.8925,-82.243
+33597,FL,Webster,Sumter,28.549,-82.0805
+33598,FL,Wimauma,Hillsborough,27.7015,-82.3151
+33601,FL,Tampa,Hillsborough,27.9961,-82.582
+33602,FL,Tampa,Hillsborough,27.9614,-82.4597
+33603,FL,Tampa,Hillsborough,27.9845,-82.463
+33604,FL,Tampa,Hillsborough,28.0173,-82.4578
+33605,FL,Tampa,Hillsborough,27.9671,-82.4334
+33606,FL,Tampa,Hillsborough,27.9475,-82.4584
+33607,FL,Tampa,Hillsborough,27.9625,-82.4895
+33608,FL,Tampa,Hillsborough,27.8434,-82.4884
+33609,FL,Tampa,Hillsborough,27.9425,-82.5057
+33610,FL,Tampa,Hillsborough,27.9951,-82.4046
+33611,FL,Tampa,Hillsborough,27.8914,-82.5067
+33612,FL,Tampa,Hillsborough,28.0502,-82.45
+33613,FL,Tampa,Hillsborough,28.0772,-82.4455
+33614,FL,Tampa,Hillsborough,28.0091,-82.5034
+33615,FL,Tampa,Hillsborough,28.0081,-82.5805
+33616,FL,Tampa,Hillsborough,27.8742,-82.5203
+33617,FL,Tampa,Hillsborough,28.0384,-82.3949
+33618,FL,Tampa,Hillsborough,28.0763,-82.4852
+33619,FL,Tampa,Hillsborough,27.9382,-82.3756
+33620,FL,Tampa,Hillsborough,28.06,-82.4079
+33621,FL,Tampa,Hillsborough,27.8491,-82.4946
+33622,FL,Tampa,Hillsborough,27.9475,-82.4584
+33623,FL,Tampa,Hillsborough,27.9475,-82.4584
+33624,FL,Tampa,Hillsborough,28.079,-82.5268
+33625,FL,Tampa,Hillsborough,28.0726,-82.559
+33626,FL,Tampa,Hillsborough,28.0509,-82.6164
+33629,FL,Tampa,Hillsborough,27.921,-82.5079
+33630,FL,Tampa,Hillsborough,27.872,-82.4388
+33631,FL,Tampa,Hillsborough,27.872,-82.4388
+33633,FL,Tampa,Hillsborough,27.872,-82.4388
+33634,FL,Tampa,Hillsborough,28.0068,-82.556
+33635,FL,Tampa,Hillsborough,28.0301,-82.6048
+33637,FL,Tampa,Hillsborough,28.0338,-82.3659
+33646,FL,Tampa,Hillsborough,28.094,-82.4021
+33647,FL,Tampa,Hillsborough,28.1147,-82.3678
+33650,FL,Tampa,Hillsborough,27.872,-82.4388
+33655,FL,Tampa,Hillsborough,27.9475,-82.4584
+33660,FL,Tampa,Hillsborough,27.872,-82.4388
+33661,FL,Tampa,Hillsborough,27.872,-82.4388
+33662,FL,Tampa,Hillsborough,27.872,-82.4388
+33663,FL,Tampa,Hillsborough,27.872,-82.4388
+33664,FL,Tampa,Hillsborough,27.872,-82.4388
+33672,FL,Tampa,Hillsborough,27.9475,-82.4584
+33673,FL,Tampa,Hillsborough,27.872,-82.4388
+33674,FL,Tampa,Hillsborough,27.872,-82.4388
+33675,FL,Tampa,Hillsborough,27.872,-82.4388
+33677,FL,Tampa,Hillsborough,27.872,-82.4388
+33679,FL,Tampa,Hillsborough,27.872,-82.4388
+33680,FL,Tampa,Hillsborough,27.872,-82.4388
+33681,FL,Tampa,Hillsborough,27.872,-82.4388
+33682,FL,Tampa,Hillsborough,27.872,-82.4388
+33684,FL,Tampa,Hillsborough,27.872,-82.4388
+33685,FL,Tampa,Hillsborough,27.872,-82.4388
+33686,FL,Tampa,Hillsborough,27.872,-82.4388
+33687,FL,Tampa,Hillsborough,27.872,-82.4388
+33688,FL,Tampa,Hillsborough,27.872,-82.4388
+33689,FL,Tampa,Hillsborough,27.9475,-82.4584
+33694,FL,Tampa,Hillsborough,27.872,-82.4388
+33701,FL,Saint Petersburg,Pinellas,27.7723,-82.6386
+33702,FL,Saint Petersburg,Pinellas,27.8427,-82.6448
+33703,FL,Saint Petersburg,Pinellas,27.817,-82.6264
+33704,FL,Saint Petersburg,Pinellas,27.7954,-82.6373
+33705,FL,Saint Petersburg,Pinellas,27.7391,-82.6435
+33706,FL,Saint Petersburg,Pinellas,27.7456,-82.7516
+33707,FL,Saint Petersburg,Pinellas,27.7549,-82.7208
+33708,FL,Saint Petersburg,Pinellas,27.8116,-82.8014
+33709,FL,Saint Petersburg,Pinellas,27.8201,-82.7308
+33710,FL,Saint Petersburg,Pinellas,27.7898,-82.7243
+33711,FL,Saint Petersburg,Pinellas,27.7465,-82.6897
+33712,FL,Saint Petersburg,Pinellas,27.7353,-82.6663
+33713,FL,Saint Petersburg,Pinellas,27.789,-82.6779
+33714,FL,Saint Petersburg,Pinellas,27.8176,-82.6776
+33715,FL,Saint Petersburg,Pinellas,27.6705,-82.7119
+33716,FL,Saint Petersburg,Pinellas,27.8738,-82.64
+33729,FL,Saint Petersburg,Pinellas,27.8819,-82.6644
+33730,FL,Saint Petersburg,Pinellas,27.7709,-82.6793
+33731,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33732,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33733,FL,Saint Petersburg,Pinellas,27.7709,-82.6793
+33734,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33736,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33737,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33738,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33740,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33741,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33742,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33743,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33744,FL,Bay Pines,Pinellas,27.8142,-82.7782
+33747,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33755,FL,Clearwater,Pinellas,27.9781,-82.7815
+33756,FL,Clearwater,Pinellas,27.947,-82.7943
+33757,FL,Clearwater,Pinellas,27.8918,-82.7248
+33758,FL,Clearwater,Pinellas,27.8918,-82.7248
+33759,FL,Clearwater,Pinellas,27.975,-82.7019
+33760,FL,Clearwater,Pinellas,27.9004,-82.7152
+33761,FL,Clearwater,Pinellas,28.031,-82.7239
+33762,FL,Clearwater,Pinellas,27.8942,-82.6746
+33763,FL,Clearwater,Pinellas,28.0173,-82.7461
+33764,FL,Clearwater,Pinellas,27.916,-82.7343
+33765,FL,Clearwater,Pinellas,27.9902,-82.7433
+33766,FL,Clearwater,Pinellas,27.8918,-82.7248
+33767,FL,Clearwater Beach,Pinellas,27.9598,-82.8286
+33769,FL,Clearwater,Pinellas,27.8918,-82.7248
+33770,FL,Largo,Pinellas,27.917,-82.8027
+33771,FL,Largo,Pinellas,27.9085,-82.7568
+33772,FL,Seminole,Pinellas,27.8466,-82.7954
+33773,FL,Largo,Pinellas,27.8802,-82.7534
+33774,FL,Largo,Pinellas,27.8839,-82.8265
+33775,FL,Seminole,Pinellas,27.8397,-82.7912
+33776,FL,Seminole,Pinellas,27.8505,-82.8263
+33777,FL,Seminole,Pinellas,27.8688,-82.7344
+33778,FL,Largo,Pinellas,27.884,-82.8025
+33779,FL,Largo,Pinellas,27.8397,-82.7725
+33780,FL,Pinellas Park,Pinellas,27.8918,-82.7248
+33781,FL,Pinellas Park,Pinellas,27.8387,-82.7151
+33782,FL,Pinellas Park,Pinellas,27.8681,-82.7086
+33784,FL,Saint Petersburg,Pinellas,27.8918,-82.7248
+33785,FL,Indian Rocks Beach,Pinellas,27.8868,-82.8435
+33786,FL,Belleair Beach,Pinellas,27.9229,-82.8393
+33801,FL,Lakeland,Polk,28.0381,-81.9392
+33802,FL,Lakeland,Polk,28.021,-81.9852
+33803,FL,Lakeland,Polk,28.014,-81.9523
+33804,FL,Lakeland,Polk,28.0395,-81.9498
+33805,FL,Lakeland,Polk,28.072,-81.9609
+33806,FL,Lakeland,Polk,28.0395,-81.9498
+33807,FL,Lakeland,Polk,28.0395,-81.9498
+33809,FL,Lakeland,Polk,28.1762,-81.9591
+33810,FL,Lakeland,Polk,28.1479,-82.0372
+33811,FL,Lakeland,Polk,27.9865,-82.0139
+33812,FL,Lakeland,Polk,27.9729,-81.8931
+33813,FL,Lakeland,Polk,27.9611,-81.9398
+33815,FL,Lakeland,Polk,28.0496,-82.0069
+33820,FL,Alturas,Polk,28.0026,-81.6186
+33823,FL,Auburndale,Polk,28.0724,-81.8122
+33825,FL,Avon Park,Highlands,27.6001,-81.5015
+33826,FL,Avon Park,Highlands,27.5959,-81.5062
+33827,FL,Babson Park,Polk,27.8163,-81.5139
+33830,FL,Bartow,Polk,27.8957,-81.8127
+33831,FL,Bartow,Polk,27.8964,-81.8431
+33834,FL,Bowling Green,Hardee,27.6019,-81.8507
+33835,FL,Bradley,Polk,27.6993,-81.9494
+33836,FL,Davenport,Polk,28.1672,-81.6316
+33837,FL,Davenport,Polk,28.1963,-81.6079
+33838,FL,Dundee,Polk,28.0194,-81.6212
+33839,FL,Eagle Lake,Polk,27.9787,-81.7564
+33840,FL,Eaton Park,Polk,28.0086,-81.9076
+33841,FL,Fort Meade,Polk,27.7464,-81.7823
+33843,FL,Frostproof,Polk,27.7211,-81.5148
+33844,FL,Haines City,Polk,28.1145,-81.6201
+33845,FL,Haines City,Polk,28.0026,-81.6186
+33846,FL,Highland City,Polk,27.9647,-81.8672
+33847,FL,Homeland,Polk,27.8178,-81.8245
+33848,FL,Intercession City,Osceola,28.2774,-81.5069
+33849,FL,Kathleen,Polk,28.1975,-82.0396
+33850,FL,Lake Alfred,Polk,28.0895,-81.7271
+33851,FL,Lake Hamilton,Polk,28.0369,-81.628
+33852,FL,Lake Placid,Highlands,27.2945,-81.3649
+33853,FL,Lake Wales,Polk,27.9002,-81.5847
+33854,FL,Lakeshore,Polk,27.966,-81.6965
+33855,FL,Indian Lake Estates,Polk,27.798,-81.3572
+33856,FL,Nalcrest,Polk,27.8557,-81.4309
+33857,FL,Lorida,Highlands,27.415,-81.1965
+33858,FL,Loughman,Polk,28.242,-81.5667
+33859,FL,Lake Wales,Polk,27.8774,-81.6221
+33860,FL,Mulberry,Polk,27.902,-82.0015
+33862,FL,Lake Placid,Highlands,27.2931,-81.3629
+33863,FL,Nichols,Polk,27.8903,-82.0315
+33865,FL,Ona,Hardee,27.4127,-81.928
+33867,FL,River Ranch,Polk,27.7686,-81.1966
+33868,FL,Polk City,Polk,28.1987,-81.8083
+33870,FL,Sebring,Highlands,27.4924,-81.4357
+33871,FL,Sebring,Highlands,27.4858,-81.4079
+33872,FL,Sebring,Highlands,27.4703,-81.4872
+33873,FL,Wauchula,Hardee,27.5517,-81.8074
+33875,FL,Sebring,Highlands,27.4676,-81.4581
+33876,FL,Sebring,Highlands,27.4287,-81.3519
+33877,FL,Waverly,Polk,27.9769,-81.6144
+33880,FL,Winter Haven,Polk,27.9873,-81.7625
+33881,FL,Winter Haven,Polk,28.0452,-81.7325
+33882,FL,Winter Haven,Polk,28.0294,-81.7321
+33883,FL,Winter Haven,Polk,28.0222,-81.7329
+33884,FL,Winter Haven,Polk,27.981,-81.6736
+33885,FL,Winter Haven,Polk,28.0026,-81.6186
+33888,FL,Winter Haven,Polk,28.0231,-81.7234
+33890,FL,Zolfo Springs,Hardee,27.48,-81.7423
+33896,FL,Davenport,Polk,28.2531,-81.6509
+33897,FL,Davenport,Polk,28.3112,-81.6643
+33898,FL,Lake Wales,Polk,27.8643,-81.5719
+33901,FL,Fort Myers,Lee,26.6204,-81.8725
+33902,FL,Fort Myers,Lee,26.6239,-81.8836
+33903,FL,North Fort Myers,Lee,26.693,-81.9125
+33904,FL,Cape Coral,Lee,26.6065,-81.9502
+33905,FL,Fort Myers,Lee,26.6693,-81.7605
+33906,FL,Fort Myers,Lee,26.5529,-81.9486
+33907,FL,Fort Myers,Lee,26.5681,-81.8736
+33908,FL,Fort Myers,Lee,26.5025,-81.9276
+33909,FL,Cape Coral,Lee,26.6939,-81.9452
+33910,FL,Cape Coral,Lee,26.5529,-81.9486
+33911,FL,Fort Myers,Lee,26.5963,-81.8824
+33912,FL,Fort Myers,Lee,26.4972,-81.8246
+33913,FL,Fort Myers,Lee,26.5228,-81.7065
+33914,FL,Cape Coral,Lee,26.5557,-82.0206
+33915,FL,Cape Coral,Lee,26.6599,-81.8934
+33916,FL,Fort Myers,Lee,26.6466,-81.8429
+33917,FL,North Fort Myers,Lee,26.7357,-81.8435
+33918,FL,North Fort Myers,Lee,26.6673,-81.8801
+33919,FL,Fort Myers,Lee,26.5567,-81.9034
+33920,FL,Alva,Lee,26.7147,-81.6351
+33921,FL,Boca Grande,Lee,26.7545,-82.2611
+33922,FL,Bokeelia,Lee,26.6627,-82.1401
+33924,FL,Captiva,Lee,26.5215,-82.1802
+33927,FL,El Jobean,Charlotte,26.9324,-82.2168
+33928,FL,Estero,Lee,26.4351,-81.8102
+33929,FL,Estero,Lee,26.4381,-81.8068
+33930,FL,Felda,Hendry,26.5398,-81.4356
+33931,FL,Fort Myers Beach,Lee,26.4527,-81.9501
+33932,FL,Fort Myers Beach,Lee,26.5529,-81.9486
+33935,FL,Labelle,Hendry,26.7321,-81.434
+33936,FL,Lehigh Acres,Lee,26.5936,-81.6619
+33938,FL,Murdock,Charlotte,26.902,-82
+33944,FL,Palmdale,Glades,26.9464,-81.3091
+33945,FL,Pineland,Lee,26.6583,-82.1434
+33946,FL,Placida,Charlotte,26.8323,-82.2648
+33947,FL,Rotonda West,Charlotte,26.8842,-82.2691
+33948,FL,Port Charlotte,Charlotte,26.9827,-82.1412
+33949,FL,Port Charlotte,Charlotte,26.9939,-82.0984
+33950,FL,Punta Gorda,Charlotte,26.9152,-82.0532
+33951,FL,Punta Gorda,Charlotte,26.9708,-81.9845
+33952,FL,Port Charlotte,Charlotte,26.9905,-82.0964
+33953,FL,Port Charlotte,Charlotte,27.004,-82.2117
+33954,FL,Port Charlotte,Charlotte,27.0228,-82.1108
+33955,FL,Punta Gorda,Charlotte,26.824,-81.9547
+33956,FL,Saint James City,Lee,26.529,-82.0916
+33957,FL,Sanibel,Lee,26.4514,-82.0868
+33960,FL,Venus,Highlands,27.1203,-81.3909
+33965,FL,Fort Myers,Lee,26.4637,-81.7722
+33966,FL,Fort Myers,Lee,26.5824,-81.832
+33967,FL,Fort Myers,Polk,26.4722,-81.8122
+33970,FL,Lehigh Acres,Lee,26.5647,-81.6208
+33971,FL,Lehigh Acres,Lee,26.6388,-81.6992
+33972,FL,Lehigh Acres,Lee,26.6492,-81.6167
+33973,FL,Lehigh Acres,Broward,26.602,-81.7311
+33974,FL,Lehigh Acres,Lee,26.5677,-81.5954
+33975,FL,Labelle,Hendry,26.7633,-81.4388
+33976,FL,Lehigh Acres,Lee,26.5952,-81.6849
+33980,FL,Punta Gorda,Charlotte,26.9298,-82.0454
+33981,FL,Port Charlotte,Charlotte,26.9379,-82.2388
+33982,FL,Punta Gorda,Charlotte,26.9668,-81.9545
+33983,FL,Punta Gorda,Charlotte,27.0074,-82.0163
+33990,FL,Cape Coral,Lee,26.6265,-81.9677
+33991,FL,Cape Coral,Lee,26.6281,-82.0182
+33993,FL,Cape Coral,Lee,26.6786,-82.0254
+33994,FL,Fort Myers,Lee,26.5529,-81.9486
+34101,FL,Naples,Collier,26.1423,-81.796
+34102,FL,Naples,Collier,26.134,-81.7953
+34103,FL,Naples,Collier,26.1917,-81.8039
+34104,FL,Naples,Collier,26.1529,-81.7417
+34105,FL,Naples,Collier,26.1938,-81.7636
+34106,FL,Naples,Collier,26.1423,-81.796
+34107,FL,Naples,Collier,26.1423,-81.796
+34108,FL,Naples,Collier,26.2416,-81.8071
+34109,FL,Naples,Collier,26.2534,-81.7644
+34110,FL,Naples,Collier,26.2823,-81.7573
+34112,FL,Naples,Collier,26.1184,-81.7361
+34113,FL,Naples,Collier,26.0426,-81.7182
+34114,FL,Naples,Collier,26.0143,-81.5856
+34116,FL,Naples,Collier,26.1873,-81.711
+34117,FL,Naples,Collier,26.1156,-81.5239
+34119,FL,Naples,Collier,26.2665,-81.7146
+34120,FL,Naples,Collier,26.3304,-81.5871
+34133,FL,Bonita Springs,Lee,26.3398,-81.7787
+34134,FL,Bonita Springs,Lee,26.3626,-81.8183
+34135,FL,Bonita Springs,Lee,26.3771,-81.7334
+34136,FL,Bonita Springs,Lee,26.3398,-81.7787
+34137,FL,Copeland,Collier,25.9542,-81.3575
+34138,FL,Chokoloskee,Collier,25.8129,-81.362
+34139,FL,Everglades City,Collier,25.857,-81.3778
+34140,FL,Goodland,Collier,25.9248,-81.6456
+34141,FL,Ochopee,Collier,25.8734,-81.1599
+34142,FL,Immokalee,Collier,26.1844,-81.4152
+34143,FL,Immokalee,Collier,26.4642,-81.5047
+34145,FL,Marco Island,Collier,25.9388,-81.6968
+34146,FL,Marco Island,Collier,25.9412,-81.7184
+34201,FL,Bradenton,Manatee,27.4047,-82.4705
+34202,FL,Bradenton,Manatee,27.4067,-82.39
+34203,FL,Bradenton,Manatee,27.4547,-82.5359
+34204,FL,Bradenton,Manatee,27.4272,-82.4387
+34205,FL,Bradenton,Manatee,27.4841,-82.5834
+34206,FL,Bradenton,Manatee,27.4989,-82.5748
+34207,FL,Bradenton,Manatee,27.4394,-82.5778
+34208,FL,Bradenton,Manatee,27.4678,-82.512
+34209,FL,Bradenton,Manatee,27.4759,-82.6167
+34210,FL,Bradenton,Manatee,27.4544,-82.6358
+34211,FL,Bradenton,Manatee,27.45,-82.3773
+34212,FL,Bradenton,Manatee,27.4978,-82.4101
+34215,FL,Cortez,Manatee,27.4713,-82.6823
+34216,FL,Anna Maria,Manatee,27.5291,-82.7317
+34217,FL,Bradenton Beach,Manatee,27.4859,-82.7102
+34218,FL,Holmes Beach,Manatee,27.4995,-82.7099
+34219,FL,Parrish,Manatee,27.5572,-82.396
+34220,FL,Palmetto,Manatee,27.5214,-82.5723
+34221,FL,Palmetto,Manatee,27.5429,-82.563
+34222,FL,Ellenton,Manatee,27.5382,-82.5006
+34223,FL,Englewood,Sarasota,26.9667,-82.3599
+34224,FL,Englewood,Sarasota,26.92,-82.3048
+34228,FL,Longboat Key,Manatee,27.4125,-82.659
+34229,FL,Osprey,Sarasota,27.1838,-82.4853
+34230,FL,Sarasota,Sarasota,27.335,-82.5372
+34231,FL,Sarasota,Sarasota,27.2666,-82.5163
+34232,FL,Sarasota,Sarasota,27.3262,-82.4724
+34233,FL,Sarasota,Sarasota,27.2866,-82.477
+34234,FL,Sarasota,Sarasota,27.3688,-82.5268
+34235,FL,Sarasota,Sarasota,27.3672,-82.4848
+34236,FL,Sarasota,Sarasota,27.3269,-82.5433
+34237,FL,Sarasota,Sarasota,27.3369,-82.5128
+34238,FL,Sarasota,Sarasota,27.2427,-82.4751
+34239,FL,Sarasota,Sarasota,27.3111,-82.5195
+34240,FL,Sarasota,Sarasota,27.339,-82.3473
+34241,FL,Sarasota,Sarasota,27.2822,-82.4181
+34242,FL,Sarasota,Sarasota,27.2566,-82.5398
+34243,FL,Sarasota,Manatee,27.4072,-82.5303
+34249,FL,Sarasota,Sarasota,27.2664,-82.4841
+34250,FL,Terra Ceia,Manatee,27.5722,-82.5832
+34251,FL,Myakka City,Manatee,27.3648,-82.1849
+34260,FL,Manasota,Manatee,27.4272,-82.4387
+34264,FL,Oneco,Manatee,27.4475,-82.5462
+34265,FL,Arcadia,DeSoto,27.1861,-81.8099
+34266,FL,Arcadia,DeSoto,27.1861,-81.8667
+34267,FL,Fort Ogden,DeSoto,27.1861,-81.8099
+34268,FL,Nocatee,DeSoto,27.1603,-81.8823
+34269,FL,Arcadia,DeSoto,27.0675,-81.9855
+34270,FL,Tallevast,Manatee,27.4054,-82.5435
+34272,FL,Laurel,Sarasota,27.147,-82.4255
+34274,FL,Nokomis,Sarasota,27.144,-82.4645
+34275,FL,Nokomis,Sarasota,27.1384,-82.4518
+34276,FL,Sarasota,Sarasota,27.3364,-82.5307
+34277,FL,Sarasota,Sarasota,27.3364,-82.5307
+34278,FL,Sarasota,Sarasota,27.3316,-82.5285
+34280,FL,Bradenton,Manatee,27.4272,-82.4387
+34281,FL,Bradenton,Manatee,27.4272,-82.4387
+34282,FL,Bradenton,Manatee,27.4272,-82.4387
+34284,FL,Venice,Sarasota,27.1675,-82.381
+34285,FL,Venice,Sarasota,27.0933,-82.4498
+34286,FL,North Port,Sarasota,27.0748,-82.1756
+34287,FL,North Port,Sarasota,27.0478,-82.2416
+34288,FL,North Port,Sarasota,27.0498,-82.1288
+34289,FL,North Port,Sarasota,27.0808,-82.1516
+34290,FL,North Port,Sarasota,27.0459,-82.2491
+34291,FL,North Port,Sarasota,27.0997,-82.2095
+34292,FL,Venice,Sarasota,27.09,-82.37
+34293,FL,Venice,Sarasota,27.0606,-82.352
+34295,FL,Englewood,Sarasota,27.086,-82.4389
+34420,FL,Belleview,Marion,29.0531,-82.0375
+34421,FL,Belleview,Marion,29.2407,-82.0875
+34423,FL,Crystal River,Citrus,28.867,-82.5727
+34428,FL,Crystal River,Citrus,28.9584,-82.5993
+34429,FL,Crystal River,Citrus,28.8547,-82.6669
+34430,FL,Dunnellon,Marion,29.0491,-82.4609
+34431,FL,Dunnellon,Marion,29.1392,-82.5328
+34432,FL,Dunnellon,Marion,29.1015,-82.3413
+34433,FL,Dunnellon,Citrus,28.9949,-82.5196
+34434,FL,Dunnellon,Citrus,28.9938,-82.4241
+34436,FL,Floral City,Citrus,28.7304,-82.3077
+34441,FL,Hernando,Citrus,28.9311,-82.372
+34442,FL,Hernando,Citrus,28.9223,-82.39
+34445,FL,Holder,Citrus,28.9669,-82.4207
+34446,FL,Homosassa,Citrus,28.7508,-82.5139
+34447,FL,Homosassa Springs,Citrus,28.8049,-82.5743
+34448,FL,Homosassa,Citrus,28.788,-82.568
+34449,FL,Inglis,Levy,29.0955,-82.6561
+34450,FL,Inverness,Citrus,28.834,-82.2822
+34451,FL,Inverness,Citrus,28.8358,-82.3304
+34452,FL,Inverness,Citrus,28.8358,-82.3304
+34453,FL,Inverness,Citrus,28.8723,-82.3454
+34460,FL,Lecanto,Citrus,28.8593,-82.5087
+34461,FL,Lecanto,Citrus,28.8516,-82.4876
+34464,FL,Beverly Hills,Citrus,28.9169,-82.4582
+34465,FL,Beverly Hills,Citrus,28.9295,-82.4892
+34470,FL,Ocala,Marion,29.1989,-82.0874
+34471,FL,Ocala,Marion,29.1605,-82.1288
+34472,FL,Ocala,Marion,29.1253,-82.0086
+34473,FL,Ocala,Marion,29.0058,-82.1828
+34474,FL,Ocala,Marion,29.1565,-82.2095
+34475,FL,Ocala,Marion,29.2573,-82.161
+34476,FL,Ocala,Marion,29.1159,-82.2422
+34477,FL,Ocala,Marion,29.1872,-82.1401
+34478,FL,Ocala,Marion,29.1872,-82.1123
+34479,FL,Ocala,Marion,29.2541,-82.1095
+34480,FL,Ocala,Marion,29.1056,-82.098
+34481,FL,Ocala,Marion,29.1281,-82.2975
+34482,FL,Ocala,Marion,29.2611,-82.2195
+34483,FL,Ocala,Marion,29.2407,-82.0875
+34484,FL,Oxford,Sumter,28.9059,-82.0612
+34487,FL,Homosassa,Citrus,28.7814,-82.6151
+34488,FL,Silver Springs,Marion,29.2635,-81.9532
+34489,FL,Silver Springs,Marion,29.2152,-82.0972
+34491,FL,Summerfield,Marion,29.0112,-82.0325
+34492,FL,Summerfield,Marion,28.998,-82.0161
+34498,FL,Yankeetown,Levy,29.0305,-82.719
+34601,FL,Brooksville,Hernando,28.5658,-82.3737
+34602,FL,Brooksville,Hernando,28.5093,-82.2957
+34603,FL,Brooksville,Hernando,28.5642,-82.4165
+34604,FL,Brooksville,Hernando,28.4409,-82.4612
+34605,FL,Brooksville,Hernando,28.5059,-82.4226
+34606,FL,Spring Hill,Hernando,28.4655,-82.5981
+34607,FL,Spring Hill,Hernando,28.5065,-82.6267
+34608,FL,Spring Hill,Hernando,28.4797,-82.5562
+34609,FL,Spring Hill,Hernando,28.4794,-82.5083
+34610,FL,Spring Hill,Pasco,28.4079,-82.5398
+34611,FL,Spring Hill,Hernando,28.5642,-82.4165
+34613,FL,Brooksville,Hernando,28.5466,-82.5213
+34614,FL,Brooksville,Hernando,28.6622,-82.5236
+34636,FL,Istachatta,Hernando,28.655,-82.2677
+34637,FL,Land O Lakes,Pasco,28.2782,-82.4625
+34638,FL,Land O Lakes,Pasco,28.2478,-82.4962
+34639,FL,Land O Lakes,Pasco,28.2258,-82.4547
+34652,FL,New Port Richey,Pasco,28.2326,-82.7327
+34653,FL,New Port Richey,Pasco,28.2444,-82.6986
+34654,FL,New Port Richey,Pasco,28.3022,-82.6264
+34655,FL,New Port Richey,Pasco,28.2129,-82.6807
+34656,FL,New Port Richey,Pasco,28.2442,-82.7193
+34660,FL,Ozona,Pinellas,28.067,-82.7784
+34661,FL,Nobleton,Hernando,28.6436,-82.2638
+34667,FL,Hudson,Pasco,28.3648,-82.6757
+34668,FL,Port Richey,Pasco,28.3011,-82.6927
+34669,FL,Hudson,Pasco,28.3506,-82.6288
+34673,FL,Port Richey,Pasco,28.2717,-82.7195
+34674,FL,Hudson,Pasco,28.3644,-82.6934
+34677,FL,Oldsmar,Pinellas,28.046,-82.6848
+34679,FL,Aripeka,Pasco,28.4302,-82.6616
+34680,FL,Elfers,Pasco,28.2167,-82.7223
+34681,FL,Crystal Beach,Pinellas,28.0914,-82.7798
+34682,FL,Palm Harbor,Pinellas,28.0781,-82.7637
+34683,FL,Palm Harbor,Pinellas,28.0662,-82.7585
+34684,FL,Palm Harbor,Pinellas,28.0848,-82.7253
+34685,FL,Palm Harbor,Pinellas,28.0967,-82.6964
+34688,FL,Tarpon Springs,Pinellas,28.1458,-82.6825
+34689,FL,Tarpon Springs,Pinellas,28.1385,-82.743
+34690,FL,Holiday,Pasco,28.1913,-82.7279
+34691,FL,Holiday,Pasco,28.1913,-82.756
+34692,FL,Holiday,Pasco,28.188,-82.7346
+34695,FL,Safety Harbor,Pinellas,28.0096,-82.6967
+34697,FL,Dunedin,Pinellas,27.8918,-82.7248
+34698,FL,Dunedin,Pinellas,28.0284,-82.7794
+34705,FL,Astatula,Lake,28.7088,-81.7195
+34711,FL,Clermont,Lake,28.5525,-81.7574
+34712,FL,Clermont,Lake,28.5494,-81.7729
+34713,FL,Clermont,Lake,28.5494,-81.7729
+34714,FL,Clermont,Polk,28.4113,-81.7812
+34715,FL,Clermont,Lake,28.6259,-81.7306
+34729,FL,Ferndale,Lake,28.6219,-81.7034
+34731,FL,Fruitland Park,Lake,28.8639,-81.8998
+34734,FL,Gotha,Orange,28.5384,-81.5208
+34736,FL,Groveland,Lake,28.5644,-81.8745
+34737,FL,Howey In The Hills,Lake,28.6971,-81.7976
+34739,FL,Kenansville,Osceola,27.8767,-81.05
+34740,FL,Killarney,Orange,28.5454,-81.6507
+34741,FL,Kissimmee,Osceola,28.3051,-81.4242
+34742,FL,Kissimmee,Osceola,28.3047,-81.4167
+34743,FL,Kissimmee,Osceola,28.3306,-81.3544
+34744,FL,Kissimmee,Osceola,28.3078,-81.3681
+34745,FL,Kissimmee,Osceola,28.3047,-81.4167
+34746,FL,Kissimmee,Osceola,28.268,-81.4675
+34747,FL,Kissimmee,Osceola,28.3037,-81.5898
+34748,FL,Leesburg,Lake,28.808,-81.8858
+34749,FL,Leesburg,Lake,28.8108,-81.8779
+34753,FL,Mascotte,Lake,28.583,-81.8941
+34755,FL,Minneola,Lake,28.5744,-81.7462
+34756,FL,Montverde,Lake,28.5972,-81.6794
+34758,FL,Kissimmee,Osceola,28.1984,-81.487
+34759,FL,Kissimmee,Polk,28.0946,-81.499
+34760,FL,Oakland,Orange,28.5547,-81.6322
+34761,FL,Ocoee,Orange,28.5837,-81.5326
+34762,FL,Okahumpka,Lake,28.7545,-81.9151
+34769,FL,Saint Cloud,Osceola,28.248,-81.2876
+34770,FL,Saint Cloud,Osceola,28.2489,-81.2812
+34771,FL,Saint Cloud,Osceola,28.273,-81.2003
+34772,FL,Saint Cloud,Osceola,28.1905,-81.2645
+34773,FL,Saint Cloud,Osceola,28.1293,-81.0176
+34777,FL,Winter Garden,Orange,28.5416,-81.6058
+34778,FL,Winter Garden,Orange,28.5653,-81.5862
+34785,FL,Wildwood,Sumter,28.8454,-82.0347
+34786,FL,Windermere,Orange,28.5006,-81.5354
+34787,FL,Winter Garden,Orange,28.5423,-81.5911
+34788,FL,Leesburg,Lake,28.8887,-81.7827
+34789,FL,Leesburg,Lake,28.8108,-81.8779
+34797,FL,Yalaha,Lake,28.7444,-81.8263
+34945,FL,Fort Pierce,St. Lucie,27.4382,-80.444
+34946,FL,Fort Pierce,St. Lucie,27.5008,-80.36
+34947,FL,Fort Pierce,St. Lucie,27.4493,-80.3592
+34948,FL,Fort Pierce,St. Lucie,27.3822,-80.409
+34949,FL,Fort Pierce,St. Lucie,27.3896,-80.2615
+34950,FL,Fort Pierce,St. Lucie,27.4486,-80.3385
+34951,FL,Fort Pierce,St. Lucie,27.5391,-80.4052
+34952,FL,Port Saint Lucie,St. Lucie,27.2889,-80.298
+34953,FL,Port Saint Lucie,St. Lucie,27.2625,-80.3793
+34954,FL,Fort Pierce,St. Lucie,27.3822,-80.409
+34956,FL,Indiantown,Martin,27.0615,-80.4803
+34957,FL,Jensen Beach,Martin,27.2356,-80.2277
+34958,FL,Jensen Beach,Martin,27.2424,-80.2246
+34972,FL,Okeechobee,Okeechobee,27.4203,-80.9454
+34973,FL,Okeechobee,Okeechobee,27.2439,-80.8298
+34974,FL,Okeechobee,Okeechobee,27.2002,-80.841
+34979,FL,Fort Pierce,St. Lucie,27.3822,-80.409
+34981,FL,Fort Pierce,St. Lucie,27.4049,-80.3623
+34982,FL,Fort Pierce,St. Lucie,27.3908,-80.3246
+34983,FL,Port Saint Lucie,St. Lucie,27.3094,-80.345
+34984,FL,Port Saint Lucie,St. Lucie,27.2655,-80.3389
+34985,FL,Port Saint Lucie,St. Lucie,27.2939,-80.3503
+34986,FL,Port Saint Lucie,St. Lucie,27.3215,-80.403
+34987,FL,Port Saint Lucie,St. Lucie,27.2606,-80.4771
+34988,FL,Port Saint Lucie,St. Lucie,27.3868,-80.5037
+34990,FL,Palm City,Martin,27.1656,-80.2916
+34991,FL,Palm City,Martin,27.1678,-80.2662
+34992,FL,Port Salerno,Martin,27.1442,-80.2006
+34994,FL,Stuart,Martin,27.1968,-80.2538
+34995,FL,Stuart,Martin,27.1754,-80.2415
+34996,FL,Stuart,Martin,27.1929,-80.2164
+34997,FL,Stuart,Martin,27.1398,-80.2129
+37010,TN,Adams,Robertson,36.5582,-87.1226
+37011,TN,Antioch,Davidson,36.0601,-86.6722
+37012,TN,Alexandria,DeKalb,36.0711,-86.0372
+37013,TN,Antioch,Davidson,36.0595,-86.6592
+37014,TN,Arrington,Williamson,35.8566,-86.6633
+37015,TN,Ashland City,Cheatham,36.2731,-87.0447
+37016,TN,Auburntown,Cannon,35.9338,-86.1126
+37018,TN,Beechgrove,Coffee,35.6447,-86.2046
+37019,TN,Belfast,Marshall,35.4069,-86.7095
+37020,TN,Bell Buckle,Bedford,35.6381,-86.3949
+37022,TN,Bethpage,Sumner,36.5186,-86.3146
+37023,TN,Big Rock,Stewart,36.5716,-87.7378
+37024,TN,Brentwood,Williamson,36.0331,-86.7828
+37025,TN,Bon Aqua,Hickman,35.9471,-87.2996
+37026,TN,Bradyville,Cannon,35.7053,-86.0912
+37027,TN,Brentwood,Williamson,36.0063,-86.7909
+37028,TN,Bumpus Mills,Stewart,36.6226,-87.8614
+37029,TN,Burns,Dickson,36.0471,-87.3061
+37030,TN,Carthage,Smith,36.2763,-85.9517
+37031,TN,Castalian Springs,Sumner,36.3806,-86.3107
+37032,TN,Cedar Hill,Robertson,36.5514,-86.9992
+37033,TN,Centerville,Hickman,35.7797,-87.4775
+37034,TN,Chapel Hill,Marshall,35.6354,-86.6836
+37035,TN,Chapmansboro,Cheatham,36.3768,-87.1127
+37036,TN,Charlotte,Dickson,36.2326,-87.2816
+37037,TN,Christiana,Rutherford,35.696,-86.368
+37040,TN,Clarksville,Montgomery,36.522,-87.349
+37041,TN,Clarksville,Montgomery,36.4774,-87.3772
+37042,TN,Clarksville,Montgomery,36.5853,-87.4186
+37043,TN,Clarksville,Montgomery,36.5107,-87.2757
+37044,TN,Clarksville,Montgomery,36.5314,-87.353
+37046,TN,College Grove,Williamson,35.7832,-86.7495
+37047,TN,Cornersville,Marshall,35.3409,-86.8286
+37048,TN,Cottontown,Sumner,36.4912,-86.6033
+37049,TN,Cross Plains,Robertson,36.5531,-86.6761
+37050,TN,Cumberland City,Stewart,36.3729,-87.6306
+37051,TN,Cumberland Furnace,Dickson,36.2721,-87.3914
+37052,TN,Cunningham,Montgomery,36.3789,-87.4245
+37055,TN,Dickson,Dickson,36.076,-87.3995
+37056,TN,Dickson,Dickson,36.1469,-87.353
+37057,TN,Dixon Springs,Smith,36.4455,-86.0533
+37058,TN,Dover,Stewart,36.4942,-87.8787
+37059,TN,Dowelltown,DeKalb,35.9725,-85.9055
+37060,TN,Eagleville,Rutherford,35.7492,-86.6327
+37061,TN,Erin,Houston,36.3067,-87.679
+37062,TN,Fairview,Williamson,35.9755,-87.1321
+37063,TN,Fosterville,Rutherford,35.6551,-86.403
+37064,TN,Franklin,Williamson,35.9328,-86.8788
+37065,TN,Franklin,Williamson,35.9251,-86.8689
+37066,TN,Gallatin,Sumner,36.3834,-86.4512
+37067,TN,Franklin,Williamson,35.9121,-86.7655
+37068,TN,Franklin,Williamson,35.8746,-86.9076
+37069,TN,Franklin,Williamson,35.9796,-86.9106
+37070,TN,Goodlettsville,Davidson,36.3231,-86.7133
+37071,TN,Gladeville,Wilson,36.1562,-86.3049
+37072,TN,Goodlettsville,Davidson,36.3417,-86.7212
+37073,TN,Greenbrier,Robertson,36.4229,-86.7914
+37074,TN,Hartsville,Trousdale,36.3947,-86.1704
+37075,TN,Hendersonville,Sumner,36.3054,-86.6072
+37076,TN,Hermitage,Davidson,36.1848,-86.6002
+37077,TN,Hendersonville,Sumner,36.3047,-86.6211
+37078,TN,Hurricane Mills,Humphreys,35.924,-87.8105
+37079,TN,Indian Mound,Stewart,36.4946,-87.6804
+37080,TN,Joelton,Davidson,36.329,-86.9163
+37082,TN,Kingston Springs,Cheatham,36.0953,-87.1156
+37083,TN,Lafayette,Macon,36.539,-86.0242
+37085,TN,Lascassas,Rutherford,35.9495,-86.3112
+37086,TN,La Vergne,Rutherford,36.0127,-86.56
+37087,TN,Lebanon,Wilson,36.2098,-86.3024
+37088,TN,Lebanon,Wilson,36.2081,-86.2911
+37089,TN,La Vergne,Rutherford,35.8596,-86.421
+37090,TN,Lebanon,Wilson,36.1185,-86.263
+37091,TN,Lewisburg,Marshall,35.4596,-86.7812
+37095,TN,Liberty,DeKalb,36.0067,-85.9678
+37096,TN,Linden,Perry,35.5944,-87.8567
+37097,TN,Lobelville,Perry,35.7467,-87.8251
+37098,TN,Lyles,Hickman,35.8502,-87.3127
+37101,TN,Mc Ewen,Humphreys,36.1185,-87.6422
+37110,TN,Mcminnville,Warren,35.6834,-85.77
+37111,TN,Mcminnville,Warren,35.6834,-85.77
+37115,TN,Madison,Davidson,36.2604,-86.7046
+37116,TN,Madison,Davidson,36.1866,-86.7852
+37118,TN,Milton,Rutherford,35.9221,-86.1824
+37119,TN,Mitchellville,Sumner,36.632,-86.539
+37121,TN,Mount Juliet,Wilson,36.2001,-86.5186
+37122,TN,Mount Juliet,Wilson,36.1897,-86.5023
+37127,TN,Murfreesboro,Rutherford,35.763,-86.3722
+37128,TN,Murfreesboro,Rutherford,35.8454,-86.4867
+37129,TN,Murfreesboro,Rutherford,35.871,-86.4181
+37130,TN,Murfreesboro,Rutherford,35.8456,-86.3903
+37131,TN,Murfreesboro,Rutherford,35.8596,-86.421
+37132,TN,Murfreesboro,Rutherford,35.8596,-86.421
+37133,TN,Murfreesboro,Rutherford,35.8456,-86.3903
+37134,TN,New Johnsonville,Humphreys,36.0088,-87.9547
+37135,TN,Nolensville,Williamson,35.9307,-86.6829
+37136,TN,Norene,Wilson,36.1562,-86.3049
+37137,TN,Nunnelly,Hickman,35.8763,-87.5067
+37138,TN,Old Hickory,Davidson,36.2416,-86.6117
+37140,TN,Only,Hickman,35.8679,-87.6655
+37141,TN,Orlinda,Robertson,36.611,-86.699
+37142,TN,Palmyra,Montgomery,36.4176,-87.4914
+37143,TN,Pegram,Cheatham,36.1129,-87.0316
+37144,TN,Petersburg,Lincoln,35.2924,-86.6447
+37145,TN,Pleasant Shade,Smith,36.3462,-85.9189
+37146,TN,Pleasant View,Cheatham,36.3783,-87.0395
+37148,TN,Portland,Sumner,36.5673,-86.5059
+37149,TN,Readyville,Cannon,35.7989,-86.2415
+37150,TN,Red Boiling Springs,Macon,36.5177,-85.8662
+37151,TN,Riddleton,Smith,36.3506,-86.0335
+37152,TN,Ridgetop,Robertson,36.4025,-86.7722
+37153,TN,Rockvale,Rutherford,35.745,-86.5352
+37160,TN,Shelbyville,Bedford,35.4863,-86.4624
+37161,TN,Shelbyville,Bedford,35.4834,-86.4603
+37162,TN,Shelbyville,Bedford,35.5108,-86.45
+37165,TN,Slayden,Dickson,36.2948,-87.4703
+37166,TN,Smithville,DeKalb,35.9299,-85.8046
+37167,TN,Smyrna,Rutherford,35.9656,-86.5048
+37171,TN,Southside,Montgomery,36.3626,-87.3061
+37172,TN,Springfield,Robertson,36.5018,-86.8769
+37174,TN,Spring Hill,Maury,35.7173,-86.9048
+37175,TN,Stewart,Houston,36.3241,-87.8725
+37178,TN,Tennessee Ridge,Houston,36.3297,-87.7808
+37179,TN,Thompsons Station,Williamson,35.809,-86.8913
+37180,TN,Unionville,Bedford,35.6224,-86.5639
+37181,TN,Vanleer,Dickson,36.2237,-87.4565
+37183,TN,Wartrace,Bedford,35.5123,-86.3277
+37184,TN,Watertown,Wilson,36.0953,-86.1434
+37185,TN,Waverly,Humphreys,36.0997,-87.7991
+37186,TN,Westmoreland,Sumner,36.5756,-86.2353
+37187,TN,White Bluff,Dickson,36.1253,-87.219
+37188,TN,White House,Robertson,36.46,-86.6705
+37189,TN,Whites Creek,Davidson,36.2744,-86.8292
+37190,TN,Woodbury,Cannon,35.8143,-86.05
+37191,TN,Woodlawn,Montgomery,36.5147,-87.5393
+37201,TN,Nashville,Davidson,36.1657,-86.7781
+37202,TN,Nashville,Davidson,36.3403,-86.8273
+37203,TN,Nashville,Davidson,36.1504,-86.7916
+37204,TN,Nashville,Davidson,36.1067,-86.7743
+37205,TN,Nashville,Davidson,36.1114,-86.869
+37206,TN,Nashville,Davidson,36.1798,-86.7411
+37207,TN,Nashville,Davidson,36.2195,-86.774
+37208,TN,Nashville,Davidson,36.1762,-86.8076
+37209,TN,Nashville,Davidson,36.1546,-86.8602
+37210,TN,Nashville,Davidson,36.1379,-86.741
+37211,TN,Nashville,Davidson,36.0725,-86.724
+37212,TN,Nashville,Davidson,36.1337,-86.8006
+37213,TN,Nashville,Davidson,36.1663,-86.7669
+37214,TN,Nashville,Davidson,36.1633,-86.6609
+37215,TN,Nashville,Davidson,36.0986,-86.8219
+37216,TN,Nashville,Davidson,36.2125,-86.7257
+37217,TN,Nashville,Davidson,36.1052,-86.6591
+37218,TN,Nashville,Davidson,36.2071,-86.8456
+37219,TN,Nashville,Davidson,36.1678,-86.7837
+37220,TN,Nashville,Davidson,36.0641,-86.7697
+37221,TN,Nashville,Davidson,36.0662,-86.9639
+37222,TN,Nashville,Davidson,36.1659,-86.7844
+37224,TN,Nashville,Davidson,36.1866,-86.7852
+37227,TN,Nashville,Davidson,36.1866,-86.7852
+37228,TN,Nashville,Davidson,36.1901,-86.8053
+37229,TN,Nashville,Davidson,36.1866,-86.7852
+37230,TN,Nashville,Davidson,36.1866,-86.7852
+37232,TN,Nashville,Davidson,36.1866,-86.7852
+37234,TN,Nashville,Davidson,36.1866,-86.7852
+37235,TN,Nashville,Davidson,36.1866,-86.7852
+37236,TN,Nashville,Davidson,36.1866,-86.7852
+37238,TN,Nashville,Davidson,36.1866,-86.7852
+37240,TN,Nashville,Davidson,36.1866,-86.7852
+37241,TN,Nashville,Davidson,36.1866,-86.7852
+37242,TN,Nashville,Davidson,36.1866,-86.7852
+37243,TN,Nashville,Davidson,36.165,-86.7821
+37244,TN,Nashville,Davidson,36.1866,-86.7852
+37246,TN,Nashville,Davidson,36.1586,-86.79
+37250,TN,Nashville,Davidson,36.1866,-86.7852
+37301,TN,Altamont,Grundy,35.4258,-85.7635
+37302,TN,Apison,Hamilton,35.0149,-85.0164
+37303,TN,Athens,McMinn,35.4574,-84.6043
+37304,TN,Bakewell,Hamilton,35.3452,-85.138
+37305,TN,Beersheba Springs,Grundy,35.4652,-85.6942
+37306,TN,Belvidere,Franklin,35.1415,-86.1728
+37307,TN,Benton,Polk,35.173,-84.6544
+37308,TN,Birchwood,Hamilton,35.352,-84.9618
+37309,TN,Calhoun,McMinn,35.3228,-84.7364
+37310,TN,Charleston,Bradley,35.2556,-84.7666
+37311,TN,Cleveland,Bradley,35.1313,-84.875
+37312,TN,Cleveland,Bradley,35.2023,-84.8476
+37313,TN,Coalmont,Grundy,35.3516,-85.7003
+37314,TN,Cokercreek,Monroe,35.2467,-84.3031
+37315,TN,Collegedale,Hamilton,35.0479,-85.0574
+37316,TN,Conasauga,Polk,34.9971,-84.7327
+37317,TN,Copperhill,Polk,35.0207,-84.3748
+37318,TN,Cowan,Franklin,35.1783,-86.0167
+37320,TN,Cleveland,Bradley,35.1727,-84.8619
+37321,TN,Dayton,Rhea,35.5002,-85.0135
+37322,TN,Decatur,Meigs,35.5072,-84.8081
+37323,TN,Cleveland,Bradley,35.1361,-84.8457
+37324,TN,Decherd,Franklin,35.2326,-86.0589
+37325,TN,Delano,Polk,35.2612,-84.6024
+37326,TN,Ducktown,Polk,35.0339,-84.3792
+37327,TN,Dunlap,Sequatchie,35.3842,-85.3925
+37328,TN,Elora,Lincoln,35.0295,-86.3481
+37329,TN,Englewood,McMinn,35.4272,-84.4833
+37330,TN,Estill Springs,Franklin,35.2705,-86.1396
+37331,TN,Etowah,McMinn,35.3314,-84.5283
+37332,TN,Evensville,Rhea,35.6153,-85.0228
+37333,TN,Farner,Polk,35.1449,-84.3209
+37334,TN,Fayetteville,Lincoln,35.1527,-86.5664
+37335,TN,Flintville,Lincoln,35.0581,-86.413
+37336,TN,Georgetown,Meigs,35.2932,-84.9127
+37337,TN,Grandview,Rhea,35.7608,-84.8615
+37338,TN,Graysville,Rhea,35.4484,-85.179
+37339,TN,Gruetli Laager,Grundy,35.3723,-85.618
+37340,TN,Guild,Marion,35.0178,-85.5116
+37341,TN,Harrison,Hamilton,35.1679,-85.0945
+37342,TN,Hillsboro,Coffee,35.3699,-85.9724
+37343,TN,Hixson,Hamilton,35.1591,-85.2182
+37345,TN,Huntland,Franklin,35.0512,-86.2694
+37347,TN,Jasper,Marion,35.097,-85.5897
+37348,TN,Kelso,Lincoln,35.1024,-86.4683
+37349,TN,Manchester,Coffee,35.4976,-86.0748
+37350,TN,Lookout Mountain,Hamilton,34.9948,-85.3506
+37351,TN,Lupton City,Hamilton,35.1045,-85.2631
+37352,TN,Lynchburg,Moore,35.2706,-86.372
+37353,TN,Mc Donald,Bradley,35.0869,-84.9892
+37354,TN,Madisonville,Monroe,35.4916,-84.3395
+37355,TN,Manchester,Coffee,35.4958,-86.0816
+37356,TN,Monteagle,Grundy,35.2402,-85.8228
+37357,TN,Morrison,Warren,35.6029,-85.9197
+37359,TN,Mulberry,Lincoln,35.1941,-86.4217
+37360,TN,Normandy,Bedford,35.4296,-86.2557
+37361,TN,Ocoee,Polk,35.1025,-84.7136
+37362,TN,Old Fort,Polk,35.2829,-85.2568
+37363,TN,Ooltewah,Hamilton,35.0781,-85.0635
+37364,TN,Cleveland,Bradley,35.1727,-84.8619
+37365,TN,Palmer,Grundy,35.3741,-85.5643
+37366,TN,Pelham,Grundy,35.314,-85.8441
+37367,TN,Pikeville,Bledsoe,35.6408,-85.2077
+37369,TN,Reliance,Polk,35.1807,-84.541
+37370,TN,Riceville,McMinn,35.3731,-84.6951
+37371,TN,Athens,McMinn,35.4429,-84.593
+37373,TN,Sale Creek,Hamilton,35.3858,-85.1023
+37374,TN,Sequatchie,Marion,35.1634,-85.6371
+37375,TN,Sewanee,Franklin,35.2011,-85.9126
+37376,TN,Sherwood,Franklin,35.0452,-85.9302
+37377,TN,Signal Mountain,Hamilton,35.1494,-85.3362
+37378,TN,Smartt,Warren,35.6403,-85.8366
+37379,TN,Soddy Daisy,Hamilton,35.2527,-85.163
+37380,TN,South Pittsburg,Marion,35.028,-85.7225
+37381,TN,Spring City,Rhea,35.6935,-84.8198
+37382,TN,Summitville,Coffee,35.5595,-85.9925
+37383,TN,Sewanee,Franklin,35.1805,-85.9035
+37384,TN,Soddy Daisy,Hamilton,35.2211,-85.2091
+37385,TN,Tellico Plains,Monroe,35.3562,-84.3068
+37387,TN,Tracy City,Grundy,35.2721,-85.7362
+37388,TN,Tullahoma,Coffee,35.3468,-86.22
+37389,TN,Arnold Afb,Coffee,35.4976,-86.0748
+37391,TN,Turtletown,Polk,35.1081,-84.3544
+37394,TN,Viola,Warren,35.5384,-85.8591
+37396,TN,Whiteside,Marion,34.9873,-85.4977
+37397,TN,Whitwell,Marion,35.1972,-85.5011
+37398,TN,Winchester,Franklin,35.1864,-86.113
+37401,TN,Chattanooga,Hamilton,35.0456,-85.3097
+37402,TN,Chattanooga,Hamilton,35.0463,-85.3161
+37403,TN,Chattanooga,Hamilton,35.045,-85.2965
+37404,TN,Chattanooga,Hamilton,35.0306,-85.2722
+37405,TN,Chattanooga,Hamilton,35.0768,-85.3082
+37406,TN,Chattanooga,Hamilton,35.0614,-85.2478
+37407,TN,Chattanooga,Hamilton,35.0024,-85.2849
+37408,TN,Chattanooga,Hamilton,35.0292,-85.3068
+37409,TN,Chattanooga,Hamilton,34.9981,-85.331
+37410,TN,Chattanooga,Hamilton,35.0018,-85.3138
+37411,TN,Chattanooga,Hamilton,35.0271,-85.2356
+37412,TN,Chattanooga,Hamilton,35.0015,-85.2384
+37414,TN,Chattanooga,Hamilton,35.0456,-85.3097
+37415,TN,Chattanooga,Hamilton,35.1273,-85.2802
+37416,TN,Chattanooga,Hamilton,35.0942,-85.1757
+37419,TN,Chattanooga,Hamilton,35.0331,-85.3687
+37421,TN,Chattanooga,Hamilton,35.025,-85.1459
+37422,TN,Chattanooga,Hamilton,35.0456,-85.3097
+37424,TN,Chattanooga,Hamilton,35.0456,-85.3097
+37450,TN,Chattanooga,Hamilton,35.0456,-85.3097
+37501,TN,Memphis,Shelby,35.1693,-89.9904
+37544,TN,Memphis,Shelby,35.1496,-90.0487
+37601,TN,Johnson City,Washington,36.3339,-82.3408
+37602,TN,Johnson City,Washington,36.2717,-82.5012
+37604,TN,Johnson City,Washington,36.3107,-82.381
+37605,TN,Johnson City,Washington,36.3158,-82.3838
+37614,TN,Johnson City,Washington,36.1571,-82.5626
+37615,TN,Johnson City,Washington,36.3996,-82.4523
+37616,TN,Afton,Greene,36.2265,-82.7476
+37617,TN,Blountville,Sullivan,36.5356,-82.3656
+37618,TN,Bluff City,Sullivan,36.4774,-82.2362
+37620,TN,Bristol,Sullivan,36.5686,-82.1819
+37621,TN,Bristol,Sullivan,36.5042,-82.2645
+37625,TN,Bristol,Sullivan,36.5951,-82.1887
+37640,TN,Butler,Johnson,36.3282,-81.9856
+37641,TN,Chuckey,Greene,36.2569,-82.6905
+37642,TN,Church Hill,Hawkins,36.5399,-82.7252
+37643,TN,Elizabethton,Carter,36.3445,-82.2015
+37644,TN,Elizabethton,Carter,36.3487,-82.2107
+37645,TN,Mount Carmel,Hawkins,36.5629,-82.6532
+37650,TN,Erwin,Unicoi,36.1342,-82.4163
+37656,TN,Fall Branch,Washington,36.4158,-82.6256
+37657,TN,Flag Pond,Unicoi,36.0085,-82.5623
+37658,TN,Hampton,Carter,36.2577,-82.1891
+37659,TN,Jonesborough,Washington,36.2954,-82.4902
+37660,TN,Kingsport,Sullivan,36.5484,-82.5618
+37662,TN,Kingsport,Sullivan,36.5484,-82.5618
+37663,TN,Kingsport,Sullivan,36.4715,-82.4834
+37664,TN,Kingsport,Sullivan,36.5208,-82.5168
+37665,TN,Kingsport,Sullivan,36.5799,-82.5733
+37669,TN,Kingsport,Sullivan,36.5484,-82.5618
+37680,TN,Laurel Bloomery,Johnson,36.5793,-81.7254
+37681,TN,Limestone,Washington,36.254,-82.625
+37682,TN,Milligan College,Carter,36.296,-82.3054
+37683,TN,Mountain City,Johnson,36.4657,-81.814
+37684,TN,Mountain Home,Washington,36.3107,-82.3732
+37686,TN,Piney Flats,Sullivan,36.4461,-82.334
+37687,TN,Roan Mountain,Carter,36.1773,-82.081
+37688,TN,Shady Valley,Johnson,36.5272,-81.9068
+37690,TN,Telford,Washington,36.2451,-82.5369
+37691,TN,Trade,Johnson,36.3683,-81.7572
+37692,TN,Unicoi,Unicoi,36.2066,-82.322
+37694,TN,Watauga,Carter,36.3702,-82.2683
+37699,TN,Piney Flats,Sullivan,36.4195,-82.304
+37701,TN,Alcoa,Blount,35.7852,-83.9809
+37705,TN,Andersonville,Anderson,36.1915,-84.0544
+37707,TN,Arthur,Claiborne,36.5481,-83.6707
+37708,TN,Bean Station,Grainger,36.3249,-83.3142
+37709,TN,Blaine,Grainger,36.1583,-83.6783
+37710,TN,Briceville,Anderson,36.1626,-84.2992
+37711,TN,Bulls Gap,Hawkins,36.2832,-83.0374
+37713,TN,Bybee,Cocke,36.0482,-83.1793
+37714,TN,Caryville,Campbell,36.3028,-84.203
+37715,TN,Clairfield,Claiborne,36.565,-83.9397
+37716,TN,Clinton,Anderson,36.0869,-84.1897
+37717,TN,Clinton,Anderson,36.11,-84.1672
+37719,TN,Coalfield,Morgan,36.029,-84.4208
+37721,TN,Corryton,Knox,36.12,-83.813
+37722,TN,Cosby,Cocke,35.8347,-83.2187
+37723,TN,Crab Orchard,Cumberland,35.9537,-84.8205
+37724,TN,Cumberland Gap,Claiborne,36.5504,-83.681
+37725,TN,Dandridge,Jefferson,36.0008,-83.4233
+37726,TN,Deer Lodge,Morgan,36.2176,-84.8191
+37727,TN,Del Rio,Cocke,35.883,-83.015
+37729,TN,Duff,Campbell,36.5086,-84.0454
+37730,TN,Eagan,Claiborne,36.552,-83.9769
+37731,TN,Eidson,Hawkins,36.4995,-83.0827
+37732,TN,Elgin,Scott,36.3323,-84.6063
+37733,TN,Rugby,Morgan,36.3519,-84.7137
+37737,TN,Friendsville,Blount,35.7523,-84.1061
+37738,TN,Gatlinburg,Sevier,35.729,-83.4874
+37742,TN,Greenback,Loudon,35.6567,-84.171
+37743,TN,Greeneville,Greene,36.1316,-82.8692
+37744,TN,Greeneville,Greene,36.1683,-82.8548
+37745,TN,Greeneville,Greene,36.2455,-82.8238
+37748,TN,Harriman,Roane,35.9348,-84.5155
+37752,TN,Harrogate,Claiborne,36.5767,-83.6073
+37753,TN,Hartford,Cocke,35.8256,-83.0996
+37754,TN,Heiskell,Knox,36.115,-84.0438
+37755,TN,Helenwood,Scott,36.4329,-84.5381
+37756,TN,Huntsville,Scott,36.3983,-84.4288
+37757,TN,Jacksboro,Campbell,36.3266,-84.1928
+37760,TN,Jefferson City,Jefferson,36.1163,-83.481
+37762,TN,Jellico,Campbell,36.577,-84.126
+37763,TN,Kingston,Roane,35.8528,-84.4971
+37764,TN,Kodak,Sevier,35.9722,-83.6171
+37765,TN,Kyles Ford,Hancock,36.5721,-83.0507
+37766,TN,La Follette,Campbell,36.4248,-84.0907
+37769,TN,Lake City,Anderson,36.2032,-84.1386
+37770,TN,Lancing,Morgan,36.1456,-84.7135
+37771,TN,Lenoir City,Loudon,35.8104,-84.2665
+37772,TN,Lenoir City,Loudon,35.7883,-84.2188
+37773,TN,Lone Mountain,Claiborne,36.3906,-83.5849
+37774,TN,Loudon,Loudon,35.7292,-84.3436
+37777,TN,Louisville,Blount,35.8375,-84.0089
+37778,TN,Lowland,Hamblen,36.2133,-83.2752
+37779,TN,Luttrell,Union,36.2001,-83.76
+37801,TN,Maryville,Blount,35.6884,-84.0769
+37802,TN,Maryville,Blount,35.7565,-83.9705
+37803,TN,Maryville,Blount,35.6539,-83.9956
+37804,TN,Maryville,Blount,35.7991,-83.8852
+37806,TN,Mascot,Knox,36.0844,-83.7411
+37807,TN,Maynardville,Union,36.2343,-83.8403
+37809,TN,Midway,Greene,36.151,-83.0281
+37810,TN,Mohawk,Greene,36.1869,-83.0902
+37811,TN,Mooresburg,Hawkins,36.3621,-83.2095
+37813,TN,Morristown,Hamblen,36.1957,-83.2755
+37814,TN,Morristown,Hamblen,36.2248,-83.3119
+37815,TN,Morristown,Hamblen,36.2133,-83.2752
+37816,TN,Morristown,Hamblen,36.2133,-83.2752
+37818,TN,Mosheim,Greene,36.1839,-82.9674
+37819,TN,Newcomb,Campbell,36.5428,-84.1798
+37820,TN,New Market,Jefferson,36.081,-83.5673
+37821,TN,Newport,Cocke,35.9544,-83.2027
+37822,TN,Newport,Cocke,35.967,-83.1877
+37824,TN,New Tazewell,Claiborne,36.45,-83.5911
+37825,TN,New Tazewell,Claiborne,36.4245,-83.6469
+37826,TN,Niota,McMinn,35.5819,-84.5721
+37828,TN,Norris,Anderson,36.2005,-84.0858
+37829,TN,Oakdale,Morgan,36.01,-84.5753
+37830,TN,Oak Ridge,Anderson,36.0159,-84.2623
+37831,TN,Oak Ridge,Anderson,36.106,-84.1958
+37840,TN,Oliver Springs,Morgan,36.0366,-84.3486
+37841,TN,Oneida,Scott,36.5053,-84.5293
+37843,TN,Parrottsville,Cocke,35.9983,-83.0736
+37845,TN,Petros,Morgan,36.0959,-84.4424
+37846,TN,Philadelphia,Loudon,35.6781,-84.4312
+37847,TN,Pioneer,Campbell,36.4695,-84.2907
+37848,TN,Powder Springs,Grainger,36.2357,-83.6801
+37849,TN,Powell,Knox,36.0435,-84.04
+37851,TN,Pruden,Claiborne,36.5862,-83.901
+37852,TN,Robbins,Scott,36.3527,-84.5904
+37853,TN,Rockford,Blount,35.8305,-83.9412
+37854,TN,Rockwood,Roane,35.8587,-84.6842
+37857,TN,Rogersville,Hawkins,36.4162,-83.0108
+37860,TN,Russellville,Hamblen,36.2567,-83.1914
+37861,TN,Rutledge,Grainger,36.2501,-83.5125
+37862,TN,Sevierville,Sevier,35.8452,-83.5386
+37863,TN,Pigeon Forge,Sevier,35.7922,-83.5638
+37864,TN,Sevierville,Sevier,35.8542,-83.6138
+37865,TN,Seymour,Sevier,35.87,-83.7495
+37866,TN,Sharps Chapel,Union,36.3685,-83.8127
+37867,TN,Shawanee,Claiborne,36.5803,-83.6473
+37868,TN,Pigeon Forge,Sevier,35.8809,-83.5561
+37869,TN,Sneedville,Hancock,36.5275,-83.2529
+37870,TN,Speedwell,Claiborne,36.4797,-83.8135
+37871,TN,Strawberry Plains,Jefferson,36.0687,-83.6568
+37872,TN,Sunbright,Morgan,36.2622,-84.6984
+37873,TN,Surgoinsville,Hawkins,36.4741,-82.8306
+37874,TN,Sweetwater,Monroe,35.6015,-84.461
+37876,TN,Sevierville,Sevier,35.866,-83.4793
+37877,TN,Talbott,Hamblen,36.16,-83.4129
+37878,TN,Tallassee,Blount,35.5844,-83.9923
+37879,TN,Tazewell,Claiborne,36.471,-83.5552
+37880,TN,Ten Mile,Meigs,35.6862,-84.6548
+37881,TN,Thorn Hill,Grainger,36.3917,-83.366
+37882,TN,Townsend,Blount,35.6784,-83.7572
+37885,TN,Vonore,Monroe,35.5354,-84.1778
+37886,TN,Walland,Blount,35.7533,-83.8243
+37887,TN,Wartburg,Morgan,36.1016,-84.5652
+37888,TN,Washburn,Grainger,36.3106,-83.5937
+37890,TN,White Pine,Jefferson,36.0776,-83.2998
+37891,TN,Whitesburg,Hamblen,36.2621,-83.1458
+37892,TN,Winfield,Scott,36.5598,-84.434
+37901,TN,Knoxville,Knox,36.0323,-83.8848
+37902,TN,Knoxville,Knox,35.9625,-83.9209
+37909,TN,Knoxville,Knox,35.946,-84.0235
+37912,TN,Knoxville,Knox,36.0055,-83.9773
+37914,TN,Knoxville,Knox,35.9918,-83.8496
+37915,TN,Knoxville,Knox,35.9721,-83.901
+37916,TN,Knoxville,Knox,35.9556,-83.9336
+37917,TN,Knoxville,Knox,35.998,-83.9152
+37918,TN,Knoxville,Knox,36.0501,-83.9226
+37919,TN,Knoxville,Knox,35.9244,-84.0015
+37920,TN,Knoxville,Knox,35.8929,-83.9387
+37921,TN,Knoxville,Knox,35.9793,-84.003
+37922,TN,Knoxville,Knox,35.858,-84.1194
+37923,TN,Knoxville,Knox,35.9331,-84.0761
+37924,TN,Knoxville,Knox,36.032,-83.8021
+37927,TN,Knoxville,Knox,35.9901,-83.9622
+37928,TN,Knoxville,Knox,35.9901,-83.9622
+37929,TN,Knoxville,Knox,35.9606,-83.9207
+37930,TN,Knoxville,Knox,35.9029,-83.9536
+37931,TN,Knoxville,Knox,35.9924,-84.1201
+37932,TN,Knoxville,Knox,35.9335,-84.1481
+37933,TN,Knoxville,Knox,35.9901,-83.9622
+37934,TN,Knoxville,Knox,35.8762,-84.1746
+37938,TN,Knoxville,Knox,36.1055,-83.946
+37939,TN,Knoxville,Knox,35.9901,-83.9622
+37940,TN,Knoxville,Knox,35.9901,-83.9622
+37950,TN,Knoxville,Knox,35.9901,-83.9622
+37995,TN,Knoxville,Knox,35.9606,-83.9207
+37996,TN,Knoxville,Knox,35.9901,-83.9622
+37997,TN,Knoxville,Knox,35.9901,-83.9622
+37998,TN,Knoxville,Knox,35.9351,-83.7503
+38001,TN,Alamo,Crockett,35.8017,-89.1765
+38002,TN,Arlington,Shelby,35.2752,-89.7295
+38004,TN,Atoka,Tipton,35.4412,-89.7781
+38006,TN,Bells,Crockett,35.7198,-89.0729
+38007,TN,Bogota,Dyer,36.164,-89.4384
+38008,TN,Bolivar,Hardeman,35.2461,-89.0007
+38010,TN,Braden,Fayette,35.2886,-89.488
+38011,TN,Brighton,Tipton,35.484,-89.7251
+38012,TN,Brownsville,Haywood,35.61,-89.2624
+38014,TN,Brunswick,Shelby,35.2673,-89.7687
+38015,TN,Burlison,Tipton,35.5399,-89.8177
+38016,TN,Cordova,Shelby,35.1602,-89.7816
+38017,TN,Collierville,Shelby,35.0551,-89.6767
+38018,TN,Cordova,Shelby,35.1556,-89.7762
+38019,TN,Covington,Tipton,35.5598,-89.6501
+38021,TN,Crockett Mills,Crockett,35.8676,-89.1692
+38023,TN,Drummonds,Tipton,35.4452,-89.9236
+38024,TN,Dyersburg,Dyer,36.0444,-89.3836
+38025,TN,Dyersburg,Dyer,36.0345,-89.3856
+38027,TN,Collierville,Shelby,35.042,-89.6645
+38028,TN,Eads,Shelby,35.1551,-89.676
+38029,TN,Ellendale,Shelby,35.2306,-89.8259
+38030,TN,Finley,Dyer,36.0169,-89.5134
+38034,TN,Friendship,Crockett,35.909,-89.2453
+38036,TN,Gallaway,Fayette,35.3274,-89.6198
+38037,TN,Gates,Lauderdale,35.796,-89.3938
+38039,TN,Grand Junction,Hardeman,35.049,-89.187
+38040,TN,Halls,Lauderdale,35.8862,-89.4147
+38041,TN,Henning,Lauderdale,35.6593,-89.6962
+38042,TN,Hickory Valley,Hardeman,35.158,-89.1309
+38044,TN,Hornsby,Hardeman,35.2197,-88.8263
+38045,TN,Laconia,Fayette,35.2904,-89.2322
+38046,TN,La Grange,Fayette,35.0454,-89.2437
+38047,TN,Lenox,Dyer,36.0892,-89.4984
+38048,TN,Macon,Fayette,35.1507,-89.4814
+38049,TN,Mason,Tipton,35.438,-89.5518
+38050,TN,Maury City,Crockett,35.8379,-89.2273
+38052,TN,Middleton,Hardeman,35.0818,-88.9046
+38053,TN,Millington,Shelby,35.3185,-89.9054
+38054,TN,Millington,Shelby,35.3341,-89.8706
+38055,TN,Millington,Shelby,35.3415,-89.8973
+38057,TN,Moscow,Fayette,35.0588,-89.3595
+38058,TN,Munford,Tipton,35.459,-89.8197
+38059,TN,Newbern,Dyer,36.1009,-89.2514
+38060,TN,Oakland,Fayette,35.229,-89.5151
+38061,TN,Pocahontas,Hardeman,35.0315,-88.8116
+38063,TN,Ripley,Lauderdale,35.7527,-89.535
+38066,TN,Rossville,Fayette,35.0768,-89.5678
+38067,TN,Saulsbury,Hardeman,35.0498,-89.0769
+38068,TN,Somerville,Fayette,35.2772,-89.3918
+38069,TN,Stanton,Haywood,35.4482,-89.3326
+38070,TN,Tigrett,Dyer,35.9515,-89.2401
+38071,TN,Tipton,Tipton,35.4143,-89.8188
+38075,TN,Whiteville,Hardeman,35.3191,-89.1337
+38076,TN,Williston,Fayette,35.1576,-89.3684
+38077,TN,Wynnburg,Lake,36.3281,-89.4744
+38079,TN,Tiptonville,Lake,36.3846,-89.4649
+38080,TN,Ridgely,Lake,36.2638,-89.4858
+38083,TN,Millington,Shelby,35.2017,-89.9715
+38088,TN,Cordova,Shelby,35.1556,-89.7762
+38101,TN,Memphis,Shelby,35.1495,-90.049
+38103,TN,Memphis,Shelby,35.144,-90.048
+38104,TN,Memphis,Shelby,35.1334,-90.0046
+38105,TN,Memphis,Shelby,35.1497,-90.033
+38106,TN,Memphis,Shelby,35.1021,-90.033
+38107,TN,Memphis,Shelby,35.1831,-90.0201
+38108,TN,Memphis,Shelby,35.1787,-89.9682
+38109,TN,Memphis,Shelby,35.0425,-90.0732
+38111,TN,Memphis,Shelby,35.1076,-89.9457
+38112,TN,Memphis,Shelby,35.1483,-89.9729
+38113,TN,Memphis,Shelby,35.1274,-89.9845
+38114,TN,Memphis,Shelby,35.0981,-89.9825
+38115,TN,Memphis,Shelby,35.0579,-89.864
+38116,TN,Memphis,Shelby,35.0303,-90.0123
+38117,TN,Memphis,Shelby,35.1124,-89.9034
+38118,TN,Memphis,Shelby,35.0514,-89.9265
+38119,TN,Memphis,Shelby,35.0821,-89.8501
+38120,TN,Memphis,Shelby,35.1207,-89.8651
+38122,TN,Memphis,Shelby,35.1572,-89.9268
+38124,TN,Memphis,Shelby,35.2017,-89.9715
+38125,TN,Memphis,Shelby,35.0312,-89.8124
+38126,TN,Memphis,Shelby,35.1255,-90.0424
+38127,TN,Memphis,Shelby,35.251,-90.0296
+38128,TN,Memphis,Shelby,35.2213,-89.9413
+38130,TN,Memphis,Shelby,35.2017,-89.9715
+38131,TN,Memphis,Shelby,35.0664,-89.9921
+38132,TN,Memphis,Shelby,35.072,-89.9886
+38133,TN,Memphis,Shelby,35.2054,-89.8036
+38134,TN,Memphis,Shelby,35.1845,-89.8574
+38135,TN,Memphis,Shelby,35.2323,-89.8509
+38136,TN,Memphis,Shelby,35.2017,-89.9715
+38137,TN,Memphis,Shelby,35.2017,-89.9715
+38138,TN,Germantown,Shelby,35.0883,-89.8053
+38139,TN,Germantown,Shelby,35.0874,-89.7703
+38141,TN,Memphis,Shelby,35.0231,-89.8492
+38145,TN,Memphis,Shelby,35.2017,-89.9715
+38148,TN,Memphis,Shelby,35.1495,-90.049
+38150,TN,Memphis,Shelby,35.1495,-90.049
+38151,TN,Memphis,Shelby,35.2017,-89.9715
+38152,TN,Memphis,Shelby,35.2017,-89.9715
+38157,TN,Memphis,Shelby,35.2017,-89.9715
+38159,TN,Memphis,Shelby,35.1495,-90.049
+38161,TN,Memphis,Shelby,35.2017,-89.9715
+38163,TN,Memphis,Shelby,35.2017,-89.9715
+38166,TN,Memphis,Shelby,35.2017,-89.9715
+38167,TN,Memphis,Shelby,35.2017,-89.9715
+38168,TN,Memphis,Shelby,35.2017,-89.9715
+38173,TN,Memphis,Shelby,35.1495,-90.049
+38174,TN,Memphis,Shelby,35.2017,-89.9715
+38175,TN,Memphis,Shelby,35.2017,-89.9715
+38177,TN,Memphis,Shelby,35.2017,-89.9715
+38181,TN,Memphis,Shelby,35.2017,-89.9715
+38182,TN,Memphis,Shelby,35.2017,-89.9715
+38183,TN,Germantown,Shelby,35.2017,-89.9715
+38184,TN,Memphis,Shelby,35.2017,-89.9715
+38186,TN,Memphis,Shelby,35.2017,-89.9715
+38187,TN,Memphis,Shelby,35.2017,-89.9715
+38188,TN,Memphis,Shelby,35.2017,-89.9715
+38190,TN,Memphis,Shelby,35.2017,-89.9715
+38193,TN,Memphis,Shelby,35.2017,-89.9715
+38194,TN,Memphis,Shelby,35.2017,-89.9715
+38197,TN,Memphis,Shelby,35.2017,-89.9715
+38201,TN,Mc Kenzie,Carroll,36.1272,-88.5134
+38220,TN,Atwood,Carroll,35.9663,-88.6247
+38221,TN,Big Sandy,Benton,36.2285,-88.0627
+38222,TN,Buchanan,Henry,36.4146,-88.1515
+38223,TN,Como,Henry,36.2931,-88.5123
+38224,TN,Cottage Grove,Henry,36.3479,-88.4614
+38225,TN,Dresden,Weakley,36.295,-88.6963
+38226,TN,Dukedom,Weakley,36.4796,-88.6926
+38229,TN,Gleason,Weakley,36.2117,-88.6184
+38230,TN,Greenfield,Weakley,36.1485,-88.7453
+38231,TN,Henry,Henry,36.2039,-88.4198
+38232,TN,Hornbeak,Obion,36.3596,-89.3056
+38233,TN,Kenton,Gibson,36.1906,-89.0229
+38235,TN,Mc Lemoresville,Carroll,35.9778,-88.5744
+38236,TN,Mansfield,Henry,36.1847,-88.2859
+38237,TN,Martin,Weakley,36.3425,-88.8554
+38238,TN,Martin,Weakley,36.3434,-88.8503
+38240,TN,Obion,Obion,36.2657,-89.2805
+38241,TN,Palmersville,Weakley,36.3948,-88.6142
+38242,TN,Paris,Henry,36.3005,-88.3093
+38251,TN,Puryear,Henry,36.4456,-88.3472
+38253,TN,Rives,Obion,36.3108,-89.0731
+38254,TN,Samburg,Obion,36.3791,-89.3538
+38255,TN,Sharon,Weakley,36.2395,-88.8477
+38256,TN,Springville,Henry,36.265,-88.1459
+38257,TN,South Fulton,Obion,36.4814,-88.8808
+38258,TN,Trezevant,Carroll,36.0172,-88.61
+38259,TN,Trimble,Dyer,36.2011,-89.1863
+38260,TN,Troy,Obion,36.3416,-89.1611
+38261,TN,Union City,Obion,36.4263,-89.0667
+38271,TN,Woodland Mills,Obion,36.4583,-89.2332
+38281,TN,Union City,Obion,36.4242,-89.057
+38301,TN,Jackson,Madison,35.6102,-88.814
+38302,TN,Jackson,Madison,35.6124,-88.8412
+38303,TN,Jackson,Madison,35.6124,-88.8412
+38305,TN,Jackson,Madison,35.6829,-88.8281
+38308,TN,Jackson,Madison,35.6124,-88.8412
+38310,TN,Adamsville,McNairy,35.2556,-88.4134
+38311,TN,Bath Springs,Decatur,35.4521,-88.1286
+38313,TN,Beech Bluff,Madison,35.5922,-88.6396
+38314,TN,Jackson,Madison,35.6124,-88.8412
+38315,TN,Bethel Springs,McNairy,35.2289,-88.644
+38316,TN,Bradford,Gibson,36.0645,-88.8046
+38317,TN,Bruceton,Carroll,36.0268,-88.2518
+38318,TN,Buena Vista,Carroll,35.9431,-88.2926
+38320,TN,Camden,Benton,36.0556,-88.1119
+38321,TN,Cedar Grove,Carroll,35.8613,-88.5517
+38324,TN,Clarksburg,Carroll,35.8675,-88.3934
+38326,TN,Counce,Hardin,35.0394,-88.2936
+38327,TN,Crump,Hardin,35.2191,-88.3192
+38328,TN,Darden,Henderson,35.663,-88.2177
+38329,TN,Decaturville,Decatur,35.5585,-88.1334
+38330,TN,Dyer,Gibson,36.0716,-89.0192
+38331,TN,Eaton,Gibson,35.9693,-89.1319
+38332,TN,Enville,Chester,35.4393,-88.4206
+38333,TN,Eva,Benton,36.1142,-87.982
+38334,TN,Finger,McNairy,35.3544,-88.5876
+38336,TN,Fruitvale,Crockett,35.7484,-89.0327
+38337,TN,Gadsden,Crockett,35.7799,-88.9929
+38338,TN,Gibson,Gibson,35.8708,-88.8464
+38339,TN,Guys,McNairy,35.0142,-88.5208
+38340,TN,Henderson,Chester,35.4269,-88.6398
+38341,TN,Holladay,Benton,35.8951,-88.0912
+38342,TN,Hollow Rock,Carroll,36.0381,-88.2737
+38343,TN,Humboldt,Gibson,35.837,-88.9057
+38344,TN,Huntingdon,Carroll,36.0062,-88.4202
+38345,TN,Huron,Henderson,35.6144,-88.5195
+38346,TN,Idlewild,Gibson,36.0306,-88.8056
+38347,TN,Jacks Creek,Chester,35.4782,-88.5019
+38348,TN,Lavinia,Carroll,35.8583,-88.6324
+38351,TN,Lexington,Henderson,35.6512,-88.3927
+38352,TN,Luray,Chester,35.5355,-88.5379
+38355,TN,Medina,Gibson,35.8081,-88.7627
+38356,TN,Medon,Madison,35.4345,-88.8953
+38357,TN,Michie,McNairy,35.0603,-88.4405
+38358,TN,Milan,Gibson,35.9251,-88.7688
+38359,TN,Milledgeville,McNairy,35.3729,-88.3675
+38361,TN,Morris Chapel,Hardin,35.3026,-88.3176
+38362,TN,Oakfield,Madison,35.7242,-88.7801
+38363,TN,Parsons,Decatur,35.6664,-88.1195
+38365,TN,Pickwick Dam,Hardin,35.0383,-88.2256
+38366,TN,Pinson,Madison,35.4781,-88.7304
+38367,TN,Ramer,McNairy,35.0642,-88.6017
+38368,TN,Reagan,Henderson,35.5096,-88.3508
+38369,TN,Rutherford,Gibson,36.13,-88.9849
+38370,TN,Saltillo,Hardin,35.3815,-88.2472
+38371,TN,Sardis,Henderson,35.4386,-88.3058
+38372,TN,Savannah,Hardin,35.2023,-88.2005
+38374,TN,Scotts Hill,Decatur,35.505,-88.2405
+38375,TN,Selmer,McNairy,35.1691,-88.5958
+38376,TN,Shiloh,Hardin,35.1154,-88.3617
+38377,TN,Silerton,Hardeman,35.356,-88.8269
+38378,TN,Spring Creek,Madison,35.7668,-88.6839
+38379,TN,Stantonville,McNairy,35.1809,-88.4364
+38380,TN,Sugar Tree,Decatur,35.792,-88.0322
+38381,TN,Toone,Hardeman,35.3574,-88.9353
+38382,TN,Trenton,Gibson,35.9712,-88.9507
+38387,TN,Westport,Carroll,35.8845,-88.2892
+38388,TN,Wildersville,Henderson,35.7698,-88.4388
+38389,TN,Yorkville,Gibson,36.1354,-89.1117
+38390,TN,Yuma,Carroll,35.868,-88.3819
+38391,TN,Denmark,Madison,35.5571,-88.9759
+38392,TN,Mercer,Madison,35.4816,-89.0271
+38393,TN,Chewalla,McNairy,34.9969,-88.6456
+38401,TN,Columbia,Maury,35.6156,-87.038
+38402,TN,Columbia,Maury,35.6151,-87.0353
+38425,TN,Clifton,Wayne,35.3819,-87.95
+38449,TN,Ardmore,Giles,35.0574,-86.8796
+38450,TN,Collinwood,Wayne,35.1635,-87.7185
+38451,TN,Culleoka,Maury,35.4749,-87.0005
+38452,TN,Cypress Inn,Wayne,35.0579,-87.7883
+38453,TN,Dellrose,Lincoln,35.1214,-86.8121
+38454,TN,Duck River,Hickman,35.748,-87.3577
+38455,TN,Elkton,Giles,35.0523,-86.8886
+38456,TN,Ethridge,Lawrence,35.3326,-87.3039
+38457,TN,Five Points,Lawrence,35.031,-87.2961
+38459,TN,Frankewing,Giles,35.1834,-86.85
+38460,TN,Goodspring,Giles,35.1167,-87.1278
+38461,TN,Hampshire,Maury,35.5915,-87.3251
+38462,TN,Hohenwald,Lewis,35.5266,-87.4891
+38463,TN,Iron City,Lawrence,35.0563,-87.6473
+38464,TN,Lawrenceburg,Lawrence,35.2507,-87.3526
+38468,TN,Leoma,Lawrence,35.1382,-87.3168
+38469,TN,Loretto,Lawrence,35.0728,-87.427
+38471,TN,Lutts,Wayne,35.1138,-87.8923
+38472,TN,Lynnville,Giles,35.3792,-87.0629
+38473,TN,Minor Hill,Giles,35.05,-87.1522
+38474,TN,Mount Pleasant,Maury,35.5301,-87.2037
+38475,TN,Olivehill,Hardin,35.2667,-88.039
+38476,TN,Primm Springs,Hickman,35.8104,-87.253
+38477,TN,Prospect,Giles,35.0666,-87.0174
+38478,TN,Pulaski,Giles,35.2093,-87.0393
+38481,TN,Saint Joseph,Lawrence,35.0376,-87.5018
+38482,TN,Santa Fe,Maury,35.7588,-87.1515
+38483,TN,Summertown,Lawrence,35.4307,-87.3198
+38485,TN,Waynesboro,Wayne,35.322,-87.7395
+38486,TN,Westpoint,Lawrence,35.1393,-87.538
+38487,TN,Williamsport,Maury,35.6494,-87.2257
+38488,TN,Taft,Lincoln,35.0517,-86.6447
+38501,TN,Cookeville,Putnam,36.2178,-85.5423
+38502,TN,Cookeville,Putnam,36.1628,-85.5016
+38503,TN,Cookeville,Putnam,36.1628,-85.5016
+38504,TN,Allardt,Fentress,36.3818,-84.7756
+38505,TN,Cookeville,Putnam,36.1628,-85.5016
+38506,TN,Cookeville,Putnam,36.1819,-85.4408
+38541,TN,Allons,Overton,36.497,-85.3197
+38542,TN,Allred,Overton,36.324,-85.2031
+38543,TN,Alpine,Overton,36.3803,-85.1522
+38544,TN,Baxter,Putnam,36.1249,-85.6378
+38545,TN,Bloomington Springs,Putnam,36.2321,-85.6628
+38547,TN,Brush Creek,Smith,36.1107,-86.0203
+38548,TN,Buffalo Valley,Putnam,36.1833,-85.7589
+38549,TN,Byrdstown,Pickett,36.5709,-85.1456
+38550,TN,Campaign,Warren,35.7734,-85.6192
+38551,TN,Celina,Clay,36.5475,-85.4966
+38552,TN,Chestnut Mound,Smith,36.2028,-85.8264
+38553,TN,Clarkrange,Fentress,36.2112,-84.9777
+38554,TN,Crawford,Overton,36.2361,-85.1688
+38555,TN,Crossville,Cumberland,35.9623,-85.0514
+38556,TN,Jamestown,Fentress,36.4245,-84.9357
+38557,TN,Crossville,Cumberland,35.9885,-85.0124
+38558,TN,Crossville,Cumberland,36.0077,-84.8719
+38559,TN,Doyle,White,35.8356,-85.5191
+38560,TN,Elmwood,Smith,36.2355,-85.8808
+38562,TN,Gainesboro,Jackson,36.3438,-85.6355
+38563,TN,Gordonsville,Smith,36.1843,-86.0008
+38564,TN,Granville,Jackson,36.2768,-85.7475
+38565,TN,Grimsley,Fentress,36.2598,-85.0015
+38567,TN,Hickman,Smith,36.1197,-85.9023
+38568,TN,Hilham,Overton,36.4227,-85.4464
+38569,TN,Lancaster,Smith,36.0954,-85.8551
+38570,TN,Livingston,Overton,36.389,-85.3205
+38571,TN,Crossville,Cumberland,36.0527,-85.0138
+38572,TN,Crossville,Cumberland,35.8487,-85.1308
+38573,TN,Monroe,Overton,36.4642,-85.2164
+38574,TN,Monterey,Putnam,36.1509,-85.2542
+38575,TN,Moss,Clay,36.5966,-85.6772
+38577,TN,Pall Mall,Fentress,36.5781,-85.0384
+38578,TN,Pleasant Hill,Cumberland,35.9813,-85.1984
+38579,TN,Quebeck,White,35.8303,-85.552
+38580,TN,Rickman,Overton,36.2812,-85.3048
+38581,TN,Rock Island,Warren,35.7668,-85.6788
+38582,TN,Silver Point,Putnam,36.1006,-85.7338
+38583,TN,Sparta,White,35.9439,-85.4392
+38585,TN,Spencer,Van Buren,35.7279,-85.4287
+38587,TN,Walling,White,35.8695,-85.6185
+38588,TN,Whitleyville,Jackson,36.5158,-85.6899
+38589,TN,Wilder,Fentress,36.2822,-85.0913

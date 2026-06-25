@@ -3,8 +3,10 @@
 # (CSV export is served separately by GET /api/contractors/export.)
 
 from datetime import datetime
+from typing import Optional
 
 from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
+from pydantic import BaseModel
 
 from agent.db import (
     create_job, get_job, list_jobs, get_running_job, update_job,
@@ -17,11 +19,19 @@ from api.auth import get_current_user
 router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
+class StartJobBody(BaseModel):
+    mode: Optional[str] = "contractor"     # contractor | vendor
+    territory: Optional[str] = "FL"        # FL | TN
+
+
 @router.post("/start")
-async def start_job(background_tasks: BackgroundTasks):
+async def start_job(background_tasks: BackgroundTasks, body: Optional[StartJobBody] = None):
     """
     Kick off the full pipeline. Returns job_id immediately.
     Pipeline runs as background task — frontend polls /status/{job_id}.
+
+    Body (optional): {mode: contractor|vendor, territory: FL|TN}. Defaults to
+    contractor/FL — the original behaviour — so existing callers are unaffected.
 
     🛡️ Server-side guard: if another job is already pending/running,
     return 409 Conflict with the existing job_id. Prevents:
@@ -42,9 +52,17 @@ async def start_job(background_tasks: BackgroundTasks):
             },
         )
 
-    job_id = create_job()
+    b = body or StartJobBody()
+    mode = (b.mode or "contractor").lower()
+    territory = (b.territory or "FL").upper()
+    if mode not in ("contractor", "vendor"):
+        raise HTTPException(status_code=422, detail=f"invalid mode {mode!r} (contractor|vendor)")
+    if territory not in ("FL", "TN"):
+        raise HTTPException(status_code=422, detail=f"invalid territory {territory!r} (FL|TN)")
+
+    job_id = create_job(mode=mode, territory=territory)
     background_tasks.add_task(start_background_job, job_id)
-    return {"job_id": job_id, "status": "pending"}
+    return {"job_id": job_id, "status": "pending", "mode": mode, "territory": territory}
 
 
 @router.post("/{job_id}/stop")

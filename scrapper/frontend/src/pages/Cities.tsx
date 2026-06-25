@@ -87,22 +87,177 @@ export default function Cities() {
         </div>
       )}
 
-      {/* City grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {cities.map((c) => (
-          <CityCard
-            key={c.id}
-            city={c}
-            onChange={invalidate}
-            onError={handleErr}
-            onOpenDetail={() => setDetailCity(c)}
-          />
-        ))}
-      </div>
+      {/* Cities grouped by state — Florida and Tennessee in their own sub-sections */}
+      {(() => {
+        const STATE_LABEL: Record<string, string> = { FL: "Florida", TN: "Tennessee" };
+        const ORDER = ["FL", "TN"];
+        const states = Array.from(new Set(cities.map((c) => c.state)))
+          .sort((a, b) => (ORDER.indexOf(a) + 1 || 99) - (ORDER.indexOf(b) + 1 || 99) || a.localeCompare(b));
+        return states.map((st) => {
+          const group = cities.filter((c) => c.state === st);
+          const zipCount = group.reduce((a, c) => a + c.zips.length, 0);
+          return (
+            <section key={st} className="mb-8">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="inline-flex items-center justify-center rounded-md bg-primary/10 text-primary text-xs font-bold px-2 py-1">
+                  {st}
+                </span>
+                <h2 className="text-lg font-semibold">{STATE_LABEL[st] || st}</h2>
+                <span className="text-xs text-muted-foreground">
+                  {group.length} cit{group.length === 1 ? "y" : "ies"} · {zipCount} ZIPs
+                </span>
+              </div>
+              {(() => {
+                const renderGrid = (list: City[]) => (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {list.map((c) => (
+                      <CityCard
+                        key={c.id}
+                        city={c}
+                        onChange={invalidate}
+                        onError={handleErr}
+                        onOpenDetail={() => setDetailCity(c)}
+                      />
+                    ))}
+                  </div>
+                );
+                const hasTiers = group.some((c) => c.tier != null);
+                if (!hasTiers) return renderGrid(group);
+                const tier1 = group.filter((c) => c.tier === 1);
+                const tier2 = group.filter((c) => c.tier === 2);
+                const untiered = group.filter((c) => c.tier == null);
+                const TIER_SUB: { list: City[]; label: string }[] = [
+                  { list: tier1, label: "Tier 1 — Named priority cities (scraped first)" },
+                  { list: tier2, label: "Tier 2 — Population ≥ 50,000" },
+                  { list: untiered, label: "Other" },
+                ];
+                return (
+                  <div className="space-y-5">
+                    {TIER_SUB.filter((t) => t.list.length > 0).map((t) => (
+                      <div key={t.label}>
+                        <div className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                          {t.label} · {t.list.length}
+                        </div>
+                        {renderGrid(t.list)}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </section>
+          );
+        });
+      })()}
+
+      {/* Excluded regions */}
+      <ExclusionsPanel cities={cities} onError={handleErr} />
 
       <CityDrawer city={detailCity} open={!!detailCity} onClose={() => setDetailCity(null)} />
 
       {showAdd && <AddCityDialog onClose={() => setShowAdd(false)} onCreated={invalidate} onError={handleErr} />}
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────
+// Excluded regions — locked base rules (Memphis metro, read-only) + user-added
+// cities. Users pick a city from a dropdown (no free text); it resolves to ZIPs
+// the scraper drops. Locked rules can't be removed.
+// ──────────────────────────────────────────────────────────────
+function ExclusionsPanel({ cities, onError }: { cities: City[]; onError: (e: unknown) => void }) {
+  const qc = useQueryClient();
+  const { data: exclusions = [] } = useQuery({
+    queryKey: ["exclusions"],
+    queryFn: () => api.listExclusions(),
+  });
+  const [pick, setPick] = useState("");
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["exclusions"] });
+  const add = useMutation({
+    mutationFn: (city: string) => api.addExclusion(city, "TN"),
+    onSuccess: () => { setPick(""); invalidate(); },
+    onError,
+  });
+  const del = useMutation({
+    mutationFn: (id: number) => api.deleteExclusion(id),
+    onSuccess: invalidate,
+    onError,
+  });
+
+  // Cities available to exclude = not already excluded.
+  const excludedNames = new Set(exclusions.flatMap((e) => e.match_values.map((m) => m.toLowerCase())));
+  const options = cities
+    .filter((c) => !excludedNames.has(c.name.toLowerCase()))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  return (
+    <div className="mt-8 rounded-lg border bg-card p-5">
+      <div className="flex items-center gap-2 mb-1">
+        <X className="h-4 w-4 text-destructive" />
+        <h2 className="font-semibold">Excluded regions</h2>
+      </div>
+      <p className="text-xs text-muted-foreground mb-4">
+        These cities (and their ZIPs) are never scraped or returned. The Memphis metro is a locked
+        base rule. Add more from the dropdown — they resolve to ZIP codes automatically.
+      </p>
+
+      {/* Add via dropdown (no free text) */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <select
+          value={pick}
+          onChange={(e) => setPick(e.target.value)}
+          className="rounded-md border bg-background px-3 py-2 text-sm min-w-[220px]"
+        >
+          <option value="">Select a city to exclude…</option>
+          {options.map((c) => (
+            <option key={c.id} value={c.name}>
+              {c.name} ({c.state})
+            </option>
+          ))}
+        </select>
+        <button
+          onClick={() => pick && add.mutate(pick)}
+          disabled={!pick || add.isPending}
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-3 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-50 transition"
+        >
+          <Plus className="h-4 w-4" /> Exclude
+        </button>
+      </div>
+
+      {/* List */}
+      <div className="space-y-2">
+        {exclusions.length === 0 && (
+          <div className="text-sm text-muted-foreground">No exclusions.</div>
+        )}
+        {exclusions.map((e) => (
+          <div key={e.id} className="flex items-start justify-between gap-3 rounded-md border p-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                {e.locked && <span title="Locked base rule">🔒</span>}
+                {e.region_name}
+                <span className="text-[10px] uppercase rounded bg-muted px-1.5 py-0.5 text-muted-foreground">
+                  {e.state}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1 truncate">
+                {e.match_values.join(", ")} · {e.zip_codes.length} ZIP{e.zip_codes.length === 1 ? "" : "s"}
+              </div>
+            </div>
+            {e.locked ? (
+              <span className="text-[10px] text-muted-foreground shrink-0 mt-1">locked</span>
+            ) : (
+              <button
+                onClick={() => del.mutate(e.id)}
+                disabled={del.isPending}
+                className="text-destructive hover:bg-destructive/10 rounded p-1.5 shrink-0"
+                title="Remove exclusion"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -171,9 +326,24 @@ function CityCard({
           </div>
         ) : (
           <div>
-            <div className="font-semibold text-lg leading-tight">{city.name}</div>
+            <div className="font-semibold text-lg leading-tight flex items-center gap-2">
+              {city.name}
+              {city.tier != null && (
+                <span
+                  className={`text-[10px] font-bold rounded px-1.5 py-0.5 ${
+                    city.tier === 1
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-slate-100 text-slate-600"
+                  }`}
+                  title={city.tier === 1 ? "Tier 1 — named priority city" : "Tier 2 — population ≥ 50k"}
+                >
+                  Tier {city.tier}
+                </span>
+              )}
+            </div>
             <div className="text-xs text-muted-foreground mt-0.5">
               {city.state} · {city.zips.length} ZIP{city.zips.length === 1 ? "" : "s"}
+              {city.county ? ` · ${city.county} County` : ""}
             </div>
           </div>
         )}
