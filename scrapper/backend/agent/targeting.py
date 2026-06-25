@@ -12,7 +12,7 @@ from typing import Dict, List, Optional
 
 from agent import db
 from agent.geography import (
-    zips_within_radius, haversine_miles, contractor_zips_for_dealers,
+    zips_within_radius, haversine_miles, contractor_zips_for_dealers, zip_to_coords,
 )
 
 # Radii are user-editable settings (spec: vendor 20 mi, contractor 50 mi) — read
@@ -56,21 +56,34 @@ def _nearest_city(lat: float, lng: float, cities: List[Dict[str, object]]) -> Op
     return best
 
 
-def contractor_scrape_units(state: str = "TN", client_id: Optional[str] = None) -> List[Dict[str, object]]:
-    """Tier-ordered contractor targets: dealer accounts grouped by their nearest
-    priority city; each group's ZIPs are the union within CONTRACTOR_RADIUS_MI (50)
-    of its dealers, territory-excluded removed. Ordered Tier 1 city → Tier 2."""
+def contractor_scrape_units(state: str = "TN", client_id: Optional[str] = None,
+                            dealers: Optional[List[Dict[str, object]]] = None) -> List[Dict[str, object]]:
+    """Tier-ordered TN contractor targets: anchor locations grouped by their nearest
+    priority city; each group's ZIPs are the union within the contractor radius (50
+    mi), territory-excluded removed. Ordered Tier 1 → Tier 2.
+
+    Anchors = manual dealer accounts; if there are none, fall back to the SCRAPED
+    VENDOR locations (chosen behaviour) — so a TN contractor run scrapes the
+    contractors within 50 mi of the distributors we found. Returns [] if there are
+    no anchors at all (caller then uses the city-ZIP fallback)."""
     cities = db.list_city_tiers(state)
-    dealers = [d for d in db.list_dealer_accounts(client_id) if (d.get("state") or state).upper() == state.upper()]
+    if dealers is None:
+        dealers = [d for d in db.list_dealer_accounts(client_id) if (d.get("state") or state).upper() == state.upper()]
+        if not dealers:
+            dealers = db.list_vendor_locations(state)   # anchor on scraped vendors
     excl = _exclude_fn(state)
     radius = db.get_contractor_radius_miles()        # user-editable (default 50 mi)
 
-    # Bucket dealers under their nearest priority city.
+    # Bucket anchors under their nearest priority city (resolve coords from ZIP when
+    # an anchor has no lat/lng — scraped vendors carry only a ZIP).
     buckets: Dict[str, List[Dict[str, object]]] = {}
     for d in dealers:
         lat, lng = d.get("lat"), d.get("lng")
         if lat is None or lng is None:
-            continue
+            coords = zip_to_coords(str(d.get("zip_code") or ""))
+            if not coords:
+                continue
+            lat, lng = coords
         nc = _nearest_city(float(lat), float(lng), cities)
         key = (nc or {}).get("city") or "Unassigned"
         buckets.setdefault(key, []).append(d)

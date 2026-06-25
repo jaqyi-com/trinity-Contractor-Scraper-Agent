@@ -912,6 +912,27 @@ def get_vendor(vendor_id: int) -> Optional[Dict[str, Any]]:
     return get_db().get_by_id("vendors", vendor_id)
 
 
+def list_vendor_locations(state: Optional[str] = None) -> List[Dict[str, Any]]:
+    """Scraped vendor locations as contractor-radius ANCHORS (chosen behaviour: a TN
+    contractor run with no manual dealer accounts anchors on the vendors we found).
+    Returns {name, zip_code, lat, lng, state}; vendors carry a zip we resolve to
+    coords, so lat/lng may be None here and get resolved downstream."""
+    out: List[Dict[str, Any]] = []
+    for r in get_db().all_rows("vendors"):
+        if state and (r.get("state") or "").upper() != state.upper():
+            continue
+        if not r.get("zip_code"):
+            continue
+        out.append({
+            "name": r.get("business_name"),
+            "zip_code": r.get("zip_code"),
+            "lat": r.get("lat"),
+            "lng": r.get("lng"),
+            "state": r.get("state") or state,
+        })
+    return out
+
+
 def contractor_facets(job_id: Optional[str] = None, tab: str = "contractors") -> Dict[str, Any]:
     rows = get_db().all_rows(tab)
     if job_id:
