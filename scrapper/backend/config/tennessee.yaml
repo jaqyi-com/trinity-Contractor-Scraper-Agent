@@ -1,0 +1,132 @@
+# ──────────────────────────────────────────────────────────────
+# Tennessee geography config (Workstream A / Phase 2).
+#
+# Florida config in cities.yaml is UNTOUCHED — this is purely additive.
+#
+# Seeded on first boot into the reference tables:
+#   • city_tiers   ← `cities` below  (P2a)
+#   • territories  ← `exclusions` below  (P2b)
+#
+# City prioritization (spec):
+#   tier 1 = named priority cities (scraped first, no population filter)
+#   tier 2 = other TN cities with population >= 50,000
+# This is a PRECOMPUTED STATIC list (predictable; refresh manually when needed).
+#
+# radius_miles here = the VENDOR search radius (20 mi from each city center).
+# The CONTRACTOR radius (50 mi) anchors on dealer_accounts, not on these cities.
+# Coordinates are approximate city centers.
+# ──────────────────────────────────────────────────────────────
+state: TN
+
+cities:
+  # ── Tier 1 — named priority cities (regardless of population) ──
+  - city: Pigeon Forge
+    county: Sevier
+    tier: 1
+    center_lat: 35.7884
+    center_lng: -83.5543
+    radius_miles: 20
+    population: 6343          # < 50k but explicitly required
+  - city: Nashville
+    county: Davidson
+    tier: 1
+    center_lat: 36.1627
+    center_lng: -86.7816
+    radius_miles: 20
+    population: 689447
+  - city: Chattanooga
+    county: Hamilton
+    tier: 1
+    center_lat: 35.0456
+    center_lng: -85.3097
+    radius_miles: 20
+    population: 181099
+  - city: Jackson
+    county: Madison
+    tier: 1
+    center_lat: 35.6145
+    center_lng: -88.8139
+    radius_miles: 20
+    population: 68205
+  - city: Columbia
+    county: Maury
+    tier: 1
+    center_lat: 35.6151
+    center_lng: -87.0353
+    radius_miles: 20
+    population: 41690         # < 50k but explicitly required
+  - city: Knoxville
+    county: Knox
+    tier: 1
+    center_lat: 35.9606
+    center_lng: -83.9207
+    radius_miles: 20
+    population: 190740
+
+  # ── Tier 2 — other TN cities with population >= 50,000 ──
+  # (Memphis metro deliberately absent — it is hard-excluded, see `exclusions`.)
+  - city: Clarksville
+    county: Montgomery
+    tier: 2
+    center_lat: 36.5298
+    center_lng: -87.3595
+    radius_miles: 20
+    population: 166722
+  - city: Murfreesboro
+    county: Rutherford
+    tier: 2
+    center_lat: 35.8456
+    center_lng: -86.3903
+    radius_miles: 20
+    population: 152769
+  - city: Franklin
+    county: Williamson
+    tier: 2
+    center_lat: 35.9251
+    center_lng: -86.8689
+    radius_miles: 20
+    population: 83454
+  - city: Johnson City
+    county: Washington
+    tier: 2
+    center_lat: 36.3134
+    center_lng: -82.3535
+    radius_miles: 20
+    population: 71046
+  - city: Hendersonville
+    county: Sumner
+    tier: 2
+    center_lat: 36.3048
+    center_lng: -86.6200
+    radius_miles: 20
+    population: 61753
+  - city: Kingsport
+    county: Sullivan
+    tier: 2
+    center_lat: 36.5484
+    center_lng: -82.5618
+    radius_miles: 20
+    population: 55442
+  - city: Smyrna
+    county: Rutherford
+    tier: 2
+    center_lat: 35.9828
+    center_lng: -86.5186
+    radius_miles: 20
+    population: 53070
+
+# ── Hard territory exclusions (seeded into `territories` in P2b) ──
+# Memphis metro must NEVER be scraped or returned.
+exclusions:
+  - region_name: Memphis Metro
+    kind: exclude
+    match_type: city
+    match_values:
+      - Memphis
+      - Bartlett
+      - Germantown
+      - Collierville
+      - Millington
+      - Lakeland
+      - Arlington
+    notes: Far-southwest TN / Memphis metro — hard exclusion per spec.

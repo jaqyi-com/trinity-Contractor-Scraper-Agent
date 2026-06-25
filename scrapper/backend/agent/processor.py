@@ -11,11 +11,12 @@ from typing import List
 
 from agent.scraper_google import scrape_metro
 from agent.classifier import classify
+from agent.lumber import check_lumber
 from agent.matcher import match_license_by_name
 from agent.scraper_bbb import enrich_bbb
 from agent.enrichment import enrich_email, apollo_company
 from utils.url_normalizer import extract_domain
-from agent.db import insert_contractor, insert_classification_logs
+from agent.db import insert_contractor, insert_classification_logs, record_source
 from agent.storage import write_stage_jsonl
 from agent.schema import ContractorRow, GoogleSeed
 
@@ -57,14 +58,17 @@ class PipelineStopRequested(Exception):
 # ──────────────────────────────────────────────────────────────
 # Phase 1 — Discovery (one metro). Returns raw seeds; NO enrichment yet.
 # ──────────────────────────────────────────────────────────────
-def discover_metro(city, job_id: str, max_charge_usd: float = None) -> List[GoogleSeed]:
+def discover_metro(city, job_id: str, max_charge_usd: float = None,
+                   state: str = "FL", queries: list = None) -> List[GoogleSeed]:
     """Google Maps discovery for ONE city. Writes the stage-1 audit JSONL.
-    `max_charge_usd` is this metro's slice of the run-wide discovery budget."""
+    `max_charge_usd` is this metro's slice of the run-wide discovery budget.
+    `state` (FL|TN) and `queries` (None=contractor defaults, or VENDOR_QUERIES for
+    vendor mode) come from the run plan; defaults preserve FL-contractor behaviour."""
     city_name = city["name"] if isinstance(city, dict) else city.name
     zips = city["zips"] if isinstance(city, dict) else city.zips
 
-    print(f"🔍 [{city_name}] Stage 1: Google Discovery")
-    seeds = scrape_metro(city_name, zips, max_charge_usd=max_charge_usd)  # queries default to DEFAULT_QUERIES
+    print(f"🔍 [{city_name}, {state}] Stage 1: Google Discovery")
+    seeds = scrape_metro(city_name, zips, queries=queries, max_charge_usd=max_charge_usd, state=state)
     write_stage_jsonl(job_id, "stage1_google", city_name, seeds)
     print(f"🔍 [{city_name}] discovered {len(seeds)} seeds")
     return seeds
@@ -94,6 +98,13 @@ def classify_seeds(seeds: List[GoogleSeed], keywords: list, job_id: str) -> List
             if decision.decision != "INCLUDED":
                 continue
             place_ids = sorted({pid for pid in ([seed.place_id] + (seed.merged_place_ids or [])) if pid})
+            # Lumber exclusion (Workstream D) — flag, don't delete: the row is kept,
+            # the deliverable view filters flagged rows out later.
+            excluded_reason = check_lumber({
+                "business_name": seed.business_name,
+                "description": seed.description,
+                "google_categories": seed.google_categories,
+            })
             rows.append(ContractorRow(
                 business_name=seed.business_name,
                 city=seed.city,
@@ -111,6 +122,7 @@ def classify_seeds(seeds: List[GoogleSeed], keywords: list, job_id: str) -> List
                 sources=["google"],
                 tier=decision.assigned_tier,
                 specialty_keywords=[m.keyword for m in decision.matched_keywords],
+                excluded_reason=excluded_reason,
                 job_id=job_id,
             ))
         except Exception as e:
@@ -142,6 +154,15 @@ def _enrich_one(task) -> None:
             row.bbb_accredited = bbb.accredited
             if bbb.years_in_business:
                 row.years_in_business = bbb.years_in_business
+            # Lumber Layer 1 (BBB category): only known after enrichment, so re-check
+            # here against the BBB categories. Flag, don't delete; don't overwrite.
+            if bbb.categories and not row.excluded_reason:
+                reason = check_lumber({
+                    "business_name": row.business_name,
+                    "google_categories": list(row.google_categories or []) + list(bbb.categories),
+                })
+                if reason:
+                    row.excluded_reason = reason.replace("lumber:category", "lumber:bbb_category")
         except Exception as e:
             print(f"⚠️  BBB error for {row.business_name}: {e}")
 
@@ -244,12 +265,22 @@ def enrich_and_insert_rows(rows: List[ContractorRow], dbpr_index: list, job_id: 
 
     # ─── Persist — versioned save (new / changed-version / skip handled in db) ───
     for row in rows:
+        rec = row.model_dump(mode="json")
         try:
-            insert_contractor(row.model_dump(mode="json"))
+            insert_contractor(rec)
             summary["saved"] += 1
             print(f"💾 Saved: {row.business_name} ({row.tier})")
         except Exception as e:
             print(f"❌ DB insert failed for {row.business_name}: {e}")
             summary["errors"].append({"stage": "insert", "name": row.business_name, "error": str(e)})
+            continue
+        # Workstream E — raw/provenance layer: one immutable source_records row per
+        # source this business came from (linked by canonical_entity_id). Additive —
+        # the versioned contractors save above is unchanged; never blocks the save.
+        try:
+            for src in (rec.get("sources") or [None]):
+                record_source(rec, src or "pipeline", run_id=job_id)
+        except Exception as e:
+            print(f"⚠️  source_records log failed for {row.business_name}: {e}")
 
     return summary

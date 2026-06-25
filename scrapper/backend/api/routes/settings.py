@@ -10,6 +10,9 @@ from pydantic import BaseModel, Field
 from agent.db import (
     get_max_final_records, set_setting, DEFAULT_MAX_FINAL_RECORDS,
     get_discovery_budget_usd, get_bbb_budget_usd, get_apollo_budget_usd,
+    get_vendor_radius_miles, get_contractor_radius_miles,
+    DEFAULT_VENDOR_RADIUS_MI, DEFAULT_CONTRACTOR_RADIUS_MI,
+    get_enable_tn_verify,
 )
 from api.auth import get_current_user
 
@@ -20,6 +23,8 @@ router = APIRouter(dependencies=[Depends(get_current_user)])
 MAX_FINAL_RECORDS_CEILING = 100_000
 # Sanity ceiling on a single-run budget — guards against a fat-finger ($50000).
 MAX_BUDGET_USD = 10_000.0
+# Sanity ceiling on a search radius (miles).
+MAX_RADIUS_MI = 500.0
 
 
 class SettingsResponse(BaseModel):
@@ -29,6 +34,12 @@ class SettingsResponse(BaseModel):
     discovery_budget_usd: Optional[float] = None
     bbb_budget_usd: Optional[float] = None
     apollo_budget_usd: Optional[float] = None
+    # TN search radii (miles) — vendor anchors on city centers, contractor on dealers.
+    vendor_radius_miles: float = DEFAULT_VENDOR_RADIUS_MI
+    contractor_radius_miles: float = DEFAULT_CONTRACTOR_RADIUS_MI
+    # OPTIONAL statewide TN verify-a-name license enrichment. OFF by default — it's
+    # a slow per-name lookup (no bulk/public API) that can add minutes to a TN run.
+    enable_tn_verify: bool = False
 
 
 class UpdateSettingsBody(BaseModel):
@@ -38,6 +49,10 @@ class UpdateSettingsBody(BaseModel):
     discovery_budget_usd: Optional[float] = Field(default=None, gt=0, le=MAX_BUDGET_USD)
     bbb_budget_usd: Optional[float] = Field(default=None, gt=0, le=MAX_BUDGET_USD)
     apollo_budget_usd: Optional[float] = Field(default=None, gt=0, le=MAX_BUDGET_USD)
+    vendor_radius_miles: Optional[float] = Field(default=None, gt=0, le=MAX_RADIUS_MI)
+    contractor_radius_miles: Optional[float] = Field(default=None, gt=0, le=MAX_RADIUS_MI)
+    # None = leave unchanged; true/false = set the statewide-verify toggle.
+    enable_tn_verify: Optional[bool] = None
 
 
 def _current() -> SettingsResponse:
@@ -46,6 +61,9 @@ def _current() -> SettingsResponse:
         discovery_budget_usd=get_discovery_budget_usd(),
         bbb_budget_usd=get_bbb_budget_usd(),
         apollo_budget_usd=get_apollo_budget_usd(),
+        vendor_radius_miles=get_vendor_radius_miles(),
+        contractor_radius_miles=get_contractor_radius_miles(),
+        enable_tn_verify=get_enable_tn_verify(),
     )
 
 
@@ -66,4 +84,12 @@ async def update_settings(body: UpdateSettingsBody):
     set_setting("discovery_budget_usd", "none" if body.discovery_budget_usd is None else str(body.discovery_budget_usd))
     set_setting("bbb_budget_usd", "none" if body.bbb_budget_usd is None else str(body.bbb_budget_usd))
     set_setting("apollo_budget_usd", "none" if body.apollo_budget_usd is None else str(body.apollo_budget_usd))
+    # Radii: only overwrite when a value is sent (None = leave unchanged).
+    if body.vendor_radius_miles is not None:
+        set_setting("vendor_radius_miles", str(body.vendor_radius_miles))
+    if body.contractor_radius_miles is not None:
+        set_setting("contractor_radius_miles", str(body.contractor_radius_miles))
+    # Toggle (None = leave unchanged) — store canonical "true"/"false".
+    if body.enable_tn_verify is not None:
+        set_setting("enable_tn_verify", "true" if body.enable_tn_verify else "false")
     return _current()

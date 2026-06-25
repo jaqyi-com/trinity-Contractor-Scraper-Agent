@@ -52,7 +52,7 @@ def enrich_bbb(row: ContractorRow) -> BBBEnrichment:
     if not APIFY_API_TOKEN or not row.business_name:
         return BBBEnrichment()
 
-    location = ", ".join(p for p in [row.city, "FL"] if p)
+    location = ", ".join(p for p in [row.city, (getattr(row, "state", None) or "FL")] if p)
     payload = {
         "scrapeType": "business_profile",
         "businessName": row.business_name,
@@ -80,10 +80,15 @@ def enrich_bbb(row: ContractorRow) -> BBBEnrichment:
         return BBBEnrichment()
 
     item = items[0]
+    # BBB category can arrive as a list ("categories") or a single string ("category").
+    cats = item.get("categories") or item.get("category") or []
+    if isinstance(cats, str):
+        cats = [cats]
     return BBBEnrichment(
         bbb_id=item.get("bbbUrl"),
         rating=item.get("rating"),
         accredited=bool(item.get("accredited")),
         years_in_business=_years_from(item),
         out_of_business=bool(item.get("outOfBusiness", False)),
+        categories=[str(c) for c in cats if c],
     )

@@ -16,10 +16,14 @@ import { cn } from "@/lib/utils";
 // "Columns" show/hide menu. Every output-schema field is represented.
 const COLUMN_LABELS: { id: string; label: string }[] = [
   { id: "business_name", label: "Business" },
+  { id: "record_type", label: "Type" },
   { id: "city", label: "City" },
   { id: "zip_code", label: "Zip" },
+  { id: "state", label: "State" },
+  { id: "county", label: "County" },
   { id: "address", label: "Address" },
   { id: "tier", label: "Tier" },
+  { id: "city_tier", label: "City tier" },
   { id: "specialty_keywords", label: "Tier keywords" },
   { id: "google_categories", label: "Categories" },
   { id: "services_listed", label: "Services" },
@@ -30,6 +34,10 @@ const COLUMN_LABELS: { id: string; label: string }[] = [
   { id: "license_status", label: "License" },
   { id: "license_numbers", label: "Lic #" },
   { id: "license_categories", label: "Lic categories" },
+  // Vendor-specific (empty on contractor rows)
+  { id: "is_big_box", label: "Big-box" },
+  { id: "vendor_type", label: "Vendor type" },
+  { id: "canonical_network", label: "Network" },
   { id: "google_rating", label: "Rating" },
   { id: "google_review_count", label: "Reviews" },
   { id: "bbb_rating", label: "BBB" },
@@ -37,6 +45,9 @@ const COLUMN_LABELS: { id: string; label: string }[] = [
   { id: "years_in_business", label: "Years" },
   { id: "social_profiles", label: "Social" },
   { id: "sources", label: "Sources" },
+  { id: "source", label: "Source" },
+  { id: "excluded_reason", label: "Excluded" },
+  { id: "out_of_territory", label: "Out of territory" },
   { id: "place_ids", label: "Place IDs" },
   { id: "scraped_at", label: "Scraped" },
   { id: "job_id", label: "Job" },
@@ -184,6 +195,13 @@ export default function Results() {
       cell: ({ getValue }) => <div className="font-medium min-w-[170px]">{(getValue() as string) || <EmptyValue />}</div>,
     },
     {
+      id: "record_type", accessorKey: "record_type", header: "Type",
+      cell: ({ getValue }) => {
+        const v = (getValue() as string | null) || "contractor";
+        return <Badge variant={v === "vendor" ? "info" : "muted"}>{v}</Badge>;
+      },
+    },
+    {
       id: "city", accessorKey: "city", header: "City",
       cell: ({ getValue }) => <span className="text-sm whitespace-nowrap">{(getValue() as string) ?? <EmptyValue />}</span>,
     },
@@ -192,12 +210,27 @@ export default function Results() {
       cell: ({ getValue }) => { const v = getValue() as string | null; return v ? <span className="font-mono text-xs">{v}</span> : <EmptyValue />; },
     },
     {
+      id: "state", accessorKey: "state", header: "State",
+      cell: ({ getValue }) => { const v = getValue() as string | null; return v ? <span className="text-xs font-mono">{v}</span> : <EmptyValue />; },
+    },
+    {
+      id: "county", accessorKey: "county", header: "County",
+      cell: ({ getValue }) => { const v = getValue() as string | null; return v ? <span className="text-xs whitespace-nowrap">{v}</span> : <EmptyValue />; },
+    },
+    {
       id: "address", accessorKey: "address", header: "Address",
       cell: ({ getValue }) => { const v = getValue() as string | null; return v ? <span className="text-xs text-muted-foreground block max-w-[220px] truncate" title={v}>{v}</span> : <EmptyValue />; },
     },
     {
       id: "tier", accessorKey: "tier", header: "Tier",
       cell: ({ getValue }) => { const v = getValue() as string | null; return v ? <Badge variant={tierVariant(v)}>{v}</Badge> : <EmptyValue />; },
+    },
+    {
+      id: "city_tier", accessorKey: "city_tier", header: "City tier",
+      cell: ({ getValue }) => {
+        const v = getValue() as string | number | null;
+        return v != null && v !== "" ? <Badge variant={String(v) === "1" ? "success" : "info"}>Tier {v}</Badge> : <EmptyValue />;
+      },
     },
     {
       id: "specialty_keywords", header: "Tier keywords", enableSorting: false,
@@ -260,6 +293,22 @@ export default function Results() {
       cell: ({ row }) => <ListCell values={row.original.license_categories} variant="muted" />,
     },
     {
+      id: "is_big_box", accessorKey: "is_big_box", header: "Big-box",
+      cell: ({ getValue }) => {
+        const v = getValue() as boolean | null;
+        if (v == null) return <EmptyValue />;
+        return <Badge variant={v ? "warning" : "muted"}>{v ? "yes" : "no"}</Badge>;
+      },
+    },
+    {
+      id: "vendor_type", accessorKey: "vendor_type", header: "Vendor type",
+      cell: ({ getValue }) => { const v = getValue() as string | null; return v ? <Badge variant="muted">{v.replace(/_/g, " ")}</Badge> : <EmptyValue />; },
+    },
+    {
+      id: "canonical_network", accessorKey: "canonical_network", header: "Network",
+      cell: ({ getValue }) => { const v = getValue() as string | null; return v ? <span className="text-xs font-medium whitespace-nowrap">{v}</span> : <EmptyValue />; },
+    },
+    {
       id: "google_rating", accessorKey: "google_rating", header: "Rating",
       cell: ({ getValue }) => {
         const r = getValue() as number | null;
@@ -299,6 +348,25 @@ export default function Results() {
     {
       id: "sources", header: "Sources", enableSorting: false,
       cell: ({ row }) => <ListCell values={row.original.sources} variant="muted" max={3} />,
+    },
+    {
+      id: "source", accessorKey: "source", header: "Source",
+      cell: ({ getValue }) => { const v = getValue() as string | null; return v ? <Badge variant="muted">{v}</Badge> : <EmptyValue />; },
+    },
+    {
+      id: "excluded_reason", accessorKey: "excluded_reason", header: "Excluded",
+      cell: ({ getValue }) => {
+        const v = getValue() as string | null;
+        return v ? <Badge variant="danger"><span className="max-w-[160px] truncate inline-block" title={v}>{v}</span></Badge> : <EmptyValue />;
+      },
+    },
+    {
+      id: "out_of_territory", accessorKey: "out_of_territory", header: "Out of territory",
+      cell: ({ getValue }) => {
+        const v = getValue() as boolean | null;
+        if (v == null) return <EmptyValue />;
+        return <Badge variant={v ? "danger" : "muted"}>{v ? "yes" : "no"}</Badge>;
+      },
     },
     {
       id: "place_ids", header: "Place IDs", enableSorting: false,

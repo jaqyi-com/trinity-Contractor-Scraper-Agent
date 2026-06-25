@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
 from agent.db import init_schema
-from api.routes import jobs, keywords, contractors, classification, health, auth, cities, settings
+from api.routes import jobs, keywords, contractors, classification, health, auth, cities, settings, exclusions, stages, dealers, vendor_aliases
 
 load_dotenv()
 
@@ -18,7 +18,7 @@ FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    print("🚀 Starting Contractor Scraper API...")
+    print("🚀 Starting Westpac Sales Scraper API...")
     try:
         init_schema()
     except Exception as e:
@@ -37,8 +37,8 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Contractor Scraper API",
-    description="Florida contractor lead generation pipeline",
+    title="Westpac Sales Scraper API",
+    description="Contractor & vendor lead generation pipeline (FL + TN)",
     version="0.1.0",
     lifespan=lifespan,
 )
@@ -60,6 +60,10 @@ app.include_router(cities.router, prefix="/api/cities", tags=["cities"])
 app.include_router(contractors.router, prefix="/api/contractors", tags=["contractors"])
 app.include_router(classification.router, prefix="/api/classification-log", tags=["classification"])
 app.include_router(settings.router, prefix="/api/settings", tags=["settings"])
+app.include_router(exclusions.router, prefix="/api/exclusions", tags=["exclusions"])
+app.include_router(stages.router, prefix="/api/stages", tags=["stages"])
+app.include_router(dealers.router, prefix="/api/dealers", tags=["dealers"])
+app.include_router(vendor_aliases.router, prefix="/api/vendor-aliases", tags=["vendor-aliases"])
 
 
 @app.get("/")

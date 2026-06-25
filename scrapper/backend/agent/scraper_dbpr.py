@@ -146,6 +146,38 @@ def fetch_licenses_for_seeds(seeds: List[GoogleSeed]) -> List[DBPRLicense]:
     return licenses
 
 
+def fetch_licenses_for_seeds_by_state(seeds: List[GoogleSeed]) -> List[DBPRLicense]:
+    """State-aware license lookup (Phase 3b): route each business to its state's
+    source — Florida → DBPR (this module), Tennessee → Nashville open data
+    (scraper_tn_license). Seeds with no/other state default to the FL/DBPR path so
+    existing Florida runs behave exactly as before. Returns one combined
+    List[DBPRLicense] the unchanged name matcher consumes."""
+    fl = [s for s in seeds if (getattr(s, "state", None) or "FL").upper() != "TN"]
+    tn = [s for s in seeds if (getattr(s, "state", None) or "").upper() == "TN"]
+
+    licenses: List[DBPRLicense] = []
+    if fl:
+        licenses.extend(fetch_licenses_for_seeds(fl))
+    if tn:
+        # Imported lazily so the (network-light) TN path never loads unless needed.
+        from agent.scraper_tn_license import fetch_tn_licenses_for_seeds
+        from agent.scraper_tdci import fetch_tdci_licenses_for_seeds
+        from agent.db import get_enable_tn_verify
+        print(f"🏛️  [License] routing {len(tn)} TN business(es) → Nashville open data")
+        # Priority order (spec): (1) Nashville municipal open data, then
+        # (2) TDCI statewide roster (open-records export, if configured) for names
+        # Nashville missed, then (3) optional verify.tn.gov per-name lookup.
+        tn_lics = fetch_tn_licenses_for_seeds(tn)
+        tn_lics.extend(fetch_tdci_licenses_for_seeds(tn, already=tn_lics))
+        # OPTIONAL statewide verify-a-name enrichment (Settings toggle, OFF by
+        # default — slow per-name lookup). Only for names still unmatched.
+        if get_enable_tn_verify():
+            from agent.verify_tn import verify_tn_for_seeds
+            tn_lics.extend(verify_tn_for_seeds(tn, already=tn_lics))
+        licenses.extend(tn_lics)
+    return licenses
+
+
 
 
 

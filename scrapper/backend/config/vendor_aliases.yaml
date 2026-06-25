@@ -1,0 +1,78 @@
+# ──────────────────────────────────────────────────────────────
+# Vendor alias / subsidiary map (Workstream C / Phase 4).
+#
+# Drywall-material distributors operate many branch/brand names. We roll each one
+# up to a single canonical NETWORK so a network isn't undercounted or split.
+# Seeded on first boot into the `vendor_aliases` reference table (editable in UI).
+#
+# vendor_type: specialty_distributor | big_box_retailer | independent
+# Independents are captured by CATEGORY at discovery, not listed here.
+# ──────────────────────────────────────────────────────────────
+aliases:
+  # ── L&W Supply (a division of ABC Supply Co.) → one network ──
+  - alias: L&W Supply
+    canonical_network: L&W Supply
+    entity: L&W Supply (ABC Supply Co.)
+    vendor_type: specialty_distributor
+  - alias: L and W Supply
+    canonical_network: L&W Supply
+    entity: L&W Supply (ABC Supply Co.)
+    vendor_type: specialty_distributor
+  - alias: ABC Supply
+    canonical_network: L&W Supply
+    entity: L&W Supply (ABC Supply Co.)
+    vendor_type: specialty_distributor
+  - alias: ABC Supply Interiors
+    canonical_network: L&W Supply
+    entity: L&W Supply (ABC Supply Co.)
+    vendor_type: specialty_distributor
+
+  # ── FBM — Foundation Building Materials ──
+  - alias: Foundation Building Materials
+    canonical_network: FBM
+    entity: Foundation Building Materials
+    vendor_type: specialty_distributor
+  - alias: FBM
+    canonical_network: FBM
+    entity: Foundation Building Materials
+    vendor_type: specialty_distributor
+
+  # ── GMS — Gypsum Management & Supply (operates under local brand names) ──
+  - alias: Gypsum Management and Supply
+    canonical_network: GMS
+    entity: Gypsum Management & Supply
+    vendor_type: specialty_distributor
+  - alias: GMS
+    canonical_network: GMS
+    entity: Gypsum Management & Supply
+    vendor_type: specialty_distributor
+  - alias: Tucker Materials
+    canonical_network: GMS
+    entity: Gypsum Management & Supply
+    vendor_type: specialty_distributor
+  - alias: Gator Gypsum
+    canonical_network: GMS
+    entity: Gypsum Management & Supply
+    vendor_type: specialty_distributor
+  - alias: Rocky Top Materials
+    canonical_network: GMS
+    entity: Gypsum Management & Supply
+    vendor_type: specialty_distributor
+  - alias: Drywall Supply
+    canonical_network: GMS
+    entity: Gypsum Management & Supply
+    vendor_type: specialty_distributor
+
+  # ── Big-box retailers (kept, but flagged — they own GMS/FBM) ──
+  - alias: Home Depot
+    canonical_network: Home Depot
+    entity: The Home Depot
+    vendor_type: big_box_retailer
+  - alias: Lowe's
+    canonical_network: Lowe's
+    entity: Lowe's Home Improvement
+    vendor_type: big_box_retailer
+  - alias: Lowes
+    canonical_network: Lowe's
+    entity: Lowe's Home Improvement
+    vendor_type: big_box_retailer

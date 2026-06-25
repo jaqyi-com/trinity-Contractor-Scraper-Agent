@@ -13,12 +13,20 @@ ENV/
 env/
 
 # Backend secrets + data
+.env
 backend/.env
 backend/data/
 backend/exports/
 backend/*.db
 backend/*.sqlite
 backend/playwright_cache/
+
+# Service-account / Google credentials (NEVER commit)
+google-credentials.json
+backend/google-credentials.json
+*-credentials.json
+sigma-*.json
+*.iam.gserviceaccount.com.json
 
 # ───── Node ─────
 node_modules/
@@ -53,3 +61,7 @@ Thumbs.db
 
 # ───── Build / TS cache ─────
 *.tsbuildinfo
+
+# Test virtualenv
+.venv-test/
+backend/.venv-test/

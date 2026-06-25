@@ -8,6 +8,9 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
   const [jobId, setJobId] = useState<string | null>(null);
   const [conflictMsg, setConflictMsg] = useState<string | null>(null);
+  // ─── Run scope: mode (contractor|vendor) + territory (FL|TN) ───
+  const [mode, setMode] = useState<"contractor" | "vendor">("contractor");
+  const [territory, setTerritory] = useState<"FL" | "TN">("FL");
 
   // ─── Run config: max final records per run (default 5000) ───
   const settings = useQuery({ queryKey: ["settings"], queryFn: () => api.getSettings() });
@@ -16,6 +19,11 @@ export default function Dashboard() {
   const [discoveryBudget, setDiscoveryBudget] = useState<string>("");
   const [bbbBudget, setBbbBudget] = useState<string>("");
   const [apolloBudget, setApolloBudget] = useState<string>("");
+  // TN search radii (miles).
+  const [vendorRadius, setVendorRadius] = useState<string>("");
+  const [contractorRadius, setContractorRadius] = useState<string>("");
+  // Optional statewide TN verify-a-name license enrichment (slow; default off).
+  const [enableTnVerify, setEnableTnVerify] = useState(false);
   useEffect(() => {
     if (!settings.data) return;
     setMaxRecords(String(settings.data.max_final_records));
@@ -23,6 +31,9 @@ export default function Dashboard() {
     setDiscoveryBudget(s(settings.data.discovery_budget_usd));
     setBbbBudget(s(settings.data.bbb_budget_usd));
     setApolloBudget(s(settings.data.apollo_budget_usd));
+    setVendorRadius(String(settings.data.vendor_radius_miles));
+    setContractorRadius(String(settings.data.contractor_radius_miles));
+    setEnableTnVerify(!!settings.data.enable_tn_verify);
   }, [settings.data]);
 
   // "" → null (unlimited); a positive number → that budget; anything else → null.
@@ -40,6 +51,9 @@ export default function Dashboard() {
         discovery_budget_usd: parseBudget(discoveryBudget),
         bbb_budget_usd: parseBudget(bbbBudget),
         apollo_budget_usd: parseBudget(apolloBudget),
+        vendor_radius_miles: Number(vendorRadius) > 0 ? Number(vendorRadius) : null,
+        contractor_radius_miles: Number(contractorRadius) > 0 ? Number(contractorRadius) : null,
+        enable_tn_verify: enableTnVerify,
       }),
     onSuccess: (data) => {
       setMaxRecords(String(data.max_final_records));
@@ -47,6 +61,9 @@ export default function Dashboard() {
       setDiscoveryBudget(s(data.discovery_budget_usd));
       setBbbBudget(s(data.bbb_budget_usd));
       setApolloBudget(s(data.apollo_budget_usd));
+      setVendorRadius(String(data.vendor_radius_miles));
+      setContractorRadius(String(data.contractor_radius_miles));
+      setEnableTnVerify(!!data.enable_tn_verify);
       queryClient.invalidateQueries({ queryKey: ["settings"] });
     },
   });
@@ -57,12 +74,18 @@ export default function Dashboard() {
   const budgetInvalid = [discoveryBudget, bbbBudget, apolloBudget].some(
     (v) => v.trim() !== "" && !(Number(v) > 0),
   );
+  const radiusInvalid = [vendorRadius, contractorRadius].some(
+    (v) => !(Number(v) > 0 && Number(v) <= 500),
+  );
   const settingsUnchanged =
     settings.data &&
     parsedMax === settings.data.max_final_records &&
     parseBudget(discoveryBudget) === (settings.data.discovery_budget_usd ?? null) &&
     parseBudget(bbbBudget) === (settings.data.bbb_budget_usd ?? null) &&
-    parseBudget(apolloBudget) === (settings.data.apollo_budget_usd ?? null);
+    parseBudget(apolloBudget) === (settings.data.apollo_budget_usd ?? null) &&
+    Number(vendorRadius) === settings.data.vendor_radius_miles &&
+    Number(contractorRadius) === settings.data.contractor_radius_miles &&
+    enableTnVerify === !!settings.data.enable_tn_verify;
 
   // ─── Mount recovery: attach to an already-active job (running OR paused) ───
   const currentJob = useQuery({
@@ -97,7 +120,7 @@ export default function Dashboard() {
 
   // ─── Mutations ───
   const startJob = useMutation({
-    mutationFn: () => api.startJob(),
+    mutationFn: () => api.startJob({ mode, territory }),
     onSuccess: (data) => {
       setJobId(data.job_id);
       setConflictMsg(null);
@@ -141,15 +164,17 @@ export default function Dashboard() {
   const totalMetros = cities.data?.length;
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
-      <p className="text-muted-foreground mb-8">
-        Start the full Florida contractor scrape pipeline. Runs in the background — stop and
-        resume any time without re-running the expensive discovery stage.
+    <div className="p-6 lg:p-8 max-w-7xl mx-auto">
+      <h1 className="text-3xl font-bold mb-1">Dashboard</h1>
+      <p className="text-muted-foreground mb-6">
+        Start a scrape — pick what (contractors or vendors) and where (Florida or Tennessee).
+        Runs in the background; stop and resume any time.
       </p>
 
-      {/* Run config — max final records per run */}
-      <div className="mb-6 p-5 rounded-lg border bg-card max-w-md">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+        {/* ── Right column: run configuration ── */}
+        <div className="lg:order-2 lg:col-span-1 p-5 rounded-lg border bg-card">
+        <h2 className="font-semibold text-base mb-4">Run configuration</h2>
         <label htmlFor="max-records" className="block font-semibold mb-1">
           Max final records per run
         </label>
@@ -229,11 +254,80 @@ export default function Dashboard() {
           })}
         </div>
 
-        {/* ─── One Save for the whole card: max records + all budgets ─── */}
+        {/* ─── TN search radii (miles) ─── */}
+        <div className="mt-6 pt-5 border-t">
+          <h3 className="text-sm font-semibold mb-1">Tennessee search radii (miles)</h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            <b>Vendor radius</b> — when scraping vendors, search this far around each city center.
+            <br />
+            <b>Contractor radius</b> — when scraping TN contractors, search this far around each
+            vendor account. Applies to the next run.
+          </p>
+          <div className="flex flex-wrap gap-6">
+            {([
+              { label: "Vendor radius", value: vendorRadius, set: setVendorRadius, def: "20" },
+              { label: "Contractor radius", value: contractorRadius, set: setContractorRadius, def: "50" },
+            ] as const).map((f) => {
+              const inv = !(Number(f.value) > 0 && Number(f.value) <= 500);
+              return (
+                <div key={f.label}>
+                  <label className="block text-sm font-medium mb-1">{f.label}</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={500}
+                      step="1"
+                      placeholder={f.def}
+                      value={f.value}
+                      onChange={(e) => f.set(e.target.value)}
+                      disabled={settings.isLoading}
+                      className="w-28 rounded-md border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
+                    />
+                    <span className="text-xs text-muted-foreground">miles</span>
+                  </div>
+                  {inv && <p className="text-xs text-destructive mt-1">1–500 miles.</p>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ─── Optional: statewide TN verify-a-name license enrichment (default OFF) ─── */}
+        <div className="mt-6 pt-5 border-t">
+          <h3 className="text-sm font-semibold mb-1">Statewide TN license verify (optional)</h3>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={enableTnVerify}
+              onChange={(e) => setEnableTnVerify(e.target.checked)}
+              disabled={settings.isLoading}
+              className="mt-1 h-4 w-4 shrink-0"
+            />
+            <span className="text-xs text-muted-foreground leading-relaxed">
+              <span className="font-medium text-foreground">What this is:</span> Tennessee has no
+              bulk-downloadable statewide license list — only a “check one name at a time” portal
+              (verify.tn.gov). Normally TN runs use the free Nashville open-data list. Turn this ON to
+              <span className="font-medium text-foreground"> also</span> look up each remaining business
+              one-by-one on the statewide portal, for wider license coverage.
+              <br />
+              <span className="font-medium text-amber-700">⏱️ Cost = time:</span> it’s one web request
+              <em> per business</em>, so a large TN run can take several extra minutes (it’s capped per
+              run to stay bounded). It only adds license <span className="font-medium">enrichment</span> —
+              it never changes which businesses are discovered, and a run never fails because of it.
+              <br />
+              <span className="font-medium text-foreground">Default: OFF.</span> Leave it off unless you
+              specifically want the extra license matches and don’t mind the slower TN run. Florida runs
+              are unaffected.
+            </span>
+          </label>
+        </div>
+
+        {/* ─── One Save for the whole card: max records + all budgets + radii ─── */}
         <div className="mt-6 pt-5 border-t flex items-center gap-3">
           <button
             onClick={() => saveSettings.mutate()}
-            disabled={maxInvalid || budgetInvalid || settingsUnchanged || saveSettings.isPending || settings.isLoading}
+            disabled={maxInvalid || budgetInvalid || radiusInvalid || settingsUnchanged || saveSettings.isPending || settings.isLoading}
             className="inline-flex items-center gap-1.5 rounded-md bg-primary text-primary-foreground px-4 py-2 text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
           >
             {saveSettings.isSuccess && settingsUnchanged ? (
@@ -249,7 +343,10 @@ export default function Dashboard() {
         {saveSettings.isError && (
           <p className="text-xs text-destructive mt-2">{(saveSettings.error as Error).message}</p>
         )}
-      </div>
+        </div>
+
+      {/* ── Left column: run controls + live status ── */}
+      <div className="lg:order-1 lg:col-span-2 space-y-5">
 
       {/* Conflict banner (refresh recovery) */}
       {conflictMsg && (
@@ -257,6 +354,61 @@ export default function Dashboard() {
           <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
           <span>{conflictMsg}</span>
         </div>
+      )}
+
+      {/* ─── Run a scrape card ─── */}
+      <div className="p-5 rounded-lg border bg-card">
+      <h2 className="font-semibold text-base mb-4">Run a scrape</h2>
+      {/* Run scope: mode + territory */}
+      <div className="mb-5 flex flex-wrap gap-6">
+        <div>
+          <div className="text-xs font-medium text-muted-foreground mb-1.5">What to scrape</div>
+          <div className="inline-flex rounded-md border overflow-hidden">
+            {(["contractor", "vendor"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => {
+                  setMode(m);
+                  if (m === "vendor") setTerritory("TN"); // vendors are TN-only (spec)
+                }}
+                disabled={startDisabled}
+                className={`px-4 py-2 text-sm font-medium capitalize transition disabled:opacity-50 ${
+                  mode === m ? "bg-primary text-primary-foreground" : "bg-card hover:bg-accent"
+                }`}
+              >
+                {m === "contractor" ? "Contractors" : "Vendors"}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <div className="text-xs font-medium text-muted-foreground mb-1.5">Territory</div>
+          <div className="inline-flex rounded-md border overflow-hidden">
+            {(["FL", "TN"] as const).map((t) => {
+              // Vendors are TN-only (spec) → Florida is disabled in vendor mode.
+              const blocked = mode === "vendor" && t === "FL";
+              return (
+                <button
+                  key={t}
+                  onClick={() => setTerritory(t)}
+                  disabled={startDisabled || blocked}
+                  title={blocked ? "Vendor scraping is Tennessee-only" : undefined}
+                  className={`px-4 py-2 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                    territory === t ? "bg-primary text-primary-foreground" : "bg-card hover:bg-accent"
+                  }`}
+                >
+                  {t === "FL" ? "Florida" : "Tennessee"}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      {mode === "contractor" && territory === "TN" && (
+        <p className="mb-4 text-xs text-muted-foreground">
+          TN contractor runs scrape the <b>contractor radius</b> around your vendor accounts. No
+          vendor accounts yet? It falls back to scraping the TN cities directly (like Florida).
+        </p>
       )}
 
       {/* ─── Action buttons ─── */}
@@ -271,7 +423,7 @@ export default function Dashboard() {
             ? `Running... (${s?.status})`
             : startJob.isPending
               ? "Starting..."
-              : "Start Full Scrape"}
+              : `Start ${territory} ${mode === "vendor" ? "Vendor" : "Contractor"} Scrape`}
         </button>
 
         {/* Stop — only while running */}
@@ -317,10 +469,11 @@ export default function Dashboard() {
           Error: {(startJob.error as Error).message}
         </div>
       )}
+      </div>{/* end run-a-scrape card */}
 
       {/* ─── Live status + animated phase progress ─── */}
       {s && (
-        <div className="mt-8 p-6 rounded-lg border bg-card">
+        <div className="p-6 rounded-lg border bg-card">
           <div className="flex items-center justify-between mb-5 gap-3">
             <h3 className="font-semibold truncate">
               Job <span className="font-mono text-sm text-muted-foreground">{s.job_id}</span>
@@ -344,6 +497,8 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      </div>{/* end left column */}
+      </div>{/* end grid */}
     </div>
   );
 }

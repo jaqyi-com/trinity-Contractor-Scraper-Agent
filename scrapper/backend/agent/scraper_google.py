@@ -149,12 +149,13 @@ DEFAULT_QUERIES = [
 
 
 def scrape_metro(city: str, zips: List[str], queries: List[str] = None,
-                 max_charge_usd: float = None) -> List[GoogleSeed]:
+                 max_charge_usd: float = None, state: str = "FL") -> List[GoogleSeed]:
     """
     Discover businesses for one metro via the Apify Google Maps actor (the sole
     discovery source — no Outscraper key). Subtype include/exclude is enforced
     authoritatively by the Stage-3 classifier, so we don't re-filter here.
     `zips` is accepted for signature compatibility; the actor searches by city.
+    `state` (default 'FL') sets the search region — pass 'TN' for Tennessee runs.
     """
     # Sample/test mode — skip live scraping entirely, return hardcoded seeds.
     if USE_SAMPLE_DATA:
@@ -168,11 +169,11 @@ def scrape_metro(city: str, zips: List[str], queries: List[str] = None,
 
     queries = queries or DEFAULT_QUERIES
     cap = DISCOVERY_RESULT_CAP  # None = no cap (full scale)
-    return _scrape_apify_maps(city, queries, cap, max_charge_usd)
+    return _scrape_apify_maps(city, queries, cap, max_charge_usd, state=state)
 
 
 def _scrape_apify_maps(city: str, queries: List[str], cap,
-                       max_charge_usd: float = None) -> List[GoogleSeed]:
+                       max_charge_usd: float = None, state: str = "FL") -> List[GoogleSeed]:
     """Discovery via the Apify Google Maps actor, ASYNC pattern: start the run,
     poll until it finishes, then read its dataset. The old run-sync endpoint has
     a ~300s server cap, which a full metro scrape (all queries × scrapeContacts)
@@ -188,7 +189,7 @@ def _scrape_apify_maps(city: str, queries: List[str], cap,
     per_search = cap if cap is not None else 120
     payload = {
         "searchStringsArray": search_strings,
-        "locationQuery": f"{city}, FL, USA",
+        "locationQuery": f"{city}, {state}, USA",
         "maxCrawledPlacesPerSearch": per_search,
         "scrapeContacts": True,
         "language": "en",

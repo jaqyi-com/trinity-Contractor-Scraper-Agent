@@ -38,7 +38,7 @@ export default function Login() {
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground mb-3">
             <LogIn className="h-6 w-6" />
           </div>
-          <h1 className="text-2xl font-bold">Contractor Scraper</h1>
+          <h1 className="text-2xl font-bold">Westpac Sales Scraper</h1>
           <p className="text-sm text-muted-foreground mt-1">Sign in to continue</p>
         </div>
 
