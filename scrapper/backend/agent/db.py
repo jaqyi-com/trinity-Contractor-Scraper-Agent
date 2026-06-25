@@ -130,6 +130,7 @@ def init_schema() -> None:
     _seed_tennessee_exclusions_if_empty()
     _seed_vendor_aliases_if_empty()
     _seed_negative_keywords_if_empty()
+    _seed_keywords_if_empty()
     _seed_budget_settings_if_missing()
 
 
@@ -603,6 +604,24 @@ def _seed_negative_keywords_if_empty() -> None:
         })
     if terms:
         print(f"✅ Seeded {len(terms)} lumber negative-keyword terms from negative_keywords.yaml")
+
+
+def _seed_keywords_if_empty() -> None:
+    """Seed the classifier tier keywords (PDF defaults) into the keywords tab on
+    first boot (idempotent — skips if any keyword exists). Previously this was a
+    manual `python -m agent.seed_keywords` step; now it runs on startup like the
+    other reference data, so a fresh sheet always has a working classifier."""
+    db = get_db()
+    if db.count("keywords") > 0:
+        return
+    from agent.seed_keywords import SEED
+    inserted = 0
+    for tier, words in SEED.items():
+        for kw in words:
+            insert_keyword_raw(tier, kw.lower(), notes=None, created_by="system")
+            inserted += 1
+    if inserted:
+        print(f"✅ Seeded {inserted} classifier keywords ({len(SEED)} tiers) from PDF defaults")
 
 
 def is_excluded(
