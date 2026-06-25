@@ -426,6 +426,34 @@ export const api = {
     URL.revokeObjectURL(url);
   },
 
+  // Vendors (separate tab from contractors)
+  listVendors: (params: ContractorQuery = {}) =>
+    request<Paged<Contractor>>(`/api/vendors${qs(params)}`),
+  vendorFacets: (jobId?: string) =>
+    request<{ total: number; cities: FacetItem[]; vendor_types: FacetItem[]; networks: FacetItem[] }>(
+      `/api/vendors/facets${qs({ job_id: jobId })}`,
+    ),
+  getVendor: (id: number) => request<Contractor>(`/api/vendors/${id}`),
+  exportVendors: async (
+    params: Omit<ContractorQuery, "limit" | "offset"> & { format?: "csv" | "xlsx" } = {},
+  ) => {
+    const token = tokenStore.get();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_URL}/api/vendors/export${qs(params)}`, { headers });
+    if (!res.ok) throw new ApiError(res.status, null, `Export ${res.status}`);
+    const blob = await res.blob();
+    const ext = params.format === "xlsx" ? "xlsx" : "csv";
+    const filename =
+      res.headers.get("Content-Disposition")?.match(/filename="?([^"]+)"?/)?.[1] ||
+      `vendors_${new Date().toISOString().slice(0, 10)}.${ext}`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  },
+
   // Classification log
   listClassificationLog: (params: {
     job_id?: string;

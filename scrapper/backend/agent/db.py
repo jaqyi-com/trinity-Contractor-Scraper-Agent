@@ -289,10 +289,13 @@ def list_source_records(canonical_entity_id: str) -> List[Dict[str, Any]]:
 STAGE_ORDER = ("discovery", "dedupe_seeds", "classify", "cap", "enrich")
 
 
-def record_stage(job_id: str, stage: str, records, batch_name: Optional[str] = None) -> int:
+def record_stage(job_id: str, stage: str, records, batch_name: Optional[str] = None,
+                  record_type: Optional[str] = None) -> int:
     """Persist a snapshot of the record set at one pipeline stage for this batch.
     Append-only — each stage is a layer (Workstream E). Records may be pydantic
-    models or dicts. Every row carries the slicing tags + the full record `data`."""
+    models or dicts. `record_type` (e.g. 'vendor') is the run's type, used for early
+    stages (discovery/dedupe) whose raw seeds don't carry record_type yet — so a
+    vendor run's discovery snapshot is correctly tagged 'vendor', not 'contractor'."""
     db = get_db()
     if batch_name is None:
         job = get_job(job_id) or {}
@@ -309,7 +312,7 @@ def record_stage(job_id: str, stage: str, records, batch_name: Optional[str] = N
             "batch": job_id,
             "batch_name": batch_name,
             "stage": stage,
-            "record_type": rec.get("record_type") or "contractor",
+            "record_type": rec.get("record_type") or record_type or "contractor",
             "canonical_entity_id": rec.get("canonical_entity_id") or compute_canonical_entity_id(rec),
             "state": rec.get("state"),
             "city": rec.get("city"),
@@ -725,15 +728,16 @@ def get_running_job() -> Optional[Dict[str, Any]]:
 # ──────────────────────────────────────────────────────────────
 # Contractors
 # ──────────────────────────────────────────────────────────────
-def insert_contractor(record: Dict[str, Any]) -> int:
-    """Versioned save keyed by dedupe_key:
+def insert_contractor(record: Dict[str, Any], tab: str = "contractors") -> int:
+    """Versioned save keyed by dedupe_key (into `tab`, default 'contractors';
+    vendors save to 'vendors' via insert_vendor):
       • not in DB                 → insert a new row
       • in DB but data CHANGED    → insert a NEW row (new id + this run's job_id +
                                     fresh scraped_at) — the old version is kept
       • in DB and UNCHANGED       → no write (skip), return the existing id
 
-    So the contractors tab keeps a per-batch history of each business; filtering
-    by job (batch) shows what that run added/changed."""
+    So the tab keeps a per-batch history of each business; filtering by job (batch)
+    shows what that run added/changed."""
     db = get_db()
     payload = {
         "business_name": record.get("business_name"),
@@ -779,14 +783,20 @@ def insert_contractor(record: Dict[str, Any]) -> int:
         "stage": record.get("stage"),
     }
     key = payload["dedupe_key"]
-    existing = db.find("contractors", lambda r: r.get("dedupe_key") == key)
+    existing = db.find(tab, lambda r: r.get("dedupe_key") == key)
     if existing:
         latest = max(existing, key=lambda r: r.get("id") or 0)
         if not _contractor_changed(payload, latest):
             return int(latest["id"])          # unchanged → skip
         # changed → fall through and insert a new version
-    saved = db.insert("contractors", payload)  # new id
+    saved = db.insert(tab, payload)  # new id
     return int(saved["id"])
+
+
+def insert_vendor(record: Dict[str, Any]) -> int:
+    """Versioned save into the separate `vendors` tab (vendors are kept out of the
+    contractors deliverable)."""
+    return insert_contractor(record, tab="vendors")
 
 
 def list_contractors(
@@ -795,8 +805,10 @@ def list_contractors(
     sort_dir: str = "desc",
     limit: int = 50,
     offset: int = 0,
+    tab: str = "contractors",
 ) -> Dict[str, Any]:
-    """Filtered, sorted, paginated contractor list.
+    """Filtered, sorted, paginated business list from `tab` (default 'contractors';
+    pass 'vendors' for the vendor list).
 
     `filters` keys (all optional, see api/routes/contractors.py for the shape):
       job_id, city[list], tier[list], license_status[list], search, business_name,
@@ -807,7 +819,7 @@ def list_contractors(
       min_rating, min_review_count, min_years.
     """
     f = filters or {}
-    rows = get_db().all_rows("contractors")
+    rows = get_db().all_rows(tab)
     rows = _filter_contractors(rows, f)
 
     reverse = (sort_dir or "desc").lower() != "asc"
@@ -815,6 +827,11 @@ def list_contractors(
     total = len(rows)
     page = rows[offset: offset + limit]
     return {"total": total, "limit": limit, "offset": offset, "rows": page}
+
+
+def list_vendors(filters=None, sort_by="id", sort_dir="desc", limit=50, offset=0) -> Dict[str, Any]:
+    """Vendor list — same shape as list_contractors but from the separate vendors tab."""
+    return list_contractors(filters, sort_by, sort_dir, limit, offset, tab="vendors")
 
 
 def _deliverable_scope(rows: List[Dict[str, Any]], f: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -865,14 +882,15 @@ def iter_contractors_filtered(
     filters: Optional[Dict[str, Any]] = None,
     sort_by: str = "id",
     sort_dir: str = "desc",
+    tab: str = "contractors",
 ):
-    """Streaming iterator for CSV export (no pagination). This is the DELIVERABLE
-    view: on top of the field filters it applies _deliverable_scope, which drops
-    lumber-excluded (excluded_reason) and out_of_territory rows by default — so the
-    exported list never contains flagged businesses (Workstream D/E). Pass
-    include_excluded / include_out_of_territory in `filters` to audit them."""
+    """Streaming iterator for CSV export (no pagination) from `tab`. This is the
+    DELIVERABLE view: on top of the field filters it applies _deliverable_scope,
+    which drops lumber-excluded (excluded_reason) and out_of_territory rows by
+    default — so the exported list never contains flagged businesses (Workstream
+    D/E). Pass include_excluded / include_out_of_territory in `filters` to audit."""
     f = filters or {}
-    rows = get_db().all_rows("contractors")
+    rows = get_db().all_rows(tab)
     rows = _filter_contractors(rows, f)      # field filters
     rows = _deliverable_scope(rows, f)       # + derived deliverable narrowing (drop flagged)
     reverse = (sort_dir or "desc").lower() != "asc"
@@ -881,12 +899,21 @@ def iter_contractors_filtered(
         yield r
 
 
-def get_contractor(contractor_id: int) -> Optional[Dict[str, Any]]:
-    return get_db().get_by_id("contractors", contractor_id)
+def iter_vendors_filtered(filters=None, sort_by="id", sort_dir="desc"):
+    """Streaming vendor export iterator (from the vendors tab)."""
+    return iter_contractors_filtered(filters, sort_by, sort_dir, tab="vendors")
 
 
-def contractor_facets(job_id: Optional[str] = None) -> Dict[str, Any]:
-    rows = get_db().all_rows("contractors")
+def get_contractor(contractor_id: int, tab: str = "contractors") -> Optional[Dict[str, Any]]:
+    return get_db().get_by_id(tab, contractor_id)
+
+
+def get_vendor(vendor_id: int) -> Optional[Dict[str, Any]]:
+    return get_db().get_by_id("vendors", vendor_id)
+
+
+def contractor_facets(job_id: Optional[str] = None, tab: str = "contractors") -> Dict[str, Any]:
+    rows = get_db().all_rows(tab)
     if job_id:
         rows = [r for r in rows if r.get("job_id") == job_id]
 
@@ -900,6 +927,25 @@ def contractor_facets(job_id: Optional[str] = None) -> Dict[str, Any]:
         "cities": _counts("city"),
         "tiers": _counts("tier"),
         "license_statuses": _counts("license_status"),
+    }
+
+
+def vendor_facets(job_id: Optional[str] = None) -> Dict[str, Any]:
+    """Facet counts for the vendors tab (cities / vendor_type / canonical_network)."""
+    rows = get_db().all_rows("vendors")
+    if job_id:
+        rows = [r for r in rows if r.get("job_id") == job_id]
+    from collections import Counter
+
+    def _counts(field: str):
+        c = Counter(r.get(field) for r in rows if r.get(field))
+        return [{"value": v, "n": n} for v, n in c.most_common()]
+
+    return {
+        "total": len(rows),
+        "cities": _counts("city"),
+        "vendor_types": _counts("vendor_type"),
+        "networks": _counts("canonical_network"),
     }
 
 

@@ -420,8 +420,8 @@ export default function Results() {
   return (
     <div className="p-6">
       <PageHeader
-        title="Results"
-        subtitle="Final scraped contractor data — every field shown, filter per column, click any row for full details."
+        title="Contractors"
+        subtitle="Scraped contractor leads — every field shown, filter per column, click any row for full details."
         icon={<Users className="h-6 w-6 text-primary" />}
       />
 

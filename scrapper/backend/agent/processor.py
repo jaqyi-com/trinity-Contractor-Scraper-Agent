@@ -200,7 +200,7 @@ def _enrich_one(task) -> None:
 
 def enrich_and_insert_rows(rows: List[ContractorRow], dbpr_index: list, job_id: str,
                            should_stop=None, bbb_budget_usd=None,
-                           apollo_budget_usd=None) -> dict:
+                           apollo_budget_usd=None, target_tab: str = "contractors") -> dict:
     """License-match → parallel BBB/Apollo enrich → UPSERT each row to the DB.
 
     `should_stop` (optional callable) is polled between enrichment waves so a stop
@@ -267,9 +267,9 @@ def enrich_and_insert_rows(rows: List[ContractorRow], dbpr_index: list, job_id: 
     for row in rows:
         rec = row.model_dump(mode="json")
         try:
-            insert_contractor(rec)
+            insert_contractor(rec, tab=target_tab)   # vendors → 'vendors' tab, kept separate
             summary["saved"] += 1
-            print(f"💾 Saved: {row.business_name} ({row.tier})")
+            print(f"💾 Saved [{target_tab}]: {row.business_name} ({row.tier or row.vendor_type})")
         except Exception as e:
             print(f"❌ DB insert failed for {row.business_name}: {e}")
             summary["errors"].append({"stage": "insert", "name": row.business_name, "error": str(e)})

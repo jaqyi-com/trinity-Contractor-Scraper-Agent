@@ -13,15 +13,17 @@ from agent.scraper_google import scrape_metro
 from agent.vendor import resolve_vendor_network
 from agent.lumber import apply_lumber_flag
 
-# Google Maps search phrases for distributors (NOT contractor queries).
+# Google Maps search phrases for DISTRIBUTORS (sell-to targets), not contractors.
+# Distributor-focused so the results lean to suppliers; the vendor-relevance filter
+# (vendor.is_distributor) then drops any contractors that still slip through.
 VENDOR_QUERIES = [
     "drywall supply",
+    "drywall supply company",
     "gypsum supply",
     "drywall distributor",
     "building materials supplier",
     "drywall and acoustical supply",
     "wallboard supply",
-    "interior building products",
 ]
 
 
