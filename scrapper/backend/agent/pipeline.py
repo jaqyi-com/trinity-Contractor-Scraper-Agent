@@ -92,19 +92,19 @@ def _resolve_run_plan(mode: str, territory: str, client_id: str = None) -> dict:
     # contractor mode
     if territory == "TN":
         from agent.targeting import contractor_scrape_units
-        from agent.db import list_dealer_accounts
-        dealers = list_dealer_accounts(client_id)
-        if dealers:
-            # Case 1 (spec): vendor/dealer accounts exist → scrape the ZIPs within the
-            # contractor radius (50 mi) of each vendor account, deduped, Memphis-excluded.
-            units = contractor_scrape_units("TN", client_id)
+        # Case 1 (vendor-geography): anchor the 50-mi contractor radius on vendor
+        # locations — manual dealer accounts, or (chosen behaviour) the SCRAPED
+        # vendors when no manual accounts. contractor_scrape_units handles that.
+        units = contractor_scrape_units("TN", client_id)
+        if units:
             cities = [{"name": u["city"], "zips": u["zips"]} for u in units]
-            print(f"   TN contractor → {len(dealers)} vendor account(s): vendor-anchored ZIPs")
+            anchored = sum(int(u.get("dealer_count") or 0) for u in units)
+            print(f"   TN contractor → vendor-geography: 50-mi around {anchored} vendor location(s) "
+                  f"→ {len(cities)} city group(s)")
         else:
-            # Case 2: no vendor accounts → fall back to Florida-style static city ZIPs
-            # (the TN cities seeded into the cities/city_zips tabs).
+            # Case 2: no vendor locations at all yet → Florida-style city ZIPs.
             cities = [c for c in list_cities() if (c.get("state") or "").upper() == "TN"]
-            print(f"   TN contractor → no vendor accounts: Florida-style city ZIPs ({len(cities)} cities)")
+            print(f"   TN contractor → no vendor locations yet: Florida-style city ZIPs ({len(cities)} cities)")
         return {"cities": cities, "state": "TN", "queries": None, "record_type": "contractor"}
 
     # contractor + FL — FL cities only (TN cities now live in the same cities tab,
