@@ -109,7 +109,7 @@ async def list_contractors(
 
 
 EXPORT_COLUMNS = [
-    "id", "business_name", "record_type",
+    "id", "business_name", "record_type", "canonical_entity_id",
     "city", "zip_code", "state", "county", "address",
     "tier", "city_tier", "specialty_keywords", "google_categories", "services_listed",
     "phone", "email", "website", "owner_name",
@@ -118,7 +118,7 @@ EXPORT_COLUMNS = [
     "google_rating", "google_review_count",
     "bbb_rating", "bbb_accredited", "years_in_business",
     "social_profiles", "sources", "source",
-    "excluded_reason", "out_of_territory", "place_ids",
+    "enrichment_status", "excluded_reason", "out_of_territory", "place_ids",
     "scraped_at", "job_id",
 ]
 
@@ -240,3 +240,14 @@ async def contractor_classification(contractor_id: int):
     if not row:
         raise HTTPException(status_code=404, detail="Contractor not found")
     return db.get_contractor_classification(contractor_id)
+
+
+@router.get("/{contractor_id}/sources")
+async def contractor_sources(contractor_id: int):
+    """Per-source raw provenance for one contractor (Workstream E) — which sources
+    (Google/BBB/license/Apollo) produced this business, linked by canonical_entity_id."""
+    row = db.get_contractor(contractor_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Contractor not found")
+    ceid = row.get("canonical_entity_id")
+    return db.list_source_records(ceid) if ceid else []

@@ -101,6 +101,23 @@ export type Contractor = {
   place_ids: string[] | null;
   scraped_at: string;
   job_id: string;
+  // Workstream E — additional tags not already declared above
+  canonical_entity_id?: string | null;
+  enrichment_status?: string | null;
+  stage?: string | null;
+};
+
+export type SourceRow = {
+  id: number;
+  canonical_entity_id: string;
+  source: string | null;
+  scrape_run_id: string | null;
+  business_name: string | null;
+  phone: string | null;
+  city: string | null;
+  zip_code: string | null;
+  website: string | null;
+  stage: string | null;
 };
 
 /** Full query surface for the contractor grid + CSV export.
@@ -198,9 +215,12 @@ export type StageBatch = {
 export type StageRecord = {
   id: number;
   batch: string;
+  batch_name?: string | null;
   stage: string;
   record_type: string;
+  canonical_entity_id?: string | null;
   state: string | null;
+  county?: string | null;
   city: string | null;
   city_tier: string | null;
   zip_code: string | null;
@@ -209,7 +229,14 @@ export type StageRecord = {
   phone: string | null;
   email: string | null;
   website: string | null;
+  canonical_network?: string | null;
+  vendor_type?: string | null;
+  is_big_box?: boolean | null;
+  out_of_territory?: boolean | null;
+  enrichment_status?: string | null;
   excluded_reason: string | null;
+  // Full record snapshot — every column the pipeline carried at this stage.
+  data?: Record<string, any> | null;
 };
 
 export type Settings = {
@@ -353,6 +380,22 @@ export const api = {
     request<{ batch: string; stage: string; total: number; rows: StageRecord[] }>(
       `/api/stages/records${qs({ batch, stage, limit })}`,
     ),
+  exportStage: async (batch: string, stage: string) => {
+    const token = tokenStore.get();
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const res = await fetch(`${API_URL}/api/stages/export${qs({ batch, stage })}`, { headers });
+    if (!res.ok) throw new ApiError(res.status, null, `Export ${res.status}`);
+    const blob = await res.blob();
+    const filename =
+      res.headers.get("Content-Disposition")?.match(/filename="?([^"]+)"?/)?.[1] ||
+      `stage_${stage}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  },
 
   // Dealer/vendor accounts (contractor radius anchors)
   listDealers: () => request<Dealer[]>("/api/dealers"),
@@ -390,6 +433,8 @@ export const api = {
   getContractor: (id: number) => request<Contractor>(`/api/contractors/${id}`),
   contractorClassification: (id: number) =>
     request<ClassificationLog[]>(`/api/contractors/${id}/classification`),
+  contractorSources: (id: number) => request<SourceRow[]>(`/api/contractors/${id}/sources`),
+  vendorSources: (id: number) => request<SourceRow[]>(`/api/vendors/${id}/sources`),
 
   exportContractors: async (
     params: Omit<ContractorQuery, "limit" | "offset"> & { format?: "csv" | "xlsx" } = {},

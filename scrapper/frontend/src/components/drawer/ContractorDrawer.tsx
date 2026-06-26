@@ -8,14 +8,21 @@ export function ContractorDrawer({
   contractor,
   open,
   onClose,
+  kind = "contractor",
 }: {
   contractor: Contractor | null;
   open: boolean;
   onClose: () => void;
+  kind?: "contractor" | "vendor";
 }) {
   const classification = useQuery({
     queryKey: ["contractor-classification", contractor?.id],
     queryFn: () => api.contractorClassification(contractor!.id),
+    enabled: !!contractor && open && kind === "contractor",
+  });
+  const sources = useQuery({
+    queryKey: [kind + "-sources", contractor?.id],
+    queryFn: () => (kind === "vendor" ? api.vendorSources(contractor!.id) : api.contractorSources(contractor!.id)),
     enabled: !!contractor && open,
   });
 
@@ -40,6 +47,31 @@ export function ContractorDrawer({
           />
 
           <DrawerBody>
+            {/* Data-separation TAGS (Workstream E) — how this record is classified/sliced */}
+            <DrawerSection title="Tags">
+              <div className="flex flex-wrap gap-1.5">
+                <Badge variant={contractor.record_type === "vendor" ? "info" : "success"}>
+                  {contractor.record_type || "contractor"}
+                </Badge>
+                {contractor.state && <Badge variant="muted">{contractor.state}</Badge>}
+                {contractor.city && <Badge variant="muted">{contractor.city}</Badge>}
+                {contractor.city_tier && <Badge variant="info">Tier {contractor.city_tier}</Badge>}
+                {contractor.zip_code && <Badge variant="muted">{contractor.zip_code}</Badge>}
+                {contractor.county && <Badge variant="muted">{contractor.county} County</Badge>}
+                {contractor.canonical_network && <Badge variant="info">network: {contractor.canonical_network}</Badge>}
+                {contractor.vendor_type && <Badge variant="muted">{contractor.vendor_type}</Badge>}
+                {contractor.is_big_box && <Badge variant="warning">big-box</Badge>}
+                {contractor.out_of_territory && <Badge variant="danger">out of territory</Badge>}
+                {contractor.excluded_reason && <Badge variant="danger">excluded: {contractor.excluded_reason}</Badge>}
+                {contractor.enrichment_status && <Badge variant="muted">{contractor.enrichment_status}</Badge>}
+              </div>
+              {contractor.canonical_entity_id && (
+                <div className="mt-2 text-[11px] text-muted-foreground">
+                  entity: <code>{contractor.canonical_entity_id}</code>
+                </div>
+              )}
+            </DrawerSection>
+
             {/* Quick contact card */}
             <div className="rounded-lg border bg-muted/30 p-3 space-y-2 text-sm">
               <Line icon={<Phone className="h-3.5 w-3.5" />} value={contractor.phone}>
@@ -156,7 +188,29 @@ export function ContractorDrawer({
               </DrawerSection>
             )}
 
-            {/* Classification audit trail */}
+            {/* Raw per-source provenance (Workstream E) — connected source rows */}
+            <DrawerSection title="Sources (raw layer)" count={sources.data?.length}>
+              {sources.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
+              {!sources.isLoading && (sources.data?.length ?? 0) === 0 && (
+                <div className="text-xs text-muted-foreground italic">
+                  No raw source rows yet (populated on the next pipeline run).
+                </div>
+              )}
+              <div className="space-y-1.5">
+                {sources.data?.map((s) => (
+                  <div key={s.id} className="rounded border bg-muted/30 p-2 text-xs flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Badge variant="muted">{s.source || "?"}</Badge>
+                      <span className="truncate">{s.business_name}</span>
+                    </div>
+                    <span className="text-muted-foreground shrink-0">{[s.city, s.zip_code].filter(Boolean).join(" · ")}</span>
+                  </div>
+                ))}
+              </div>
+            </DrawerSection>
+
+            {/* Classification audit trail (contractors only) */}
+            {kind === "contractor" && (
             <DrawerSection title="Why included" count={classification.data?.length}>
               {classification.isLoading && <div className="text-xs text-muted-foreground">Loading…</div>}
               {classification.data?.length === 0 && (
@@ -181,6 +235,7 @@ export function ContractorDrawer({
                 ))}
               </div>
             </DrawerSection>
+            )}
 
             {/* Meta */}
             <DrawerSection title="Meta">
