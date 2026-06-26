@@ -1,0 +1,547 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Westpac Sales Scraper — User Guide</title>
+<style>
+  :root{
+    --ink:#1c2530; --muted:#5b6776; --line:#e2e7ee; --soft:#f5f7fa;
+    --blue:#1f5f9e; --blue-soft:#eaf2fb;
+    --green:#1c7c4a; --green-soft:#e7f5ec;
+    --amber:#9a6a00; --amber-soft:#fdf3dd;
+    --red:#a32b2b; --red-soft:#fbe9e9;
+    --purple:#5a3fa0; --purple-soft:#f0ebfb;
+  }
+  *{box-sizing:border-box;}
+  html{font-family:-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);font-size:13.5px;line-height:1.55;}
+  body{margin:0;}
+  h1,h2,h3,h4{line-height:1.25;margin:0 0 .4em;}
+  h1{font-size:30px;}
+  h2{font-size:21px;color:var(--blue);border-bottom:2px solid var(--blue-soft);padding-bottom:.25em;margin-top:1.6em;}
+  h3{font-size:16px;margin-top:1.3em;}
+  h4{font-size:13.5px;margin-top:1em;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;}
+  p{margin:.5em 0;}
+  ul,ol{margin:.4em 0 .8em;padding-left:1.3em;}
+  li{margin:.25em 0;}
+  code{background:var(--soft);border:1px solid var(--line);border-radius:4px;padding:.05em .35em;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.86em;color:#324;}
+  .page{max-width:850px;margin:0 auto;padding:42px 54px;}
+  .pb{page-break-after:always;}
+  table{border-collapse:collapse;width:100%;margin:.8em 0;font-size:12px;}
+  th,td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;}
+  th{background:var(--soft);font-weight:600;}
+  tr{page-break-inside:avoid;}
+  .tag{display:inline-block;border-radius:5px;padding:.1em .5em;font-size:11px;font-weight:600;font-family:"SF Mono",Menlo,monospace;white-space:nowrap;}
+  .t-blue{background:var(--blue-soft);color:var(--blue);}
+  .t-green{background:var(--green-soft);color:var(--green);}
+  .t-amber{background:var(--amber-soft);color:var(--amber);}
+  .t-red{background:var(--red-soft);color:var(--red);}
+  .t-purple{background:var(--purple-soft);color:var(--purple);}
+  .callout{border-radius:8px;padding:12px 16px;margin:1em 0;border:1px solid var(--line);}
+  .c-blue{background:var(--blue-soft);border-color:#cfe1f5;}
+  .c-green{background:var(--green-soft);border-color:#c9ead4;}
+  .c-amber{background:var(--amber-soft);border-color:#f0dca6;}
+  .c-red{background:var(--red-soft);border-color:#f1cccc;}
+  .callout .lbl{font-weight:700;font-size:11px;text-transform:uppercase;letter-spacing:.05em;display:block;margin-bottom:3px;}
+  .c-blue .lbl{color:var(--blue);} .c-green .lbl{color:var(--green);}
+  .c-amber .lbl{color:var(--amber);} .c-red .lbl{color:var(--red);}
+  .flow{display:flex;align-items:stretch;gap:0;margin:1em 0;flex-wrap:wrap;}
+  .step{flex:1;min-width:96px;border:1px solid var(--line);border-radius:8px;padding:10px;text-align:center;background:#fff;position:relative;}
+  .step .n{display:inline-block;width:22px;height:22px;line-height:22px;border-radius:50%;background:var(--blue);color:#fff;font-weight:700;font-size:11px;margin-bottom:5px;}
+  .step .t{font-weight:600;font-size:12px;}
+  .step .d{font-size:10.5px;color:var(--muted);margin-top:3px;}
+  .arrow{display:flex;align-items:center;color:var(--blue);font-size:18px;padding:0 4px;font-weight:700;}
+  .ui{border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:1em 0;}
+  .ui .bar{background:var(--soft);border-bottom:1px solid var(--line);padding:6px 12px;font-size:11px;color:var(--muted);font-weight:600;}
+  .ui .body{padding:14px 16px;}
+  .cover{padding:120px 54px 0;}
+  .cover h1{font-size:40px;margin-bottom:.1em;}
+  .cover .sub{font-size:18px;color:var(--muted);}
+  .cover .meta{margin-top:40px;font-size:13px;color:var(--muted);}
+  .pill{display:inline-block;font-size:11px;font-weight:700;border-radius:999px;padding:.2em .7em;}
+  .pill-old{background:#eef0f3;color:#5b6776;border:1px solid #d7dce3;}
+  .pill-new{background:var(--green-soft);color:var(--green);border:1px solid #c9ead4;}
+  .pill-upd{background:var(--blue-soft);color:var(--blue);border:1px solid #cfe1f5;}
+  .toc li{margin:.35em 0;}
+  .lede{font-size:15px;color:var(--muted);}
+  .kv{margin:.3em 0;}
+  .kv b{color:var(--ink);}
+  hr{border:none;border-top:1px solid var(--line);margin:1.6em 0;}
+  .small{font-size:11px;color:var(--muted);}
+  @media print{ .page{padding:30px 40px;} h2{margin-top:1.2em;} }
+</style>
+</head>
+<body>
+
+<!-- ───────────── COVER ───────────── -->
+<section class="page cover pb">
+  <div class="pill pill-new">USER GUIDE</div>
+  <h1>Westpac Sales Scraper</h1>
+  <p class="sub">How to use the dashboard — in plain English, for the people who run it every day.</p>
+  <div class="meta">
+    <p><b>What this tool does:</b> it finds businesses (contractors and material distributors), cleans the list, adds contact details, and gives you a ready-to-use sales sheet.</p>
+    <p><b>Who this guide is for:</b> end users — the people clicking buttons in the dashboard. No engineering knowledge needed.</p>
+    <p style="margin-top:30px;">Florida edition <span class="pill pill-old">EXISTING</span> &nbsp;·&nbsp; Tennessee + Vendors <span class="pill pill-new">NEW</span></p>
+  </div>
+</section>
+
+<!-- ───────────── TOC ───────────── -->
+<section class="page pb">
+  <h2 style="margin-top:0;">What's inside</h2>
+  <ol class="toc">
+    <li><b>The big picture</b> — what the tool does, in one screen</li>
+    <li><b>Three kinds of runs</b> — Florida contractors, Tennessee contractors, Tennessee vendors</li>
+    <li><b>The Dashboard</b> — every button and setting explained (click this → this happens)</li>
+    <li><b>How a run works</b> — the 5 pipeline stages</li>
+    <li><b>Florida contractors</b> <span class="pill pill-old">OLD — unchanged</span></li>
+    <li><b>Tennessee contractors</b> <span class="pill pill-upd">UPDATED logic</span> — vendors first, then geography</li>
+    <li><b>Tennessee vendors</b> <span class="pill pill-new">NEW</span></li>
+    <li><b>The menu</b> — what each page is for</li>
+    <li><b>Tags</b> — the labels on every record, and what data each one carries</li>
+    <li><b>Click a record</b> — the detail panel (Tags + where the data came from)</li>
+    <li><b>Data separation</b> — raw → staged → final, and why some rows disappear</li>
+    <li><b>Requirements → where they live</b> — the client's brief mapped to the UI</li>
+    <li><b>Quick answers</b> — common questions</li>
+  </ol>
+</section>
+
+<!-- ───────────── 1. BIG PICTURE ───────────── -->
+<section class="page">
+  <h2 style="margin-top:0;">1 · The big picture</h2>
+  <p class="lede">The scraper turns "go find me sales leads" into a clean spreadsheet, automatically.</p>
+  <p>You tell it <b>what</b> to find (contractors or vendors) and <b>where</b> (Florida or Tennessee). It then searches Google Maps, removes duplicates and businesses you don't want (like lumber yards), adds phone/email/license details, and saves a final list you can export.</p>
+
+  <div class="flow">
+    <div class="step"><span class="n">1</span><div class="t">You pick</div><div class="d">What &amp; where, then Start</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">2</span><div class="t">It searches</div><div class="d">Google Maps, BBB, licenses</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">3</span><div class="t">It cleans</div><div class="d">Dedupe, drop lumber</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">4</span><div class="t">It enriches</div><div class="d">Adds emails &amp; details</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">5</span><div class="t">You export</div><div class="d">Clean sales sheet</div></div>
+  </div>
+
+  <div class="callout c-green">
+    <span class="lbl">The golden rule of this upgrade</span>
+    Everything that worked before for <b>Florida contractors still works exactly the same</b>. Tennessee and Vendors were <b>added on top</b> — nothing old was changed or removed.
+  </div>
+
+  <h3>Two new things you'll notice</h3>
+  <ul>
+    <li><b>A "Vendors" section</b> in the menu, separate from Contractors. Vendors are the material distributors you sell <i>to</i> (drywall/gypsum suppliers).</li>
+    <li><b>Tags on every record</b> — small labels like <span class="tag t-blue">state: TN</span> <span class="tag t-amber">Tier 1</span> <span class="tag t-green">contractor</span> that tell you exactly what a row is and let you filter the list.</li>
+  </ul>
+</section>
+
+<!-- ───────────── 2. THREE RUNS ───────────── -->
+<section class="page pb">
+  <h2>2 · Three kinds of runs</h2>
+  <p>On the Dashboard you choose two things — <b>What</b> (Contractors / Vendors) and <b>Where</b> (Florida / Tennessee). That gives three valid combinations:</p>
+
+  <table>
+    <tr><th>Run</th><th>What it finds</th><th>Status</th></tr>
+    <tr>
+      <td><b>Florida · Contractors</b></td>
+      <td>Drywall/construction contractors across Florida cities — the original product.</td>
+      <td><span class="pill pill-old">OLD · unchanged</span></td>
+    </tr>
+    <tr>
+      <td><b>Tennessee · Contractors</b></td>
+      <td>Contractors in Tennessee, searched <b>around your vendor locations</b> (new geography logic).</td>
+      <td><span class="pill pill-upd">UPDATED</span></td>
+    </tr>
+    <tr>
+      <td><b>Tennessee · Vendors</b></td>
+      <td>Drywall-material distributors (GMS, L&amp;W Supply, etc.) around Tennessee city centers.</td>
+      <td><span class="pill pill-new">NEW</span></td>
+    </tr>
+  </table>
+
+  <div class="callout c-amber">
+    <span class="lbl">Important order for Tennessee</span>
+    For Tennessee, <b>run Vendors first, then Contractors</b>. The vendor locations become the anchor points that the contractor search circles around. (Full explanation in sections 6 &amp; 7.)
+  </div>
+
+  <div class="callout c-blue">
+    <span class="lbl">Why is "Florida · Vendors" missing?</span>
+    Vendor scraping is a <b>Tennessee-only</b> feature by design. If you switch to Vendors mode, Florida is automatically disabled — that is expected, not a bug.
+  </div>
+</section>
+
+<!-- ───────────── 3. DASHBOARD ───────────── -->
+<section class="page">
+  <h2 style="margin-top:0;">3 · The Dashboard — every setting</h2>
+  <p>This is the screen where you start runs and tune settings. Here is each part, top to bottom, with what happens when you use it.</p>
+
+  <h3>Max records (testing limit)</h3>
+  <div class="ui"><div class="bar">Dashboard › Max records to discover</div><div class="body">
+    A number box. It caps how many businesses the very first search step collects.
+  </div></div>
+  <p class="kv"><b>Click/type a small number (e.g. 10)</b> → quick test run, finishes fast, low cost. <br>
+  <b>Leave it high / blank</b> → a full production run. Use small numbers while testing, then raise it for the real run.</p>
+
+  <h3>Data source toggles (Apify · BBB · Apollo)</h3>
+  <div class="ui"><div class="bar">Dashboard › Data sources</div><div class="body">
+    Three on/off switches:<br>
+    • <b>Apify — Google Maps (Discovery)</b>: the main "find businesses" engine.<br>
+    • <b>Apify — BBB (Enrichment)</b>: adds Better Business Bureau ratings/accreditation.<br>
+    • <b>Apollo (Enrichment)</b>: looks up business email addresses.
+  </div></div>
+  <p class="kv"><b>Turn one off</b> → that step is skipped on the next run (e.g. turn off Apollo to skip email lookup and save credits). <b>All on</b> → the most complete data.</p>
+
+  <h3>Tennessee search radii (miles) <span class="pill pill-upd">TN only</span></h3>
+  <div class="ui"><div class="bar">Dashboard › Tennessee search radii</div><div class="body">
+    Two number boxes. They control how wide the Tennessee searches reach.
+  </div></div>
+  <table>
+    <tr><th>Setting</th><th>Default</th><th>What it controls</th></tr>
+    <tr><td><b>Vendor radius</b></td><td>20 miles</td><td>When scraping <b>vendors</b>, how far around each Tennessee <b>city center</b> to look.</td></tr>
+    <tr><td><b>Contractor radius</b></td><td>50 miles</td><td>When scraping TN <b>contractors</b>, how far around each <b>vendor location</b> to look.</td></tr>
+  </table>
+  <p class="small">These are two different radii because they're used by two different searches. They only affect Tennessee — Florida ignores them completely. Changes apply to the <b>next</b> run.</p>
+
+  <h3>Statewide TN license verify (optional) <span class="pill pill-upd">TN only</span></h3>
+  <div class="ui"><div class="bar">Dashboard › Statewide TN license verify</div><div class="body">
+    A checkbox. Tennessee has no single free statewide license file, so this is off by default.
+  </div></div>
+  <p class="kv"><b>Leave unchecked (default)</b> → fast TN runs using the free Nashville license data. <br>
+  <b>Check it</b> → also cross-checks the state verify site for extra license matches. Slower. Florida is unaffected either way.</p>
+
+  <h3>Save settings button</h3>
+  <p>Saves the radii / verify / source choices. The button only lights up when you've actually changed something, so you always know if there are unsaved edits.</p>
+</section>
+
+<section class="page pb">
+  <h3>Run scope — What &amp; Where</h3>
+  <div class="ui"><div class="bar">Dashboard › Run scope</div><div class="body">
+    Two rows of buttons:<br>
+    • <b>What:</b> &nbsp;<span class="tag t-green">Contractors</span> &nbsp;<span class="tag t-blue">Vendors</span><br>
+    • <b>Where:</b> &nbsp;<span class="tag t-amber">Florida</span> &nbsp;<span class="tag t-amber">Tennessee</span>
+  </div></div>
+  <p class="kv"><b>Click "Vendors"</b> → Where automatically jumps to Tennessee and Florida greys out (vendors are TN-only). <br>
+  <b>Click "Contractors"</b> → you can pick either Florida or Tennessee.</p>
+
+  <div class="callout c-blue">
+    <span class="lbl">Helper note you'll see</span>
+    When you pick <b>Tennessee + Contractors</b>, the dashboard shows a reminder: the run searches the <b>contractor radius around your vendor accounts</b>. If no vendors exist yet, it falls back to searching TN cities directly (Florida-style).
+  </div>
+
+  <h3>The Start button</h3>
+  <p>The big button reads exactly what you're about to do, e.g. <b>"Start TN Vendor Scrape"</b> or <b>"Start FL Contractor Scrape"</b>. Click it and the run begins; you can watch progress on the <b>Pipeline Stages</b> and <b>Logs</b> pages.</p>
+
+  <hr>
+
+  <!-- ───────────── 4. PIPELINE ───────────── -->
+  <h2>4 · How a run works — the 5 stages</h2>
+  <p>Every run, no matter the type, moves through the same five stages. The <b>Pipeline Stages</b> page shows them live so you can see where the data is.</p>
+
+  <div class="flow">
+    <div class="step"><span class="n">1</span><div class="t">Discovery</div><div class="d">Find businesses on Google Maps</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">2</span><div class="t">Dedupe</div><div class="d">Remove repeats</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">3</span><div class="t">Classify</div><div class="d">Tag &amp; drop lumber</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">4</span><div class="t">Cap</div><div class="d">Trim to limit</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">5</span><div class="t">Enrich + Save</div><div class="d">Add emails, store</div></div>
+  </div>
+
+  <table>
+    <tr><th>#</th><th>Stage</th><th>What happens</th></tr>
+    <tr><td>1</td><td><b>Discovery</b></td><td>Searches Google Maps for the businesses in scope and collects the raw list.</td></tr>
+    <tr><td>2</td><td><b>Dedupe</b></td><td>The same business found by two searches is merged into one.</td></tr>
+    <tr><td>3</td><td><b>Classify</b></td><td>Labels each business (its tags) and flags lumber/out-of-area ones for removal.</td></tr>
+    <tr><td>4</td><td><b>Cap</b></td><td>Applies your "max records" limit so the list doesn't get larger than asked.</td></tr>
+    <tr><td>5</td><td><b>Enrich + Save</b></td><td>Adds BBB/license/Apollo details and saves the finished records (contractors → Contractors, vendors → Vendors).</td></tr>
+  </table>
+  <p class="small">On the Pipeline Stages page these appear as "1 · Discovery", "2 · Dedupe", … so you can click any stage and see exactly which records made it through.</p>
+</section>
+
+<!-- ───────────── 5. FLORIDA ───────────── -->
+<section class="page">
+  <h2 style="margin-top:0;">5 · Florida contractors <span class="pill pill-old">OLD — unchanged</span></h2>
+  <p class="lede">This is the original product. It behaves exactly as it always did.</p>
+  <p>When you run <b>Florida · Contractors</b>:</p>
+  <ol>
+    <li>The tool goes through the <b>Florida cities</b> list and their ZIP codes.</li>
+    <li>It searches Google Maps in each of those areas for drywall/construction contractors.</li>
+    <li>It removes duplicates, drops lumber businesses, adds details, and saves them to the <b>Contractors</b> page.</li>
+  </ol>
+  <div class="callout c-green">
+    <span class="lbl">Nothing here changed</span>
+    Same cities, same keywords, same results as before the upgrade. Florida does <b>not</b> use vendors, radii, or the TN license verify. Old records may show no <span class="tag t-blue">state</span> tag — that's normal; they are treated as Florida.
+  </div>
+</section>
+
+<!-- ───────────── 6. TN CONTRACTORS ───────────── -->
+<section class="page pb">
+  <h2 style="margin-top:0;">6 · Tennessee contractors <span class="pill pill-upd">UPDATED logic</span></h2>
+  <p class="lede">Tennessee contractors are found using a new "vendors first" geography — not the Florida city method.</p>
+
+  <h3>The new idea: search around your vendors</h3>
+  <p>In Tennessee, your best contractor leads are the ones <b>near the distributors that sell materials</b>. So instead of sweeping whole cities, the tool draws a circle (the <b>contractor radius</b>, default 50 miles) around <b>each vendor location you already scraped</b>, and searches inside those circles.</p>
+
+  <div class="flow">
+    <div class="step"><span class="n">1</span><div class="t">Vendors exist</div><div class="d">From a vendor run</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">2</span><div class="t">Draw circles</div><div class="d">50 mi around each</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">3</span><div class="t">Search inside</div><div class="d">TN contractors only</div></div>
+  </div>
+
+  <div class="callout c-amber">
+    <span class="lbl">This is why order matters</span>
+    The vendor-geography logic <b>only runs if vendors already exist</b>. So the correct sequence is:
+    <b>(1) run Tennessee Vendors → (2) then run Tennessee Contractors.</b>
+  </div>
+
+  <h3>What if you skip the vendor run?</h3>
+  <p>If there are <b>no vendors yet</b>, the tool doesn't fail — it <b>falls back to the Florida-style method</b>: it searches the Tennessee cities and their ZIPs directly, just like Florida does. You still get contractors; they just aren't anchored to vendor locations.</p>
+
+  <div class="callout c-blue">
+    <span class="lbl">How to tell which one ran</span>
+    The <b>Logs</b> page tells you. If you see a line about the <i>Florida-style / city fallback</i> during a <b>TN contractor</b> run, it means no vendors were available, so the vendor-geography logic was skipped. To get the intended behaviour, run a vendor scrape first and try again.
+  </div>
+
+  <table>
+    <tr><th>Situation</th><th>What the tool does</th></tr>
+    <tr><td>Vendors already scraped for TN</td><td><b>Vendor-geography:</b> searches the contractor radius around each vendor. ✅ intended</td></tr>
+    <tr><td>No vendors yet</td><td><b>Fallback:</b> searches TN cities/ZIPs directly (Florida-style). Works, but not anchored to vendors.</td></tr>
+  </table>
+</section>
+
+<!-- ───────────── 7. TN VENDORS ───────────── -->
+<section class="page">
+  <h2 style="margin-top:0;">7 · Tennessee vendors <span class="pill pill-new">NEW</span></h2>
+  <p class="lede">Vendors are the material distributors you sell to — and they live in their own section.</p>
+
+  <h3>What a "vendor" is here</h3>
+  <p>A vendor = a <b>drywall / gypsum / building-material distributor</b> (e.g. GMS, L&amp;W Supply). These are different from contractors, so they are stored on a <b>separate Vendors page</b>, not mixed into Contractors.</p>
+
+  <h3>How the vendor run works</h3>
+  <ol>
+    <li>It takes the <b>Tennessee city centers</b> and draws the <b>vendor radius</b> (default 20 miles) around each.</li>
+    <li>It searches Google Maps inside those circles for material distributors.</li>
+    <li>It keeps only the real distributors and <b>drops contractors that look like suppliers</b> (e.g. "S &amp; L Carpentry" is a contractor, not a vendor — it's removed).</li>
+    <li>It rolls related branches up under one <b>network name</b> (many local GMS branches → one "GMS"), and flags large chains as <b>big-box</b>.</li>
+    <li>The clean distributor list is saved to the <b>Vendors</b> page.</li>
+  </ol>
+
+  <div class="callout c-green">
+    <span class="lbl">Why vendors are separate</span>
+    Contractors and vendors are two different audiences. Keeping them in separate pages/tabs means a vendor never accidentally shows up in your contractor sales sheet, and the vendor list is also what powers the Tennessee contractor geography (section 6).
+  </div>
+
+  <h3>What the Vendors page shows</h3>
+  <p>A table just like Contractors — distributor name, <b>Network</b>, <b>Type</b> (or a <span class="tag t-amber">big-box</span> badge), address, city, <b>Tier</b>, ZIP, phone, email, website — with a filter box on every column and an <b>Export CSV</b> button.</p>
+</section>
+
+<!-- ───────────── 8. MENU ───────────── -->
+<section class="page pb">
+  <h2 style="margin-top:0;">8 · The menu — what each page is for</h2>
+  <table>
+    <tr><th>Menu item</th><th>What you do there</th></tr>
+    <tr><td><b>Dashboard</b></td><td>Pick what/where, tune settings, and start a run (section 3).</td></tr>
+    <tr><td><b>Cities</b></td><td>The list of cities the tool searches, with their tier, county and search radius. Tennessee cities are seeded automatically.</td></tr>
+    <tr><td><b>Vendor Aliases</b></td><td>The rules that roll branch names up into one network (e.g. all "L &amp; W" spellings → "L&amp;W Supply").</td></tr>
+    <tr><td><b>Keywords</b></td><td>The search terms used to find contractors (seeded automatically on a fresh sheet).</td></tr>
+    <tr><td><b>Contractors</b></td><td>Your final contractor results — filter, inspect, and export. (This was called "Results" before.)</td></tr>
+    <tr><td><b>Vendors</b> <span class="pill pill-new">NEW</span></td><td>Your final distributor results — separate from contractors.</td></tr>
+    <tr><td><b>Pipeline Stages</b> <span class="pill pill-new">NEW</span></td><td>See a run move through the 5 stages and inspect what survived each one.</td></tr>
+    <tr><td><b>Logs</b></td><td>Live text log of the current/last run — this is where the "which logic ran" messages appear.</td></tr>
+    <tr><td><b>History</b></td><td>Past runs, when they happened, and how many records each produced.</td></tr>
+  </table>
+  <p class="small">Note: the old "Dealer Accounts" page was removed — "dealer", "vendor" and "distributor" all mean the same thing here, and they now live under <b>Vendors</b>.</p>
+</section>
+
+<!-- ───────────── 9. TAGS ───────────── -->
+<section class="page">
+  <h2 style="margin-top:0;">9 · Tags — the labels on every record</h2>
+  <p class="lede">Tags are how the tool "separates by labels instead of making copies." Every contractor and vendor carries them, and you filter the list using them.</p>
+
+  <p>You'll see these as small coloured badges. Here is what each one means and what kind of data it holds:</p>
+
+  <table>
+    <tr><th>Tag</th><th>What it means</th><th>Data you'll see</th></tr>
+    <tr><td><span class="tag t-green">record_type</span></td><td>Is this row a contractor or a vendor?</td><td><code>contractor</code> · <code>vendor</code> (blank = old Florida contractor)</td></tr>
+    <tr><td><span class="tag t-blue">state</span></td><td>Which state the business is in.</td><td><code>FL</code> · <code>TN</code></td></tr>
+    <tr><td><span class="tag t-blue">county</span></td><td>The county within the state.</td><td>e.g. <code>Davidson</code>, <code>Shelby</code></td></tr>
+    <tr><td><span class="tag t-blue">city</span></td><td>The city.</td><td>e.g. <code>Nashville</code>, <code>Memphis</code></td></tr>
+    <tr><td><span class="tag t-amber">city_tier</span></td><td>How important the city is (1 = top priority market).</td><td><code>1</code> · <code>2</code></td></tr>
+    <tr><td><span class="tag t-blue">zip_code</span></td><td>The postal ZIP of the business.</td><td>e.g. <code>37203</code></td></tr>
+    <tr><td><span class="tag t-purple">source</span></td><td>Where this record was found.</td><td><code>google_business</code> · <code>vendor_seed</code> · <code>bbb</code> · <code>license</code></td></tr>
+    <tr><td><span class="tag t-purple">canonical_network</span></td><td><b>Vendors:</b> the parent network branches roll up into.</td><td>e.g. <code>GMS</code>, <code>L&amp;W Supply</code></td></tr>
+    <tr><td><span class="tag t-purple">vendor_type</span></td><td><b>Vendors:</b> what kind of distributor.</td><td><code>specialty_distributor</code> · <code>big_box_retailer</code> · <code>independent</code></td></tr>
+    <tr><td><span class="tag t-amber">is_big_box</span></td><td><b>Vendors:</b> is this a large chain store?</td><td><code>big-box</code> badge when true</td></tr>
+    <tr><td><span class="tag t-red">out_of_territory</span></td><td>Outside the area you sell to → kept for audit, hidden from exports.</td><td>true / false</td></tr>
+    <tr><td><span class="tag t-red">excluded_reason</span></td><td>Why a row was removed (mostly lumber).</td><td>e.g. <code>lumber:category:lumberyard</code></td></tr>
+    <tr><td><span class="tag t-green">enrichment_status</span></td><td>How far detail-adding got for this row.</td><td>e.g. enriched / partial</td></tr>
+    <tr><td><span class="tag t-purple">canonical_entity_id</span></td><td>The tool's internal "same business" ID — links a record to its raw sources.</td><td>an ID string</td></tr>
+  </table>
+
+  <div class="callout c-blue">
+    <span class="lbl">How to use tags to filter</span>
+    On the Contractors and Vendors pages, every column has a <b>filter box</b>. Type into the <b>state</b>, <b>city</b>, <b>Tier</b>, <b>Network</b> or <b>Type</b> box to instantly narrow the list. The tags are exactly those filterable fields, shown as badges so you can see them at a glance.
+  </div>
+</section>
+
+<!-- ───────────── 10. DETAIL DRAWER ───────────── -->
+<section class="page pb">
+  <h2 style="margin-top:0;">10 · Click a record — the detail panel</h2>
+  <p class="lede">Click any contractor or vendor row and a panel slides in from the side, explaining exactly what that record is and where its data came from.</p>
+
+  <div class="ui">
+    <div class="bar">Contractors / Vendors › click a row → detail drawer</div>
+    <div class="body">
+      <h4 style="margin-top:0;">Tags section</h4>
+      <p>Shows every label on this record as badges — <span class="tag t-green">contractor</span> <span class="tag t-blue">TN</span> <span class="tag t-blue">Nashville</span> <span class="tag t-amber">Tier 1</span> <span class="tag t-blue">37203</span> <span class="tag t-purple">GMS</span> — so you instantly understand <b>what</b> the business is and <b>how</b> it was categorised.</p>
+
+      <h4>Sources (raw layer) section</h4>
+      <p>Lists each original source row that fed this record — e.g. the Google Maps result, the BBB listing, the license match. This is the <b>provenance</b>: it answers "where did this data come from?" Every source is linked to the record by its <code>canonical_entity_id</code>.</p>
+
+      <h4>Classification section <span class="small">(contractors only)</span></h4>
+      <p>For contractors, an extra "why was this included" audit trail. (Vendors don't show this — it's contractor-specific.)</p>
+    </div>
+  </div>
+
+  <p>So the flow is: <b>see a row → click it → read its Tags (what it is) and its Sources (where it came from)</b>. That's the whole "data separation" idea made visible — one clean record on top, its raw source rows underneath.</p>
+</section>
+
+<!-- ───────────── 11. DATA SEPARATION ───────────── -->
+<section class="page">
+  <h2 style="margin-top:0;">11 · Data separation — raw → staged → final</h2>
+  <p class="lede">The tool keeps three layers of data so nothing is lost and your final list stays clean.</p>
+
+  <div class="flow">
+    <div class="step"><span class="n">A</span><div class="t">Raw sources</div><div class="d">Every original hit, per source</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">B</span><div class="t">Staged</div><div class="d">Snapshot after each stage</div></div>
+    <div class="arrow">→</div>
+    <div class="step"><span class="n">C</span><div class="t">Final</div><div class="d">Clean Contractors / Vendors</div></div>
+  </div>
+
+  <table>
+    <tr><th>Layer</th><th>What it is</th><th>Where you see it</th></tr>
+    <tr><td><b>A · Raw sources</b></td><td>Every individual result, kept exactly as found, one row per source (Google, BBB, license…).</td><td>The <b>Sources</b> section in a record's detail panel (section 10).</td></tr>
+    <tr><td><b>B · Staged</b></td><td>A snapshot of the records after each of the 5 stages.</td><td>The <b>Pipeline Stages</b> page.</td></tr>
+    <tr><td><b>C · Final</b></td><td>The clean, deduped, enriched list — your deliverable.</td><td>The <b>Contractors</b> and <b>Vendors</b> pages and the CSV export.</td></tr>
+  </table>
+
+  <h3>Why some rows "disappear" from exports</h3>
+  <p>The final export is the <b>clean sales list</b>, so by default it hides:</p>
+  <ul>
+    <li><span class="tag t-red">excluded_reason</span> rows — mostly <b>lumber</b> businesses, which you don't sell to.</li>
+    <li><span class="tag t-red">out_of_territory</span> rows — businesses outside your selling area.</li>
+  </ul>
+  <p>They aren't deleted — they're tagged and set aside. You can still include them for auditing by exporting with the <b>"include excluded"</b> option.</p>
+
+  <div class="callout c-amber">
+    <span class="lbl">About lumber</span>
+    "Lumber" businesses (lumber yards, sawmills, etc.) are intentionally excluded because they aren't drywall-material targets. The tool is careful here — for example "<b>plumber</b>" is <i>not</i> treated as lumber. Removed rows always show a clear <code>excluded_reason</code> tag so you know why.
+  </div>
+</section>
+
+<!-- ───────────── 12. REQUIREMENTS TRACEABILITY ───────────── -->
+<section class="page">
+  <h2 style="margin-top:0;">12 · Requirements → where they live</h2>
+  <p class="lede">This connects the client's brief to the running product — so anyone can see each requirement and exactly where to find it in the dashboard.</p>
+  <div class="callout c-blue">
+    <span class="lbl">Source document</span>
+    The requirements come from <b>“Scraper Platform Upgrade — Developer Implementation Checklist”</b> (the engineering brief). It groups the work into five <b>workstreams (A–E)</b>. The brief's golden rule: <i>“This is an additive release. Existing Florida behavior must keep working unchanged.”</i> — which is exactly how the product behaves.
+  </div>
+  <p class="small">Legend: <span class="pill pill-new">DONE</span> built &amp; in the UI &nbsp; · &nbsp; the “Where to see it” column is the page/section in this guide.</p>
+
+  <h3>Workstream A — Geography &amp; territory (add Tennessee)</h3>
+  <table>
+    <tr><th>Requirement (from the brief)</th><th>Where to see it in the dashboard</th><th></th></tr>
+    <tr><td>Add Tennessee alongside Florida (Florida untouched)</td><td><b>Dashboard › Run scope › Where</b> — Florida / Tennessee buttons (§3)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Move locations into editable config / reference tables</td><td><b>Cities</b> page — editable city/tier/county/radius list (§8)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Region include/exclude list, editable at run time</td><td><b>Cities</b> / exclusions — Memphis metro is excluded automatically</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Hard exclusion: Memphis &amp; metro never scraped</td><td>Applied during a TN run; excluded rows carry <span class="tag t-red">out_of_territory</span> (§9, §11)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Two configurable radii (vendor 20mi, contractor 50mi)</td><td><b>Dashboard › Tennessee search radii</b> (§3)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Geocoding step (addresses → coordinates)</td><td>Runs automatically inside a TN run (no button needed)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>City tiers: Tier 1 priority cities, Tier 2 by population</td><td><b>Cities</b> page tier column; <span class="tag t-amber">city_tier</span> tag on every record (§9)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Tier as both run-order and a tag on every record</td><td>Tier 1 runs first; tag visible in Contractors/Vendors + detail box (§9, §10)</td><td><span class="pill pill-new">DONE</span></td></tr>
+  </table>
+
+  <h3>Workstream B — Tennessee contractor scraper</h3>
+  <table>
+    <tr><th>Requirement (from the brief)</th><th>Where to see it in the dashboard</th><th></th></tr>
+    <tr><td>Do <b>not</b> change the proven keyword/search logic</td><td>Same engine as Florida; TN only feeds it different areas (§5, §6)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Feed it the TN in-territory ZIP set from Workstream A</td><td>TN contractor run searches around vendors (or TN cities as fallback) (§6)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Add a TN license source (Nashville open data → TDCI)</td><td>Used automatically; <b>Dashboard › Statewide TN license verify</b> toggle for the optional extra check (§3)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Treat license as validation/enrichment, not discovery</td><td>Discovery still = Google + BBB + keywords; license only enriches</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Filter license by trade classification, not the word “drywall”</td><td>Handled inside the license source logic</td><td><span class="pill pill-new">DONE</span></td></tr>
+  </table>
+
+  <h3>Workstream C — Vendor / distributor scraper (new)</h3>
+  <table>
+    <tr><th>Requirement (from the brief)</th><th>Where to see it in the dashboard</th><th></th></tr>
+    <tr><td>Build vendor scraper as a <b>separate mode</b></td><td><b>Dashboard › Run scope › Vendors</b> + its own <b>Vendors</b> page (§7, §8)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Anchor to the prioritized cities, 20-mile vendor radius</td><td>Vendor run circles TN city centers at the vendor radius (§7)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Vendor alias / subsidiary map (GMS, L&amp;W/ABC, FBM…)</td><td><b>Vendor Aliases</b> page; rolled-up name shown as <span class="tag t-purple">canonical_network</span> (§8, §9)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Capture independents by drywall/gypsum <b>category</b></td><td>Vendor relevance filter keeps real distributors, drops contractors (§7)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Output prioritizes distributor name + branch location</td><td><b>Vendors</b> table + per-vendor detail box (§7, §10)</td><td><span class="pill pill-new">DONE</span></td></tr>
+  </table>
+</section>
+
+<section class="page pb">
+  <h3>Workstream D — Lumber exclusion (3 layers)</h3>
+  <table>
+    <tr><th>Requirement (from the brief)</th><th>Where to see it in the dashboard</th><th></th></tr>
+    <tr><td>Layer 1 — exclude by source category (Google/BBB)</td><td rowspan="3">Applied in the Classify stage of every run; removed rows keep an <span class="tag t-red">excluded_reason</span> you can read in the detail box, Pipeline Stages and the “include excluded” export (§9, §10, §11)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Layer 2 — editable negative-keyword list</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Layer 3 — name-pattern matching (clean category, lumber name)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Apply to <b>both</b> contractor and vendor pipelines</td><td>Same filter runs on both lists</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td><b>Flag, don't hard-delete</b> — keep an excluded_reason</td><td>Rows are tagged and set aside, never deleted (§11)</td><td><span class="pill pill-new">DONE</span></td></tr>
+  </table>
+  <p class="small">Care taken: “plumber” is <b>not</b> treated as lumber — the filter matches whole words, not letters.</p>
+
+  <h3>Workstream E — Data separation &amp; access layer</h3>
+  <table>
+    <tr><th>Requirement (from the brief)</th><th>Where to see it in the dashboard</th><th></th></tr>
+    <tr><td>Stage the pipeline; keep raw data immutable</td><td><b>Pipeline Stages</b> page — each stage's snapshot, viewable &amp; downloadable (§4, §11)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Separate by <b>tags, not copies</b> (record_type, state, city, tier, zip, source, status flags)</td><td>Tag badges on every record + the <b>Tags</b> section of the detail box (§9, §10)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Deduplicate via entity resolution (canonical_entity_id)</td><td>Shown as <span class="tag t-purple">entity ID</span> in the detail box; links a record to its sources (§9, §10)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Provenance / auditability — which source produced what</td><td><b>Sources (raw layer)</b> section of the detail box (§10)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Config &amp; reference data kept out of results tables</td><td>Separate editable pages: <b>Cities</b>, <b>Vendor Aliases</b>, <b>Keywords</b> (§8)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Deliverables are <b>derived</b> — keep data wide, narrow on export</td><td><b>Export CSV</b> on Contractors/Vendors drops lumber/out-of-territory by default; “include excluded” keeps everything (§11)</td><td><span class="pill pill-new">DONE</span></td></tr>
+    <tr><td>Capture everything (wide), let export do the narrowing</td><td>Contractors, Vendors and every Pipeline Stage export carry the <b>full column set</b> (all tags)</td><td><span class="pill pill-new">DONE</span></td></tr>
+  </table>
+
+  <div class="callout c-green">
+    <span class="lbl">How the data flows, end to end</span>
+    <b>You pick what/where (Dashboard)</b> → the run moves through the <b>5 stages (Pipeline Stages)</b> → each business is tagged and deduped into one <b>canonical record</b> with its <b>raw sources</b> kept underneath → it lands on the <b>Contractors</b> or <b>Vendors</b> page → you <b>Export</b> a clean, wide CSV. Nothing is thrown away; the export just hides what you don't sell to.
+  </div>
+</section>
+
+<!-- ───────────── 13. FAQ ───────────── -->
+<section class="page">
+  <h2 style="margin-top:0;">13 · Quick answers</h2>
+
+  <h3>"I ran a Tennessee contractor scrape and got vendors / odd results."</h3>
+  <p>Check the Logs. If it used the <b>Florida-style fallback</b>, no vendors existed yet. Run a <b>Tennessee Vendor</b> scrape first, then run contractors again so the vendor-geography logic can work.</p>
+
+  <h3>"Why is Florida disabled?"</h3>
+  <p>You're in <b>Vendors</b> mode. Vendors are Tennessee-only. Switch to <b>Contractors</b> to enable Florida.</p>
+
+  <h3>"My Florida results look the same as always — is that right?"</h3>
+  <p>Yes. Florida was deliberately left untouched. All the new behaviour is Tennessee/Vendor only.</p>
+
+  <h3>"What's the difference between Tier 1 and Tier 2?"</h3>
+  <p>Tier is how important a city/market is — Tier 1 is top priority. It's just a label to help you focus; it doesn't remove anything.</p>
+
+  <h3>"Where did this email/phone come from?"</h3>
+  <p>Click the record → open the <b>Sources</b> section. Each source row shows which provider supplied which data.</p>
+
+  <h3>"How do I get a clean list to hand to sales?"</h3>
+  <p>Open <b>Contractors</b> (or <b>Vendors</b>), filter if you like, and click <b>Export CSV</b>. Lumber and out-of-territory rows are removed automatically.</p>
+
+  <hr>
+  <p class="small">This guide describes the dashboard as an end user sees it. Engineering details (data sources, internal IDs, license providers) are intentionally kept light here — the goal is to help you run scrapes and read results with confidence.</p>
+</section>
+
+</body>
+</html>

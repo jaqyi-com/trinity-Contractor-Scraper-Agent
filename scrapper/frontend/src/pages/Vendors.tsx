@@ -1,28 +1,51 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Boxes, Loader2, Download } from "lucide-react";
-import { api } from "@/lib/api";
+import { api, type Contractor } from "@/lib/api";
 import { PageHeader, Stat as StatBox } from "@/components/ui-bits";
+import { ContractorDrawer } from "@/components/drawer/ContractorDrawer";
 
 // Vendors — drywall-material distributors, in their OWN section/tab (separate from
 // contractors). Per-column filters like the Contractors page; small dataset so we
 // fetch all and filter client-side.
+// Show every column that the per-vendor detail box opens — the full Workstream E
+// tag set + contact/identity fields — all at once across multiple vendors. The
+// table scrolls horizontally; the same set is what Export CSV writes.
 type Col = { key: string; label: string };
 const COLS: Col[] = [
   { key: "business_name", label: "Distributor" },
+  { key: "record_type", label: "Record" },
   { key: "canonical_network", label: "Network" },
   { key: "vendor_type", label: "Type" },
-  { key: "address", label: "Address" },
+  { key: "state", label: "State" },
+  { key: "county", label: "County" },
   { key: "city", label: "City" },
   { key: "city_tier", label: "Tier" },
   { key: "zip_code", label: "ZIP" },
+  { key: "address", label: "Address" },
   { key: "phone", label: "Phone" },
   { key: "email", label: "Email" },
   { key: "website", label: "Website" },
+  { key: "license_status", label: "License" },
+  { key: "source", label: "Source" },
+  { key: "enrichment_status", label: "Enrichment" },
+  { key: "out_of_territory", label: "Out of terr." },
+  { key: "excluded_reason", label: "Excluded" },
+  { key: "canonical_entity_id", label: "Entity ID" },
 ];
+
+// Generic cell formatter for the plain (non-badge) columns.
+function cellText(v: any): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "boolean") return v ? "yes" : "—";
+  if (Array.isArray(v)) return v.length ? v.join("; ") : "—";
+  if (typeof v === "object") return Object.entries(v).map(([k, x]) => `${k}=${x}`).join("; ") || "—";
+  return String(v);
+}
 
 export default function Vendors() {
   const [filters, setFilters] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Contractor | null>(null);
 
   const facets = useQuery({ queryKey: ["vendor-facets"], queryFn: () => api.vendorFacets() });
   const list = useQuery({
@@ -37,7 +60,7 @@ export default function Vendors() {
     if (!active.length) return allRows;
     return allRows.filter((r: any) =>
       active.every(([k, v]) => {
-        const cell = r.key === "vendor_type" && r.is_big_box ? "big-box" : r[k];
+        const cell = k === "vendor_type" && r.is_big_box ? "big-box" : r[k];
         return String(cell ?? "").toLowerCase().includes(v.toLowerCase());
       }),
     );
@@ -100,29 +123,47 @@ export default function Vendors() {
             </thead>
             <tbody>
               {rows.map((r: any) => (
-                <tr key={r.id} className="border-t hover:bg-accent/40">
-                  <td className="px-3 py-2 font-medium whitespace-nowrap">{r.business_name || "—"}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{r.canonical_network || "—"}</td>
-                  <td className="px-3 py-2">
-                    {r.is_big_box ? (
-                      <span className="text-[10px] rounded bg-amber-100 text-amber-800 px-1.5 py-0.5">big-box</span>
-                    ) : (
-                      <span className="text-[10px] rounded bg-slate-100 text-slate-700 px-1.5 py-0.5">{r.vendor_type || "vendor"}</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 max-w-[200px] truncate text-muted-foreground">{r.address || "—"}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{r.city || "—"}</td>
-                  <td className="px-3 py-2">
-                    {r.city_tier ? (
-                      <span className={`text-[10px] font-bold rounded px-1.5 py-0.5 ${r.city_tier === "1" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>Tier {r.city_tier}</span>
-                    ) : "—"}
-                  </td>
-                  <td className="px-3 py-2">{r.zip_code || "—"}</td>
-                  <td className="px-3 py-2 whitespace-nowrap">{r.phone || "—"}</td>
-                  <td className="px-3 py-2 max-w-[180px] truncate">{r.email || "—"}</td>
-                  <td className="px-3 py-2 max-w-[200px] truncate">
-                    {r.website ? <a className="text-primary hover:underline" href={r.website} target="_blank" rel="noreferrer">{r.website}</a> : "—"}
-                  </td>
+                <tr key={r.id} onClick={() => setSelected(r as Contractor)}
+                    className="border-t hover:bg-accent/40 cursor-pointer whitespace-nowrap">
+                  {COLS.map((c) => {
+                    if (c.key === "business_name")
+                      return <td key={c.key} className="px-3 py-2 font-medium">{r.business_name || "—"}</td>;
+                    if (c.key === "vendor_type")
+                      return (
+                        <td key={c.key} className="px-3 py-2">
+                          {r.is_big_box ? (
+                            <span className="text-[10px] rounded bg-amber-100 text-amber-800 px-1.5 py-0.5">big-box</span>
+                          ) : (
+                            <span className="text-[10px] rounded bg-slate-100 text-slate-700 px-1.5 py-0.5">{r.vendor_type || "vendor"}</span>
+                          )}
+                        </td>
+                      );
+                    if (c.key === "city_tier")
+                      return (
+                        <td key={c.key} className="px-3 py-2">
+                          {r.city_tier ? (
+                            <span className={`text-[10px] font-bold rounded px-1.5 py-0.5 ${String(r.city_tier) === "1" ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600"}`}>Tier {r.city_tier}</span>
+                          ) : "—"}
+                        </td>
+                      );
+                    if (c.key === "excluded_reason")
+                      return (
+                        <td key={c.key} className="px-3 py-2">
+                          {r.excluded_reason ? (
+                            <span className="text-[10px] rounded bg-destructive/10 text-destructive px-1.5 py-0.5">{r.excluded_reason}</span>
+                          ) : "—"}
+                        </td>
+                      );
+                    if (c.key === "website")
+                      return (
+                        <td key={c.key} className="px-3 py-2 max-w-[200px] truncate">
+                          {r.website ? <a className="text-primary hover:underline" href={r.website} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{r.website}</a> : "—"}
+                        </td>
+                      );
+                    if (c.key === "canonical_entity_id")
+                      return <td key={c.key} className="px-3 py-2 text-muted-foreground max-w-[160px] truncate"><code className="text-[11px]">{cellText(r[c.key])}</code></td>;
+                    return <td key={c.key} className="px-3 py-2 text-muted-foreground max-w-[220px] truncate">{cellText(r[c.key])}</td>;
+                  })}
                 </tr>
               ))}
             </tbody>
@@ -134,6 +175,8 @@ export default function Vendors() {
           Showing {rows.length} of {allRows.length} vendors{Object.values(filters).some((v) => v.trim()) ? " (filtered)" : ""}.
         </p>
       )}
+
+      <ContractorDrawer contractor={selected} open={!!selected} onClose={() => setSelected(null)} kind="vendor" />
     </div>
   );
 }

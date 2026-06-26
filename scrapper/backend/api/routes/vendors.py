@@ -62,3 +62,13 @@ async def get_vendor(vendor_id: int):
     if not v:
         raise HTTPException(status_code=404, detail="Vendor not found")
     return v
+
+
+@router.get("/{vendor_id}/sources")
+async def vendor_sources(vendor_id: int):
+    """Per-source raw provenance for one vendor (linked by canonical_entity_id)."""
+    v = db.get_vendor(vendor_id)
+    if not v:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    ceid = v.get("canonical_entity_id")
+    return db.list_source_records(ceid) if ceid else []
